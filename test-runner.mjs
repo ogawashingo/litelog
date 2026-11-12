@@ -141,6 +141,29 @@ async function runTests() {
   if (!activityCols.some((col) => col.name === "user_id")) {
     db.exec("ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
   }
+  // 既存の「〜にコメントを追加しました」を実際のコメント内容へマイグレーション
+  db.exec(`
+    UPDATE activities
+    SET content = COALESCE(
+      (
+        SELECT c.content
+        FROM comments c
+        WHERE c.issue_id = activities.issue_id
+          AND c.created_at = activities.created_at
+        LIMIT 1
+      ),
+      (
+        SELECT c.content
+        FROM comments c
+        WHERE c.issue_id = activities.issue_id
+        ORDER BY ABS(strftime('%s', c.created_at) - strftime('%s', activities.created_at)) ASC
+        LIMIT 1
+      ),
+      content
+    )
+    WHERE action_type = 'commented'
+      AND content LIKE '%にコメントを追加しました%';
+  `);
 
   // 初期メンバー作成
   const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
@@ -407,6 +430,59 @@ async function runTests() {
     throw new Error(`UTC→JST変換結果が期待値と異なります: ${formattedJst}`);
   }
   console.log(`✓ タイムスタンプUTC→JST変換テスト成功: "${rawSqliteUtc}" (UTC) -> "${formattedJst}" (Asia/Tokyo)`);
+
+  // 15. 「最近の更新」の日付別グルーピング（YYYY年M月D日(曜日)）および課題詳細結合クエリ検証
+  const dateGroupParts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  }).formatToParts(parsedUtcDate);
+  const getDp = (t) => dateGroupParts.find((p) => p.type === t)?.value || "";
+  const dateGroupLabel = `${getDp("year")}年${getDp("month")}月${getDp("day")}日(${getDp("weekday")})`;
+  if (dateGroupLabel !== "2026年11月12日(木)") {
+    throw new Error(`日付見出しフォーマットが期待値と異なります: ${dateGroupLabel}`);
+  }
+  const joinedActivities = db.prepare(`
+    SELECT 
+      a.id,
+      a.issue_id,
+      a.action_type,
+      a.content,
+      i.issue_key,
+      i.title AS issue_title,
+      i.project_id,
+      p.key AS project_key
+    FROM activities a
+    LEFT JOIN issues i ON a.issue_id = i.id
+    LEFT JOIN projects p ON i.project_id = p.id
+    ORDER BY a.created_at DESC, a.id DESC
+    LIMIT 10
+  `).all();
+  if (joinedActivities.length === 0) {
+    throw new Error("結合アクティビティが取得できませんでした");
+  }
+  console.log(`✓ 「最近の更新」日付グルーピング見出し("${dateGroupLabel}")＆課題結合クエリ検証成功 (${joinedActivities.length}件)`);
+
+  // 16. 一般ユーザーのパスワード変更および現在のパスワード照合テスト
+  const satoBefore = db.prepare("SELECT id, login_id, password FROM users WHERE login_id = 'sato'").get();
+  if (!satoBefore) throw new Error("一般ユーザー(sato)が見つかりません");
+  const originalSatoPw = satoBefore.password;
+
+  const nextTestPw = "sato_new_pw_999";
+  db.prepare("UPDATE users SET password = ? WHERE id = ? AND password = ?").run(
+    nextTestPw,
+    satoBefore.id,
+    originalSatoPw
+  );
+  const satoAfterChange = db.prepare("SELECT password FROM users WHERE id = ?").get(satoBefore.id);
+  if (satoAfterChange.password !== nextTestPw) {
+    throw new Error("一般ユーザーのパスワード変更テストに失敗しました");
+  }
+  // 元のパスワードへ復元
+  db.prepare("UPDATE users SET password = ? WHERE id = ?").run(originalSatoPw, satoBefore.id);
+  console.log(`✓ 一般ユーザー(sato)のパスワード照合・変更・復元テスト成功`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

@@ -189,6 +189,50 @@ export function formatActivityTimestamp(
 }
 
 /**
+ * 本家Backlogの「最近の更新」タイムライン日付見出し用のグルーピング情報を返します。
+ * 例: { dateKey: "2026-11-12", dateLabel: "2026年11月12日(木)" }
+ */
+export function getActivityDateGroup(
+  raw: string | Date | null | undefined,
+  settings: SystemSettings = DEFAULT_SYSTEM_SETTINGS
+): { dateKey: string; dateLabel: string } {
+  const cfg = { ...DEFAULT_SYSTEM_SETTINGS, ...settings };
+  const date = parseDbTimestamp(raw, cfg.timeOffsetMinutes);
+  const tzOption = cfg.timezone && cfg.timezone !== "local" ? cfg.timezone : undefined;
+
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat("ja-JP", {
+      timeZone: tzOption,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      weekday: "short",
+    }).formatToParts(date);
+  } catch {
+    parts = new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      weekday: "short",
+    }).formatToParts(date);
+  }
+
+  const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value || "";
+
+  const year = getPart("year");
+  const monthNum = getPart("month");
+  const dayNum = getPart("day");
+  const weekday = getPart("weekday");
+
+  const dateKey = `${year}-${monthNum.padStart(2, "0")}-${dayNum.padStart(2, "0")}`;
+  const dateLabel = `${year}年${monthNum}月${dayNum}日(${weekday})`;
+
+  return { dateKey, dateLabel };
+}
+
+/**
  * 設定されたタイムゾーン・オフセットにおける「今日」の日付文字列 (YYYY-MM-DD) を返します。
  */
 export function getTodayDateString(settings: SystemSettings = DEFAULT_SYSTEM_SETTINGS): string {

@@ -82,6 +82,12 @@ export interface Activity {
   created_at: string;
   issue_key?: string;
   issue_title?: string;
+  issue_status?: IssueStatus;
+  issue_type?: IssueType;
+  project_id?: number | null;
+  project_key?: string | null;
+  project_name?: string | null;
+  project_color?: string | null;
 }
 
 // ダッシュボードに表示するサマリー統計

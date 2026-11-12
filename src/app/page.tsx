@@ -197,7 +197,13 @@ export default function DashboardPage() {
             onOpenCreateProject={() => setIsCreateProjectOpen(true)}
           />
 
-          <ActivityList activities={activities} />
+          <ActivityList
+            activities={activities}
+            issues={issues}
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectIssue={handleSelectIssue}
+          />
         </div>
       </main>
 
