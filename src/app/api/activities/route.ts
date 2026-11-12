@@ -12,9 +12,9 @@ export async function GET(request: Request) {
       SELECT 
         a.id,
         a.issue_id,
-        a.user_id,
-        u.name AS user_name,
-        u.color AS user_color,
+        COALESCE(a.user_id, i.assignee_id, i.created_by, du.id) AS user_id,
+        COALESCE(u.name, iu.name, cu.name, du.name) AS user_name,
+        COALESCE(u.color, iu.color, cu.color, du.color) AS user_color,
         a.action_type,
         a.content,
         a.created_at,
@@ -30,6 +30,9 @@ export async function GET(request: Request) {
       LEFT JOIN issues i ON a.issue_id = i.id
       LEFT JOIN projects p ON i.project_id = p.id
       LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN users iu ON i.assignee_id = iu.id
+      LEFT JOIN users cu ON i.created_by = cu.id
+      LEFT JOIN users du ON du.id = (SELECT id FROM users ORDER BY is_admin DESC, id ASC LIMIT 1)
       WHERE 1=1
     `;
     const params: (string | number)[] = [];

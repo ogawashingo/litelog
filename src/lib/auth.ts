@@ -155,7 +155,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const rawCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
     if (!rawCookie) return null;
 
-    const userId = verifySessionToken(rawCookie);
+    let userId = verifySessionToken(rawCookie);
+    // 旧形式の数値のみCookieが残っている場合の後方互換フォールバック
+    if (!userId && /^\d+$/.test(rawCookie)) {
+      userId = Number(rawCookie);
+    }
     if (!userId) return null;
 
     const db = getDb();

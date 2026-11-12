@@ -375,7 +375,7 @@ export default function GanttChart({
       await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
       });
       onRefresh();
     } catch (err) {
@@ -494,13 +494,14 @@ export default function GanttChart({
         body: JSON.stringify({
           startDate: currentStartDate,
           dueDate: currentDueDate,
+          actorId: currentUser?.id || null,
         }),
       });
       onRefresh();
     } catch (err) {
       console.error("ガントチャート期間更新エラー:", err);
     }
-  }, [dragState, onRefresh]);
+  }, [dragState, onRefresh, currentUser]);
 
   useEffect(() => {
     if (dragState) {
@@ -523,6 +524,7 @@ export default function GanttChart({
         body: JSON.stringify({
           startDate: targetStr,
           dueDate: targetStr,
+          actorId: currentUser?.id || null,
         }),
       });
       onRefresh();

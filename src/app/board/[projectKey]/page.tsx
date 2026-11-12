@@ -7,11 +7,13 @@ import Header from "@/components/Header";
 import BoardView from "@/components/BoardView";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
+import { useUser } from "@/components/UserContext";
 import { Project, Issue, IssueStatus } from "@/types";
 
 export default function ProjectBoardPage() {
   const params = useParams();
   const router = useRouter();
+  const { currentUser } = useUser();
   const projectKey = (params?.projectKey as string) || "";
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -99,7 +101,7 @@ export default function ProjectBoardPage() {
       const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
       });
 
       if (!res.ok) {
