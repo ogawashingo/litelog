@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Filter, Calendar, Trash2, UserCheck, Users } from "lucide-react";
+import { Search, Filter, Calendar, Trash2, UserCheck, Users, CheckCircle2 } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, PriorityBadge, ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -12,6 +12,7 @@ import { parseDbTimestamp, getTodayDateString } from "@/lib/dateUtils";
 interface IssueListProps {
   issues: Issue[];
   selectedStatus: IssueStatus | "all";
+  onSelectStatus?: (status: IssueStatus | "all") => void;
   onSelectIssue: (issue: Issue) => void;
   onUpdateStatus: (issueId: number, status: IssueStatus) => void;
   onUpdateAssignee?: (issueId: number, assigneeId: number | null) => void;
@@ -21,6 +22,7 @@ interface IssueListProps {
 export default function IssueList({
   issues,
   selectedStatus,
+  onSelectStatus,
   onSelectIssue,
   onUpdateStatus,
   onUpdateAssignee,
@@ -33,6 +35,11 @@ export default function IssueList({
   const [typeFilter, setTypeFilter] = useState<IssueType | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "all">("all");
   const [sortBy, setSortBy] = useState<"due" | "updated" | "priority">("due");
+  // ダッシュボードでは完了済み（closed）のタスクはデフォルトで非表示
+  const [showClosed, setShowClosed] = useState(false);
+
+  // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
+  const isShowingClosed = selectedStatus === "closed" || showClosed;
 
   // 期限日の相対表現フォーマッター（設定タイムゾーン基準）
   const formatDueDate = (dateStr: string | null) => {
@@ -82,6 +89,10 @@ export default function IssueList({
     if (selectedStatus !== "all" && issue.status !== selectedStatus) {
       return false;
     }
+    // 完了済み（closed）のタスクはデフォルトで非表示（「完了」カード選択時または「完了を含む」ON時は表示）
+    if (!isShowingClosed && issue.status === "closed") {
+      return false;
+    }
     // 担当者フィルター
     if (assigneeFilter === "me") {
       if (!currentUser || issue.assignee_id !== currentUser.id) return false;
@@ -111,6 +122,16 @@ export default function IssueList({
     }
     return true;
   });
+
+  // 「自分の担当」バッジ件数（完了非表示設定に連動）
+  const myIssuesCount = currentUser
+    ? issues.filter(
+        (i) =>
+          i.assignee_id === currentUser.id &&
+          (selectedStatus === "all" || i.status === selectedStatus) &&
+          (isShowingClosed || i.status !== "closed")
+      ).length
+    : 0;
 
   // ソート処理
   const sortedIssues = [...filteredIssues].sort((a, b) => {
@@ -178,7 +199,7 @@ export default function IssueList({
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
-              <span>自分の担当 ({currentUser ? issues.filter((i) => i.assignee_id === currentUser.id).length : 0})</span>
+              <span>自分の担当 ({myIssuesCount})</span>
             </button>
           </div>
         </div>
@@ -250,6 +271,32 @@ export default function IssueList({
             <option value="updated">ソート: 更新順</option>
             <option value="priority">ソート: 優先度順</option>
           </select>
+
+          {/* 完了済み課題の表示切り替えトグル */}
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedStatus === "closed") {
+                onSelectStatus?.("all");
+                setShowClosed(false);
+              } else {
+                setShowClosed((prev) => !prev);
+              }
+            }}
+            className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+              isShowingClosed
+                ? "bg-indigo-50/70 text-indigo-800 border-indigo-200 font-semibold"
+                : "bg-white text-slate-500 border-slate-300 hover:bg-slate-50"
+            }`}
+            title="完了した課題の表示/非表示を切り替えます"
+          >
+            <CheckCircle2
+              className={`w-3.5 h-3.5 ${
+                isShowingClosed ? "text-indigo-600" : "text-slate-400"
+              }`}
+            />
+            <span>完了を含む</span>
+          </button>
         </div>
       </div>
 
