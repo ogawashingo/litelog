@@ -4,7 +4,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Users, Crown, Settings, LogOut, Sparkles, KeyRound } from "lucide-react";
+import { Plus, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Users, Crown, Settings, LogOut, Sparkles } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -155,16 +155,20 @@ export default function Header({
               <span className="hidden lg:inline">メンバー ({users.length})</span>
             </button>
 
-            {/* ログイン中ユーザー表示 ＆ ログアウトボタン */}
+            {/* ログイン中ユーザー表示（クリックでマイアカウント設定） ＆ ログアウトボタン */}
             <div className="flex items-center gap-2 pl-2 border-l border-indigo-300/20 shrink-0">
               {currentUser ? (
                 <>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={openPasswordChangeModal}
+                    title="クリックしてマイアカウント設定（アイコン色・パスワード変更）を開く"
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0 text-left group"
+                  >
                     <div className="relative shrink-0">
                       <div
                         style={{ backgroundColor: currentUser.color || "#4f46e5" }}
-                        className="w-7 h-7 rounded-full border-2 border-indigo-200/70 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0"
-                        title={`ログイン中: ${currentUser.name} (ID: ${currentUser.login_id})`}
+                        className="w-7 h-7 rounded-full border-2 border-indigo-200/70 group-hover:border-amber-300 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0 transition-colors"
                       >
                         {getUserInitials(currentUser.name)}
                       </div>
@@ -179,7 +183,7 @@ export default function Header({
                     </div>
                     <div className="hidden sm:flex flex-col leading-tight whitespace-nowrap">
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-bold text-white whitespace-nowrap">
+                        <span className="text-xs font-bold text-white group-hover:text-amber-200 transition-colors whitespace-nowrap">
                           {currentUser.name}
                         </span>
                         <span
@@ -196,16 +200,6 @@ export default function Header({
                         ID: {currentUser.login_id}
                       </span>
                     </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={openPasswordChangeModal}
-                    title="自分のパスワードを変更"
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0"
-                  >
-                    <KeyRound className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                    <span className="hidden xl:inline">パスワード変更</span>
                   </button>
 
                   <button

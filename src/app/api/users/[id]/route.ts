@@ -23,8 +23,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "対象のメンバーが見つかりません" }, { status: 404 });
     }
 
-    // 一般ユーザー（本人）によるパスワード変更時は現在のパスワードを照合
-    if (body.currentPassword !== undefined) {
+    // 一般ユーザー（本人）によるパスワード変更が含まれる場合は現在のパスワードを照合
+    if (body.currentPassword !== undefined || body.newPassword !== undefined) {
       if (!body.currentPassword || currentUser.password !== String(body.currentPassword)) {
         return NextResponse.json(
           { error: "現在のパスワードが正しくありません" },
@@ -44,26 +44,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           { status: 400 }
         );
       }
-      db.prepare("UPDATE users SET password = ? WHERE id = ?").run(nextPw, Number(id));
-
-      const updatedSelf = db.prepare(`
-        SELECT 
-          u.id,
-          u.login_id,
-          u.name,
-          u.role,
-          u.is_admin,
-          u.color,
-          u.created_at,
-          COUNT(i.id) AS issue_count,
-          SUM(CASE WHEN i.id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END) AS open_issue_count
-        FROM users u
-        LEFT JOIN issues i ON u.id = i.assignee_id
-        WHERE u.id = ?
-        GROUP BY u.id
-      `).get(Number(id));
-
-      return NextResponse.json(updatedSelf);
+      body.password = nextPw;
     }
 
     const updates: string[] = [];

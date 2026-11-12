@@ -198,16 +198,16 @@ export default function UserManageModal({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-xl shadow-2xl border border-indigo-100 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
         {/* モーダルヘッダー */}
-        <div className="bg-[#2ca078] px-6 py-4 flex items-center justify-between text-white shrink-0">
+        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-6 py-4 flex items-center justify-between text-white shrink-0">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
+            <Users className="w-5 h-5 text-amber-300" />
             <h3 className="font-bold text-lg">チームメンバー・アカウント管理</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-white/20 transition-colors text-white"
+            className="p-1 rounded-md hover:bg-white/20 transition-colors text-white cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -225,11 +225,11 @@ export default function UserManageModal({
           {isCurrentUserAdmin ? (
             <form
               onSubmit={handleAddUser}
-              className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3"
+              className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 space-y-3"
             >
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                  <UserPlus className="w-4 h-4 text-emerald-600" />
+                <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <UserPlus className="w-4 h-4 text-indigo-600" />
                   <span>新しいメンバーアカウントを発行</span>
                 </h4>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
@@ -240,20 +240,20 @@ export default function UserManageModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                    ログインID（半角英数字） <span className="text-red-500">*</span>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    ログインID（半角英数字） <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     placeholder="例: takahashi"
                     value={newLoginId}
                     onChange={(e) => setNewLoginId(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                     初期パスワード（省略時: ID+123）
                   </label>
                   <input
@@ -261,27 +261,27 @@ export default function UserManageModal({
                     placeholder="例: takahashi123"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                 <div className="sm:col-span-5">
-                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                    氏名・表示名 <span className="text-red-500">*</span>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    氏名・表示名 <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     placeholder="例: 高橋 健太"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div className="sm:col-span-4">
-                  <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                     役割・肩書き
                   </label>
                   <input
@@ -289,7 +289,7 @@ export default function UserManageModal({
                     placeholder="例: エンジニア、PM"
                     value={newRole}
                     onChange={(e) => setNewRole(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-xs text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
@@ -297,7 +297,7 @@ export default function UserManageModal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-1.5 px-3 bg-[#2ca078] hover:bg-[#238161] text-white font-bold text-xs rounded-md shadow-xs transition-colors disabled:opacity-50"
+                    className="w-full py-1.5 px-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-xs rounded-md shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isSubmitting ? "追加中..." : "＋ メンバー追加"}
                   </button>
@@ -307,7 +307,7 @@ export default function UserManageModal({
               {/* アバターカラー ＆ Admin権限付与チェック */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-gray-500 font-medium">テーマ色:</span>
+                  <span className="text-[11px] text-slate-500 font-medium">テーマ色:</span>
                   <div className="flex items-center gap-1.5">
                     {AVATAR_COLORS.map((col) => (
                       <button
@@ -315,9 +315,9 @@ export default function UserManageModal({
                         type="button"
                         onClick={() => setNewColor(col)}
                         style={{ backgroundColor: col }}
-                        className={`w-5 h-5 rounded-full transition-transform ${
+                        className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
                           newColor === col
-                            ? "scale-125 ring-2 ring-offset-1 ring-gray-700"
+                            ? "scale-125 ring-2 ring-offset-1 ring-slate-700"
                             : "opacity-75 hover:opacity-100"
                         }`}
                       />
@@ -325,7 +325,7 @@ export default function UserManageModal({
                   </div>
                 </div>
 
-                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 cursor-pointer select-none">
+                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={newIsAdmin}
@@ -335,7 +335,7 @@ export default function UserManageModal({
                         setNewRole("管理者");
                       }
                     }}
-                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
                   <Crown className="w-3.5 h-3.5 text-amber-500" />
                   <span>管理者権限（Admin）を付与する</span>
@@ -343,38 +343,28 @@ export default function UserManageModal({
               </div>
             </form>
           ) : (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 flex items-center justify-between gap-3 text-xs text-amber-900">
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  現在 <strong>{currentUser?.name} (ID: {currentUser?.login_id})</strong> の<strong>一般ユーザー権限</strong>でログイン中です。メンバーの追加・削除は管理者のみ実行できますが、ご自身のパスワード変更は可能です。
+                  現在 <strong>{currentUser?.name} (ID: {currentUser?.login_id})</strong> の<strong>一般ユーザー権限</strong>でログイン中です。ご自身のアイコンまたは名前をクリックすると、アイコンの色やパスワードを変更できます。
                 </span>
               </div>
-              {onOpenPasswordChange && (
-                <button
-                  type="button"
-                  onClick={onOpenPasswordChange}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-[#2ca078] hover:bg-[#238161] text-white font-bold text-xs shadow-2xs transition-colors shrink-0 cursor-pointer"
-                >
-                  <KeyRound className="w-3.5 h-3.5" />
-                  <span>自分のパスワードを変更</span>
-                </button>
-              )}
             </div>
           )}
 
           {/* 登録済みメンバー一覧 */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold text-gray-700">
+              <h4 className="text-xs font-bold text-slate-700">
                 登録メンバー一覧 ({users.length}名)
               </h4>
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-slate-500">
                 ※別アカウントで操作する場合はヘッダー右上の「ログアウト」から別IDでログインしてください
               </span>
             </div>
 
-            <div className="divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
               {users.map((u) => {
                 const isCurrent = currentUser?.id === u.id;
                 const isEditingThis = editingId === u.id;
@@ -383,57 +373,57 @@ export default function UserManageModal({
                   <div
                     key={u.id}
                     className={`p-3.5 transition-colors ${
-                      isCurrent ? "bg-emerald-50/50" : "hover:bg-gray-50"
+                      isCurrent ? "bg-indigo-50/50" : "hover:bg-slate-50"
                     }`}
                   >
                     {isEditingThis ? (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
                               氏名
                             </label>
                             <input
                               type="text"
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
-                              className="w-full bg-white border border-gray-300 rounded px-2.5 py-1 text-xs text-gray-900"
+                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900"
                               placeholder="メンバー名"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
                               役割・肩書き
                             </label>
                             <input
                               type="text"
                               value={editRole}
                               onChange={(e) => setEditRole(e.target.value)}
-                              className="w-full bg-white border border-gray-300 rounded px-2.5 py-1 text-xs text-gray-900"
+                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900"
                               placeholder="役割・肩書き"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
                               ログインID
                             </label>
                             <input
                               type="text"
                               value={editLoginId}
                               onChange={(e) => setEditLoginId(e.target.value)}
-                              className="w-full bg-white border border-gray-300 rounded px-2.5 py-1 text-xs text-gray-900 font-mono"
+                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900 font-mono"
                               placeholder="ログインID"
                             />
                           </div>
                           <div>
-                            <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">
+                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
                               新しいパスワード（変更時のみ入力）
                             </label>
                             <input
                               type="password"
                               value={editPassword}
                               onChange={(e) => setEditPassword(e.target.value)}
-                              className="w-full bg-white border border-gray-300 rounded px-2.5 py-1 text-xs text-gray-900 font-mono"
+                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900 font-mono"
                               placeholder="変更しない場合は空欄"
                             />
                           </div>
@@ -447,18 +437,18 @@ export default function UserManageModal({
                                   type="button"
                                   onClick={() => setEditColor(col)}
                                   style={{ backgroundColor: col }}
-                                  className={`w-5 h-5 rounded-full ${
-                                    editColor === col ? "ring-2 ring-offset-1 ring-gray-800" : "opacity-70"
+                                  className={`w-5 h-5 rounded-full cursor-pointer ${
+                                    editColor === col ? "ring-2 ring-offset-1 ring-slate-800" : "opacity-70"
                                   }`}
                                 />
                               ))}
                             </div>
-                            <label className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 cursor-pointer">
+                            <label className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={editIsAdmin}
                                 onChange={(e) => setEditIsAdmin(e.target.checked)}
-                                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                               />
                               <Crown className="w-3.5 h-3.5 text-amber-500" />
                               <span>Admin権限</span>
@@ -468,14 +458,14 @@ export default function UserManageModal({
                             <button
                               type="button"
                               onClick={() => setEditingId(null)}
-                              className="px-2.5 py-1 text-xs border border-gray-300 rounded text-gray-600 hover:bg-gray-100"
+                              className="px-2.5 py-1 text-xs border border-slate-300 rounded text-slate-600 hover:bg-slate-100 cursor-pointer"
                             >
                               キャンセル
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSaveEdit(u.id)}
-                              className="flex items-center gap-1 px-3 py-1 text-xs bg-[#2ca078] text-white font-bold rounded hover:bg-[#238161]"
+                              className="flex items-center gap-1 px-3 py-1 text-xs bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold rounded hover:from-indigo-700 hover:to-violet-700 cursor-pointer"
                             >
                               <Check className="w-3.5 h-3.5" />
                               <span>保存</span>
@@ -485,21 +475,44 @@ export default function UserManageModal({
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-3">
-                        {/* 左側: アバターと名前・ログインID・権限 */}
+                        {/* 左側: アバターと名前・ログインID・権限（本人の場合はクリックでマイアカウント設定を起動） */}
                         <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            style={{ backgroundColor: u.color || "#2ca078" }}
-                            className="w-9 h-9 rounded-full text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs"
+                          <button
+                            type="button"
+                            disabled={!isCurrent || !onOpenPasswordChange}
+                            onClick={() => isCurrent && onOpenPasswordChange?.()}
+                            style={{ backgroundColor: u.color || "#4f46e5" }}
+                            title={
+                              isCurrent
+                                ? "クリックしてマイアカウント設定（アイコン色・パスワード変更）を開く"
+                                : undefined
+                            }
+                            className={`w-9 h-9 rounded-full text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs transition-transform ${
+                              isCurrent && onOpenPasswordChange
+                                ? "cursor-pointer hover:scale-105 ring-2 ring-indigo-300"
+                                : "cursor-default"
+                            }`}
                           >
                             {getUserInitials(u.name)}
-                          </div>
+                          </button>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="font-bold text-sm text-gray-900 truncate">
-                                {u.name}
-                              </span>
-                              <span className="inline-flex items-center gap-0.5 text-[11px] font-mono text-gray-600 bg-gray-100 border border-gray-200 px-1.5 py-0.2 rounded">
-                                <KeyRound className="w-2.5 h-2.5 text-gray-400" />
+                              {isCurrent && onOpenPasswordChange ? (
+                                <button
+                                  type="button"
+                                  onClick={onOpenPasswordChange}
+                                  title="クリックしてマイアカウント設定（アイコン色・パスワード変更）を開く"
+                                  className="font-bold text-sm text-slate-900 hover:text-indigo-600 hover:underline truncate cursor-pointer text-left"
+                                >
+                                  {u.name}
+                                </button>
+                              ) : (
+                                <span className="font-bold text-sm text-slate-900 truncate">
+                                  {u.name}
+                                </span>
+                              )}
+                              <span className="inline-flex items-center gap-0.5 text-[11px] font-mono text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
+                                <KeyRound className="w-2.5 h-2.5 text-slate-400" />
                                 ID: {u.login_id}
                               </span>
                               {Boolean(u.is_admin) ? (
@@ -508,39 +521,38 @@ export default function UserManageModal({
                                   Admin権限
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200 px-1.5 py-0.5 rounded-full">
+                                <span className="text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded-full">
                                   一般ユーザー
                                 </span>
                               )}
                               {isCurrent && (
-                                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full">
+                                <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 px-1.5 py-0.5 rounded-full">
                                   ログイン中
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-gray-500 mt-0.5">
+                            <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
                               <span className="flex items-center gap-1">
-                                <Shield className="w-3 h-3 text-gray-400" />
+                                <Shield className="w-3 h-3 text-slate-400" />
                                 {u.role || "メンバー"}
                               </span>
                               <span>
-                                担当課題: <strong className="text-gray-700">{u.open_issue_count ?? 0}</strong> 件（全 {u.issue_count ?? 0} 件）
+                                担当課題: <strong className="text-slate-700">{u.open_issue_count ?? 0}</strong> 件（全 {u.issue_count ?? 0} 件）
                               </span>
                             </div>
                           </div>
                         </div>
 
-                        {/* 右側: 本人のパスワード変更ボタン ＆ Admin専用の編集・削除ボタン */}
+                        {/* 右側: 編集・削除ボタン */}
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {isCurrent && onOpenPasswordChange && (
+                          {!isCurrentUserAdmin && isCurrent && onOpenPasswordChange && (
                             <button
                               type="button"
                               onClick={onOpenPasswordChange}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors cursor-pointer"
-                              title="自分のパスワードを変更"
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                              title="マイアカウント設定（アイコン色・パスワード変更）"
                             >
-                              <KeyRound className="w-3.5 h-3.5" />
-                              <span>パスワード変更</span>
+                              <Edit2 className="w-4 h-4" />
                             </button>
                           )}
                           {isCurrentUserAdmin && (
