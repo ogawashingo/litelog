@@ -3,37 +3,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, LogIn, KeyRound, User as UserIcon, Crown, Shield, AlertCircle } from "lucide-react";
+import { Sparkles, LogIn, KeyRound, User as UserIcon, AlertCircle } from "lucide-react";
 import { useUser } from "@/components/UserContext";
-import { getUserInitials } from "@/components/UserManageModal";
-
-// 初期登録メンバーのログイン案内リスト
-const QUICK_ACCOUNTS = [
-  {
-    loginId: "yamada",
-    password: "yamada123",
-    name: "山田 太郎",
-    role: "管理者 (Admin権限)",
-    isAdmin: true,
-    color: "#4f46e5",
-  },
-  {
-    loginId: "sato",
-    password: "sato123",
-    name: "佐藤 花子",
-    role: "エンジニア (一般ユーザー)",
-    isAdmin: false,
-    color: "#3b82f6",
-  },
-  {
-    loginId: "suzuki",
-    password: "suzuki123",
-    name: "鈴木 一郎",
-    role: "デザイナー (一般ユーザー)",
-    isAdmin: false,
-    color: "#8b5cf6",
-  },
-];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -65,13 +36,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // デモ・確認用のアカウント入力補助
-  const handleSelectQuickAccount = (acc: (typeof QUICK_ACCOUNTS)[number]) => {
-    setLoginId(acc.loginId);
-    setPassword(acc.password);
-    setErrorMsg("");
   };
 
   return (
@@ -106,7 +70,7 @@ export default function LoginPage() {
                 type="text"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
-                placeholder="例: yamada / sato / suzuki"
+                placeholder="ログインIDを入力"
                 autoComplete="username"
                 className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 required
@@ -141,59 +105,6 @@ export default function LoginPage() {
             <span>{isLoading ? "ログイン中..." : "ログインする"}</span>
           </button>
         </form>
-
-        {/* 初期登録メンバーのID・権限案内（ワンクリックでフォームに入力可能） */}
-        <div className="px-6 pb-6 pt-2 border-t border-slate-100 bg-slate-50/60">
-          <p className="text-[11px] font-bold text-slate-500 mb-2.5">
-            登録アカウント一覧（クリックでID・パスワードを自動セット）:
-          </p>
-          <div className="space-y-2">
-            {QUICK_ACCOUNTS.map((acc) => (
-              <button
-                key={acc.loginId}
-                type="button"
-                onClick={() => handleSelectQuickAccount(acc)}
-                className={`w-full text-left p-2.5 rounded-lg border transition-all flex items-center justify-between text-xs cursor-pointer ${
-                  loginId === acc.loginId
-                    ? "bg-indigo-50/80 border-indigo-400 ring-1 ring-indigo-300"
-                    : "bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div
-                    style={{ backgroundColor: acc.color }}
-                    className="w-7 h-7 rounded-full text-white font-bold text-[10px] flex items-center justify-center shrink-0"
-                  >
-                    {getUserInitials(acc.name)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-slate-900">{acc.name}</span>
-                      {acc.isAdmin ? (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.2 rounded-full">
-                          <Crown className="w-2.5 h-2.5 text-amber-600" />
-                          Admin
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.2 rounded-full">
-                          <Shield className="w-2.5 h-2.5 text-slate-400" />
-                          一般ユーザー
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-slate-500 font-mono mt-0.5">
-                      ID: <strong className="text-slate-800">{acc.loginId}</strong> / PW:{" "}
-                      <span className="text-slate-700">{acc.password}</span>
-                    </div>
-                  </div>
-                </div>
-                <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-1 rounded border border-indigo-200">
-                  選択
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
