@@ -19,6 +19,8 @@ import {
   Sliders,
   Plus,
   Edit2,
+  Trash2,
+  AlertTriangle,
   X,
 } from "lucide-react";
 import Header from "@/components/Header";
@@ -56,10 +58,12 @@ export default function AdminPage() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
 
-  // プロジェクト名変更用State（Admin専用）
+  // プロジェクト名変更・削除用State（Admin専用）
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [isUpdatingProject, setIsUpdatingProject] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [projectErrorMsg, setProjectErrorMsg] = useState("");
 
   // 編集中の時刻設定ドラフトState
@@ -105,6 +109,7 @@ export default function AdminPage() {
       alert("プロジェクト名の変更は管理者（Admin権限）のみ実行できます。");
       return;
     }
+    setDeletingProjectId(null);
     setEditingProjectId(proj.id);
     setEditProjectName(proj.name);
     setProjectErrorMsg("");
@@ -148,6 +153,57 @@ export default function AdminPage() {
       setProjectErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setIsUpdatingProject(false);
+    }
+  };
+
+  // プロジェクト削除確認の開始（管理者のみ）
+  const handleStartDeleteProject = (proj: Project) => {
+    if (!currentUser?.is_admin) {
+      alert("プロジェクトの削除は管理者（Admin権限）のみ実行できます。");
+      return;
+    }
+    if (projects.length <= 1) {
+      setProjectErrorMsg("最低1件のプロジェクトが必要なため削除できません");
+      return;
+    }
+    setEditingProjectId(null);
+    setDeletingProjectId(proj.id);
+    setProjectErrorMsg("");
+  };
+
+  // プロジェクト削除の実行（管理者のみ）
+  const handleDeleteProject = async (proj: Project) => {
+    if (!currentUser?.is_admin) {
+      setProjectErrorMsg("プロジェクトの削除は管理者（Admin権限）のみ実行できます");
+      return;
+    }
+
+    try {
+      setIsDeletingProject(true);
+      setProjectErrorMsg("");
+      const res = await fetch(
+        `/api/projects/${proj.id}?actorId=${encodeURIComponent(String(currentUser.id))}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actorId: currentUser.id }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "プロジェクトの削除に失敗しました");
+      }
+
+      setDeletingProjectId(null);
+      await fetchProjects();
+      await refreshUsers();
+      setSaveMessage(`プロジェクト [${proj.key}] 「${proj.name}」を削除しました！`);
+      setTimeout(() => setSaveMessage(null), 4000);
+    } catch (err: unknown) {
+      setProjectErrorMsg(err instanceof Error ? err.message : "削除エラーが発生しました");
+    } finally {
+      setIsDeletingProject(false);
     }
   };
 
@@ -796,7 +852,7 @@ export default function AdminPage() {
                 </button>
               </div>
               <p className="text-xs text-slate-500">
-                登録プロジェクトの確認・名称変更（Admin専用）・追加と、全データのJSONバックアップ・復元を行えます。
+                登録プロジェクトの確認・名称変更・削除（Admin専用）・追加と、全データのJSONバックアップ・復元を行えます。
               </p>
               {projectErrorMsg && (
                 <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
@@ -806,10 +862,11 @@ export default function AdminPage() {
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
                 {projects.map((p) => {
                   const isEditingThis = editingProjectId === p.id;
+                  const isDeletingThis = deletingProjectId === p.id;
                   return (
                     <div
                       key={p.id}
-                      className="px-3 py-2 flex items-center justify-between gap-2 text-xs bg-white"
+                      className="px-3 py-2 flex flex-col gap-2 text-xs bg-white"
                     >
                       {isEditingThis ? (
                         <form
@@ -853,7 +910,7 @@ export default function AdminPage() {
                           </button>
                         </form>
                       ) : (
-                        <>
+                        <div className="flex items-center justify-between gap-2 w-full">
                           <div className="flex items-center gap-2 min-w-0">
                             <span
                               style={{ backgroundColor: p.color || "#4f46e5" }}
@@ -866,23 +923,76 @@ export default function AdminPage() {
                               {p.name}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <span className="text-[10px] text-slate-400">
                               {formatTimestamp(p.created_at, draftSettings, false)}
                             </span>
                             {Boolean(currentUser?.is_admin) && (
-                              <button
-                                type="button"
-                                onClick={() => handleStartEditProject(p)}
-                                title="プロジェクト名を変更 (Admin専用)"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors cursor-pointer"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                                <span>名称変更</span>
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditProject(p)}
+                                  title="プロジェクト名を変更 (Admin専用)"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                  <span>名称変更</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartDeleteProject(p)}
+                                  title={
+                                    projects.length > 1
+                                      ? "プロジェクトを削除 (Admin専用)"
+                                      : "最低1件のプロジェクトが必要なため削除できません"
+                                  }
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors ${
+                                    projects.length > 1
+                                      ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                      : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
+                                  }`}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>削除</span>
+                                </button>
+                              </>
                             )}
                           </div>
-                        </>
+                        </div>
+                      )}
+
+                      {/* プロジェクト削除確認ボックス（Admin専用） */}
+                      {isDeletingThis && (
+                        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs space-y-2">
+                          <div className="flex items-start gap-1.5 text-rose-800 font-semibold leading-snug">
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                            <span>
+                              プロジェクト <strong>[{p.key}] {p.name}</strong> と紐づく全課題を完全に削除しますか？
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeletingProjectId(null);
+                                setProjectErrorMsg("");
+                              }}
+                              disabled={isDeletingProject}
+                              className="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                            >
+                              キャンセル
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProject(p)}
+                              disabled={isDeletingProject}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>{isDeletingProject ? "削除中..." : "削除する"}</span>
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   );

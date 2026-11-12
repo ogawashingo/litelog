@@ -532,6 +532,49 @@ async function runTests() {
   }
   console.log(`✓ ダッシュボード完了済み課題デフォルト非表示検証成功: 全${allIssuesForFilter.length}件 -> デフォルト表示${defaultFiltered.length}件 (完了${closedOnlySelected.length}件を非表示)`);
 
+  // 19. 管理者（Admin権限）専用のプロジェクト削除＆関連課題・コメント一括削除テスト
+  const tempProjKey = "DELTEST";
+  db.prepare("DELETE FROM projects WHERE key = ?").run(tempProjKey);
+  const tempProjRes = db.prepare(`
+    INSERT INTO projects (key, name, color)
+    VALUES (?, '削除検証用一時プロジェクト', '#e11d48')
+  `).run(tempProjKey);
+  const tempProjId = tempProjRes.lastInsertRowid;
+
+  const tempProjIssueRes = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, 'DELTEST-1', 1, 'プロジェクト削除連動テスト課題', 'プロジェクト削除時に消える課題', 'task', 'open', 'medium')
+  `).run(tempProjId, adminActor.id, adminActor.id);
+  const tempProjIssueId = tempProjIssueRes.lastInsertRowid;
+
+  db.prepare("INSERT INTO comments (issue_id, user_id, content) VALUES (?, ?, '削除テストコメント')").run(
+    tempProjIssueId,
+    adminActor.id
+  );
+  db.prepare("INSERT INTO activities (issue_id, user_id, action_type, content) VALUES (?, ?, 'created', '課題 [DELTEST-1] を作成')").run(
+    tempProjIssueId,
+    adminActor.id
+  );
+
+  // トランザクションによるプロジェクト削除実行
+  db.exec("BEGIN;");
+  db.prepare("DELETE FROM comments WHERE issue_id IN (SELECT id FROM issues WHERE project_id = ?)").run(tempProjId);
+  db.prepare("DELETE FROM activities WHERE issue_id IN (SELECT id FROM issues WHERE project_id = ?) OR content LIKE ?").run(
+    tempProjId,
+    `%[${tempProjKey}-%`
+  );
+  db.prepare("DELETE FROM issues WHERE project_id = ?").run(tempProjId);
+  db.prepare("DELETE FROM projects WHERE id = ?").run(tempProjId);
+  db.exec("COMMIT;");
+
+  const checkDeletedProj = db.prepare("SELECT * FROM projects WHERE id = ?").get(tempProjId);
+  const checkDeletedIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(tempProjIssueId);
+  const checkDeletedComment = db.prepare("SELECT * FROM comments WHERE issue_id = ?").get(tempProjIssueId);
+  if (checkDeletedProj || checkDeletedIssue || checkDeletedComment) {
+    throw new Error("プロジェクト削除時の一括クリーンアップに失敗しました");
+  }
+  console.log(`✓ 管理者(Admin)専用のプロジェクト削除＆関連課題・コメント一括削除テスト成功`);
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

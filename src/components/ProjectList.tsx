@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Check, X } from "lucide-react";
+import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 
@@ -36,10 +36,17 @@ export default function ProjectList({
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState("");
 
+  // プロジェクト削除確認用State（Admin専用）
+  const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   // プロジェクト名の編集開始
   const startEditProject = (e: React.MouseEvent, proj: ExtendedProject) => {
     e.stopPropagation();
     if (!isAdmin) return;
+    setDeletingProjectId(null);
+    setDeleteError("");
     setEditingProjectId(proj.id);
     setEditName(proj.name);
     setEditError("");
@@ -87,6 +94,61 @@ export default function ProjectList({
       setEditError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // プロジェクト削除確認の開始
+  const startDeleteProject = (e: React.MouseEvent, proj: ExtendedProject) => {
+    e.stopPropagation();
+    if (!isAdmin) return;
+    if (projects.length <= 1) {
+      alert("最低1件のプロジェクトが必要なため削除できません。");
+      return;
+    }
+    setEditingProjectId(null);
+    setEditError("");
+    setDeletingProjectId(proj.id);
+    setDeleteError("");
+  };
+
+  // プロジェクト削除確認のキャンセル
+  const cancelDeleteProject = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletingProjectId(null);
+    setDeleteError("");
+  };
+
+  // プロジェクト削除の実行
+  const executeDeleteProject = async (e: React.MouseEvent, proj: ExtendedProject) => {
+    e.stopPropagation();
+    if (!isAdmin || !currentUser) return;
+
+    try {
+      setIsDeleting(true);
+      setDeleteError("");
+      const res = await fetch(
+        `/api/projects/${proj.id}?actorId=${encodeURIComponent(String(currentUser.id))}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ actorId: currentUser.id }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "プロジェクトの削除に失敗しました");
+      }
+
+      setDeletingProjectId(null);
+      if (selectedProjectId === proj.id) {
+        onSelectProject(null);
+      }
+      onUpdated?.();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "削除エラーが発生しました");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -143,12 +205,13 @@ export default function ProjectList({
           const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
           const isSelected = selectedProjectId === proj.id;
           const isEditingThis = editingProjectId === proj.id;
+          const isDeletingThis = deletingProjectId === proj.id;
 
           return (
             <div
               key={proj.id}
               onClick={() => {
-                if (!isEditingThis) {
+                if (!isEditingThis && !isDeletingThis) {
                   onSelectProject(proj.id);
                 }
               }}
@@ -204,7 +267,7 @@ export default function ProjectList({
                 </form>
               ) : (
                 <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span
                       className="w-2.5 h-2.5 rounded-full shadow-2xs shrink-0"
                       style={{ backgroundColor: proj.color || "#4f46e5" }}
@@ -212,21 +275,77 @@ export default function ProjectList({
                     <span className="font-bold text-xs text-slate-800 truncate">
                       [{proj.key}] {proj.name}
                     </span>
-                    {/* 管理者（Admin権限）のみプロジェクト名変更ボタンを表示 */}
+                    {/* 管理者（Admin権限）のみプロジェクト名変更・削除ボタンを表示 */}
                     {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={(e) => startEditProject(e, proj)}
-                        title="プロジェクト名を変更 (Admin専用)"
-                        className="p-1 rounded-md text-slate-400 hover:text-indigo-700 hover:bg-indigo-100/70 transition-colors cursor-pointer shrink-0"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => startEditProject(e, proj)}
+                          title="プロジェクト名を変更 (Admin専用)"
+                          className="p-1 rounded-md text-slate-400 hover:text-indigo-700 hover:bg-indigo-100/70 transition-colors cursor-pointer shrink-0"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => startDeleteProject(e, proj)}
+                          title={
+                            projects.length > 1
+                              ? "プロジェクトを削除 (Admin専用)"
+                              : "最低1件のプロジェクトが必要なため削除できません"
+                          }
+                          className={`p-1 rounded-md transition-colors shrink-0 ${
+                            projects.length > 1
+                              ? "text-slate-400 hover:text-rose-600 hover:bg-rose-100/70 cursor-pointer"
+                              : "text-slate-300 cursor-not-allowed"
+                          }`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     )}
                   </div>
                   <span className="text-[11px] font-bold text-indigo-600 shrink-0">
                     {progressPercent}%
                   </span>
+                </div>
+              )}
+
+              {/* プロジェクト削除確認ボックス（Admin専用） */}
+              {isDeletingThis && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="mb-2.5 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs space-y-2"
+                >
+                  <div className="flex items-start gap-1.5 text-rose-800 font-semibold leading-snug">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>
+                      プロジェクト <strong>[{proj.key}] {proj.name}</strong>
+                      {total > 0 ? `（紐づく課題 ${total}件を含む）` : ""} を完全に削除しますか？
+                    </span>
+                  </div>
+                  {deleteError && (
+                    <p className="text-[11px] text-rose-700 font-medium pl-5">{deleteError}</p>
+                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelDeleteProject}
+                      disabled={isDeleting}
+                      className="px-2.5 py-1 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => executeDeleteProject(e, proj)}
+                      disabled={isDeleting}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>{isDeleting ? "削除中..." : "削除する"}</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
