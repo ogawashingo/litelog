@@ -1,0 +1,258 @@
+// 課題の新規作成モーダルコンポーネント
+"use client";
+
+import React, { useState } from "react";
+import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus } from "lucide-react";
+import { Project, IssueType, IssueStatus, IssuePriority } from "@/types";
+
+interface CreateIssueModalProps {
+  isOpen: boolean;
+  projects: Project[];
+  selectedProjectId: number | null;
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+export default function CreateIssueModal({
+  isOpen,
+  projects,
+  selectedProjectId,
+  onClose,
+  onCreated,
+}: CreateIssueModalProps) {
+  const [projectId, setProjectId] = useState<number>(
+    selectedProjectId || (projects[0] ? projects[0].id : 1)
+  );
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [issueType, setIssueType] = useState<IssueType>("task");
+  const [status, setStatus] = useState<IssueStatus>("open");
+  const [priority, setPriority] = useState<IssuePriority>("medium");
+  const [dueDate, setDueDate] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setErrorMessage("件名を入力してください");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+
+      const res = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          title: title.trim(),
+          description: description.trim(),
+          issueType,
+          status,
+          priority,
+          dueDate: dueDate || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "課題の作成に失敗しました");
+      }
+
+      // 成功時
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      onCreated();
+      onClose();
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorMessage(err.message);
+      } else {
+        setErrorMessage("課題の作成中にエラーが発生しました");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        {/* モーダルヘッダー */}
+        <div className="bg-[#2ca078] px-6 py-4 flex items-center justify-between text-white">
+          <div className="flex items-center gap-2">
+            <Plus className="w-5 h-5 stroke-[2.5]" />
+            <h3 className="font-bold text-lg">課題の追加</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-md hover:bg-white/20 transition-colors text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* フォーム入力領域 */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg font-medium">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* プロジェクト選択 */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              プロジェクト <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(Number(e.target.value))}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            >
+              {projects.map((proj) => (
+                <option key={proj.id} value={proj.id}>
+                  [{proj.key}] {proj.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 種別の選択（Backlog風の四角いボタングループ） */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              種別 <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {[
+                { type: "task" as IssueType, label: "タスク", icon: CheckSquare, activeBg: "bg-blue-600 text-white" },
+                { type: "bug" as IssueType, label: "バグ", icon: Bug, activeBg: "bg-red-600 text-white" },
+                { type: "request" as IssueType, label: "要望", icon: Sparkles, activeBg: "bg-emerald-600 text-white" },
+                { type: "other" as IssueType, label: "その他", icon: HelpCircle, activeBg: "bg-slate-600 text-white" },
+              ].map((item) => {
+                const Icon = item.icon;
+                const isSelected = issueType === item.type;
+                return (
+                  <button
+                    key={item.type}
+                    type="button"
+                    onClick={() => setIssueType(item.type)}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-bold transition-all ${
+                      isSelected
+                        ? item.activeBg + " shadow-sm border-transparent"
+                        : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 件名 */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              件名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="課題の概要を入力してください"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              required
+            />
+          </div>
+
+          {/* 詳細（メモ） */}
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              詳細
+            </label>
+            <textarea
+              placeholder="タスクの背景、達成条件、作業手順など..."
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            />
+          </div>
+
+          {/* 属性設定行（状態、優先度、期限日） */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 状態 */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">状態</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value as IssueStatus)}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="open">未対応</option>
+                <option value="in_progress">処理中</option>
+                <option value="resolved">処理済み</option>
+                <option value="closed">完了</option>
+              </select>
+            </div>
+
+            {/* 優先度 */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">優先度</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as IssuePriority)}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="high">高</option>
+                <option value="medium">中</option>
+                <option value="low">低</option>
+              </select>
+            </div>
+
+            {/* 期限日 */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                  期限日
+                </span>
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* フッター操作ボタン */}
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-2 rounded-lg bg-[#2ca078] hover:bg-[#238161] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {isSubmitting ? "追加中..." : "追加する"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
