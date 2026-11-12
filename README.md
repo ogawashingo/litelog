@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal Backlog（個人向けBacklogクローン）
 
-## Getting Started
+Backlogの使いやすいダッシュボードUIを再現し、**一人でサクサク使うことに特化**したパーソナルタスク・プロジェクト管理Webアプリケーションです。
 
-First, run the development server:
+---
 
+## 🌟 特徴・機能
+
+- **Backlog風の親しみやすいダッシュボード**:
+  - **グローバルヘッダー**: Backlogグリーンを基調としたデザイン、プロジェクト切り替え、ワンクリック課題追加ボタン
+  - **自分の課題ステータスタブ**: 「未対応」「処理中」「処理済み」「完了」「すべて」の件数バッジとワンクリック絞り込み
+  - **期限アラート**: 期限切れタスクや本日期限のタスクをハイライト警告
+  - **自分の課題テーブル**: 課題キー（例: `MYPRJ-1`）、種別（タスク/バグ/要望/その他）、インプレース状態変更、優先度、期限日（超過日数・残日数表示）
+  - **プロジェクト一覧**: 各プロジェクトの進捗バー、未完了課題数、新規プロジェクト追加
+  - **最近の更新（アクティビティ）**: 課題の追加、状態変更、コメントなどの履歴タイムライン
+- **一人利用に最適化**:
+  - 面倒なログインや招待設定は不要（担当者は常に自分）
+  - AIアシスタント、Git/SVN、ファイル共有などの不要な複雑機能は排除し軽量・高速
+  - SQLite（`data/backlog.db`）による完全ローカル保存（Node.js組み込み `node:sqlite` を利用し追加依存なし）
+  - **ワンクリックJSONバックアップ・復元**: データのバックアップやPC移行も安心
+
+---
+
+## 🚀 起動方法
+
+### 1. 開発サーバーの起動
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+ブラウザで [http://localhost:3000](http://localhost:3000) を開きます。
+
+### 2. プロダクションビルド＆起動
+```bash
+npm run build
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. テストの実行
+```bash
+npm test
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📂 技術スタック
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **フレームワーク**: Next.js (App Router, React 19)
+- **スタイリング**: Tailwind CSS
+- **データベース**: SQLite（Node.js 組み込み `node:sqlite` によるネイティブ高速処理）
+- **アイコン**: Lucide React
+- **言語**: TypeScript
