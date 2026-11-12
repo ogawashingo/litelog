@@ -11,9 +11,13 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import IssueDetailModal from "@/components/IssueDetailModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
+import { useUser } from "@/components/UserContext";
 import { Project, Issue, Activity, IssueStatus } from "@/types";
+import { getTodayDateString } from "@/lib/dateUtils";
 
 export default function DashboardPage() {
+  const { currentUser, refreshUsers, settings } = useUser();
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -26,7 +30,7 @@ export default function DashboardPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   // プロジェクト一覧取得
   const fetchProjects = useCallback(async () => {
@@ -70,8 +74,8 @@ export default function DashboardPage() {
 
   // 全体データのリロード
   const refreshAll = useCallback(async () => {
-    await Promise.all([fetchProjects(), fetchIssues(), fetchActivities()]);
-  }, [fetchProjects, fetchIssues, fetchActivities]);
+    await Promise.all([fetchProjects(), fetchIssues(), fetchActivities(), refreshUsers()]);
+  }, [fetchProjects, fetchIssues, fetchActivities, refreshUsers]);
 
   // 初回データ取得
   useEffect(() => {
@@ -93,7 +97,7 @@ export default function DashboardPage() {
       const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
       });
       if (res.ok) {
         await refreshAll();
@@ -104,10 +108,28 @@ export default function DashboardPage() {
     }
   };
 
+  // 課題の担当者即時変更
+  const handleUpdateAssignee = async (issueId: number, newAssigneeId: number | null) => {
+    try {
+      const res = await fetch(`/api/issues/${issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId: newAssigneeId, actorId: currentUser?.id || null }),
+      });
+      if (res.ok) {
+        await refreshAll();
+      }
+    } catch (err) {
+      console.error("担当者変更エラー:", err);
+      fetchIssues();
+    }
+  };
+
   // 課題削除
   const handleDeleteIssue = async (issueId: number) => {
     try {
-      const res = await fetch(`/api/issues/${issueId}`, { method: "DELETE" });
+      const actorQuery = currentUser?.id ? `?actorId=${currentUser.id}` : "";
+      const res = await fetch(`/api/issues/${issueId}${actorQuery}`, { method: "DELETE" });
       if (res.ok) {
         await refreshAll();
       }
@@ -122,8 +144,8 @@ export default function DashboardPage() {
     setIsDetailOpen(true);
   };
 
-  // サマリー集計計算
-  const todayStr = new Date().toISOString().split("T")[0];
+  // サマリー集計計算（設定タイムゾーン基準）
+  const todayStr = getTodayDateString(settings);
   const counts = {
     all: issues.length,
     open: issues.filter((i) => i.status === "open").length,
@@ -154,36 +176,34 @@ export default function DashboardPage() {
           onSelectStatus={(st) => setSelectedStatus(st)}
         />
 
-        {/* 2カラムレイアウト: 左側「自分の課題」、右側「プロジェクト一覧」「最近の更新」 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* メインカラム: 課題一覧（幅 2/3） */}
-          <div className="lg:col-span-2">
-            <IssueList
-              issues={issues}
-              selectedStatus={selectedStatus}
-              onSelectIssue={handleSelectIssue}
-              onUpdateStatus={handleUpdateStatus}
-              onDeleteIssue={handleDeleteIssue}
-            />
-          </div>
+        {/* メインエリア: 課題一覧を全幅で表示し、件名や担当者の視認性を確保 */}
+        <div>
+          <IssueList
+            issues={issues}
+            selectedStatus={selectedStatus}
+            onSelectIssue={handleSelectIssue}
+            onUpdateStatus={handleUpdateStatus}
+            onUpdateAssignee={handleUpdateAssignee}
+            onDeleteIssue={handleDeleteIssue}
+          />
+        </div>
 
-          {/* サイドカラム: プロジェクト一覧 ＆ 最近の更新（幅 1/3） */}
-          <div className="space-y-6">
-            <ProjectList
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              onSelectProject={(id) => setSelectedProjectId(id)}
-              onOpenCreateProject={() => setIsCreateProjectOpen(true)}
-            />
+        {/* サブエリア: プロジェクト一覧 ＆ 最近の更新を2カラムで配置 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <ProjectList
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={(id) => setSelectedProjectId(id)}
+            onOpenCreateProject={() => setIsCreateProjectOpen(true)}
+          />
 
-            <ActivityList activities={activities} />
-          </div>
+          <ActivityList activities={activities} />
         </div>
       </main>
 
       {/* フッター */}
       <footer className="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-500 mt-auto">
-        <p>Personal Backlog - 一人用タスク・プロジェクト管理</p>
+        <p>Personal Backlog - チーム＆個人タスク・プロジェクト管理</p>
       </footer>
 
       {/* 課題追加モーダル */}

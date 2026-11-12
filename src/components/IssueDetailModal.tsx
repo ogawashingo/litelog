@@ -2,9 +2,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch } from "lucide-react";
+import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, UserCheck } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
+import { useUser } from "./UserContext";
+import { getUserInitials } from "./UserManageModal";
+import { formatTimestamp } from "@/lib/dateUtils";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -21,6 +24,8 @@ export default function IssueDetailModal({
   onUpdated,
   onDeleted,
 }: IssueDetailModalProps) {
+  const { users, currentUser, refreshUsers, settings } = useUser();
+
   const [comments, setComments] = useState<Comment[]>([]);
   const [childrenIssues, setChildrenIssues] = useState<Issue[]>([]);
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
@@ -34,6 +39,7 @@ export default function IssueDetailModal({
   const [editStatus, setEditStatus] = useState<IssueStatus>("open");
   const [editPriority, setEditPriority] = useState<IssuePriority>("medium");
   const [editType, setEditType] = useState<IssueType>("task");
+  const [editAssigneeId, setEditAssigneeId] = useState<string>("");
   const [editParentId, setEditParentId] = useState<string>("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
@@ -48,6 +54,7 @@ export default function IssueDetailModal({
     setEditStatus(issue.status);
     setEditPriority(issue.priority);
     setEditType(issue.issue_type);
+    setEditAssigneeId(issue.assignee_id ? String(issue.assignee_id) : "");
     setEditParentId(issue.parent_id ? String(issue.parent_id) : "");
     setEditStartDate(issue.start_date || "");
     setEditDueDate(issue.due_date || "");
@@ -94,14 +101,17 @@ export default function IssueDetailModal({
           status: editStatus,
           priority: editPriority,
           issueType: editType,
+          assigneeId: editAssigneeId ? Number(editAssigneeId) : null,
           parentId: editParentId ? Number(editParentId) : null,
           startDate: editStartDate || null,
           dueDate: editDueDate || null,
+          actorId: currentUser?.id || null,
         }),
       });
 
       if (res.ok) {
         setIsEditing(false);
+        await refreshUsers();
         onUpdated();
       }
     } catch (err) {
@@ -117,14 +127,39 @@ export default function IssueDetailModal({
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({
+          status: newStatus,
+          actorId: currentUser?.id || null,
+        }),
       });
       if (res.ok) {
         setEditStatus(newStatus);
+        await refreshUsers();
         onUpdated();
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
+    }
+  };
+
+  // 担当者即時変更
+  const handleQuickAssigneeChange = async (newAssigneeIdStr: string) => {
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assigneeId: newAssigneeIdStr ? Number(newAssigneeIdStr) : null,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        setEditAssigneeId(newAssigneeIdStr);
+        await refreshUsers();
+        onUpdated();
+      }
+    } catch (err) {
+      console.error("担当者変更エラー:", err);
     }
   };
 
@@ -138,7 +173,10 @@ export default function IssueDetailModal({
       const res = await fetch(`/api/issues/${issue.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: newComment.trim() }),
+        body: JSON.stringify({
+          content: newComment.trim(),
+          userId: currentUser?.id || null,
+        }),
       });
 
       if (res.ok) {
@@ -160,8 +198,10 @@ export default function IssueDetailModal({
       return;
     }
     try {
-      const res = await fetch(`/api/issues/${issue.id}`, { method: "DELETE" });
+      const actorQuery = currentUser?.id ? `?actorId=${currentUser.id}` : "";
+      const res = await fetch(`/api/issues/${issue.id}${actorQuery}`, { method: "DELETE" });
       if (res.ok) {
+        await refreshUsers();
         onDeleted();
         onClose();
       }
@@ -169,6 +209,8 @@ export default function IssueDetailModal({
       console.error("削除エラー:", err);
     }
   };
+
+  const currentAssignee = users.find((u) => u.id === Number(editAssigneeId));
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
@@ -236,7 +278,7 @@ export default function IssueDetailModal({
                 />
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">種別</label>
                   <select
@@ -262,6 +304,22 @@ export default function IssueDetailModal({
                     <option value="in_progress">処理中</option>
                     <option value="resolved">処理済み</option>
                     <option value="closed">完了</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">担当者</label>
+                  <select
+                    value={editAssigneeId}
+                    onChange={(e) => setEditAssigneeId(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800"
+                  >
+                    <option value="">未割当</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -367,13 +425,13 @@ export default function IssueDetailModal({
                 </h2>
               </div>
 
-              {/* 属性グリッド（状態、優先度、開始日、期限日、登録日時） */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
+              {/* 属性グリッド（状態、担当者、優先度、開始日、期限日、登録日時） */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-xs">
                 {/* 状態変更セレクター */}
                 <div>
                   <span className="text-gray-500 block mb-1 font-medium">状態</span>
                   <select
-                    value={issue.status}
+                    value={editStatus}
                     onChange={(e) => handleQuickStatusChange(e.target.value as IssueStatus)}
                     className="bg-white border border-gray-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-emerald-500"
                   >
@@ -382,6 +440,31 @@ export default function IssueDetailModal({
                     <option value="resolved">処理済み</option>
                     <option value="closed">完了</option>
                   </select>
+                </div>
+
+                {/* 担当者即時変更セレクター */}
+                <div>
+                  <span className="text-gray-500 block mb-1 font-medium">担当者</span>
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
+                      className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0"
+                    >
+                      {getUserInitials(currentAssignee?.name)}
+                    </div>
+                    <select
+                      value={editAssigneeId}
+                      onChange={(e) => handleQuickAssigneeChange(e.target.value)}
+                      className="bg-white border border-gray-300 rounded px-1.5 py-1 text-xs font-medium text-gray-800 cursor-pointer focus:ring-1 focus:ring-emerald-500 max-w-[110px] truncate"
+                    >
+                      <option value="">未割当</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
@@ -407,9 +490,12 @@ export default function IssueDetailModal({
 
                 <div>
                   <span className="text-gray-500 block mb-1 font-medium">登録日時</span>
-                  <div className="flex items-center gap-1 text-gray-600">
-                    <Clock className="w-3.5 h-3.5 text-gray-400" />
-                    <span>{new Date(issue.created_at).toLocaleDateString("ja-JP")}</span>
+                  <div
+                    className="flex items-center gap-1 text-gray-600"
+                    title={`登録: ${formatTimestamp(issue.created_at, settings, true)}\n更新: ${formatTimestamp(issue.updated_at, settings, true)}`}
+                  >
+                    <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                    <span className="truncate">{formatTimestamp(issue.created_at, settings, true)}</span>
                   </div>
                 </div>
               </div>
@@ -444,6 +530,11 @@ export default function IssueDetailModal({
                           <span className="text-gray-800 truncate">{child.title}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {child.assignee_name && (
+                            <span className="text-[11px] text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded">
+                              {child.assignee_name}
+                            </span>
+                          )}
                           <StatusBadge status={child.status} />
                           {child.due_date && (
                             <span className="text-[11px] text-gray-500">{child.due_date}</span>
@@ -459,38 +550,58 @@ export default function IssueDetailModal({
 
           {/* コメントセクション */}
           <div className="pt-4 border-t border-gray-200 space-y-4">
-            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-              <MessageSquare className="w-4 h-4 text-emerald-600" />
-              <span>コメント・作業メモ ({comments.length})</span>
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                <MessageSquare className="w-4 h-4 text-emerald-600" />
+                <span>コメント・作業メモ ({comments.length})</span>
+              </h4>
+              {currentUser && (
+                <span className="text-[11px] text-gray-500 flex items-center gap-1">
+                  投稿者:
+                  <strong className="text-gray-800">{currentUser.name}</strong>
+                </span>
+              )}
+            </div>
 
             {/* コメント一覧 */}
             <div className="space-y-3">
-              {comments.map((comment) => (
-                <div key={comment.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs space-y-1">
-                  <div className="flex items-center justify-between text-gray-500">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-[10px]">
-                        私
+              {comments.map((comment) => {
+                const authorName = comment.user_name || "メンバー";
+                const authorColor = comment.user_color || "#2ca078";
+
+                return (
+                  <div key={comment.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs space-y-1">
+                    <div className="flex items-center justify-between text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          style={{ backgroundColor: authorColor }}
+                          className="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[10px]"
+                        >
+                          {getUserInitials(authorName)}
+                        </span>
+                        <span className="font-semibold text-gray-800">{authorName}</span>
+                      </div>
+                      <span className="text-[10px]">
+                        {formatTimestamp(comment.created_at, settings, true)}
                       </span>
-                      <span className="font-semibold text-gray-700">自分</span>
                     </div>
-                    <span className="text-[10px]">
-                      {new Date(comment.created_at).toLocaleString("ja-JP")}
-                    </span>
+                    <p className="text-gray-800 whitespace-pre-wrap pl-6 text-sm">
+                      {comment.content}
+                    </p>
                   </div>
-                  <p className="text-gray-800 whitespace-pre-wrap pl-6 text-sm">
-                    {comment.content}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* コメント入力フォーム */}
             <form onSubmit={handlePostComment} className="space-y-2 pt-2">
               <textarea
                 rows={2}
-                placeholder="進捗や気づき、メモを残せます..."
+                placeholder={
+                  currentUser
+                    ? `${currentUser.name} としてコメント・進捗を入力...`
+                    : "進捗や気づき、メモを残せます..."
+                }
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"

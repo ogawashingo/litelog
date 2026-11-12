@@ -4,25 +4,17 @@
 import React from "react";
 import { History, PlusCircle, CheckCircle, MessageSquare, Trash2, Edit3 } from "lucide-react";
 import { Activity } from "@/types";
+import { getUserInitials } from "./UserManageModal";
+import { useUser } from "./UserContext";
+import { formatActivityTimestamp, formatTimestamp } from "@/lib/dateUtils";
 
 interface ActivityListProps {
   activities: Activity[];
 }
 
 export default function ActivityList({ activities }: ActivityListProps) {
-  // 相対日付フォーマッター
-  const formatTimeAgo = (dateStr: string) => {
-    const diffMs = Date.now() - new Date(dateStr).getTime();
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const { settings } = useUser();
 
-    if (diffMins < 1) return "たった今";
-    if (diffMins < 60) return `${diffMins}分前`;
-    if (diffHours < 24) return `${diffHours}時間前`;
-    if (diffDays === 1) return "昨日";
-    return `${diffDays}日前`;
-  };
 
   // アクションタイプ別アイコン
   const getActionIcon = (actionType: Activity["action_type"]) => {
@@ -60,14 +52,30 @@ export default function ActivityList({ activities }: ActivityListProps) {
                   {getActionIcon(act.action_type)}
                 </div>
 
-                {/* 内容と時間 */}
+                {/* 内容と操作メンバー・時間 */}
                 <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    {act.user_name && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-800">
+                        <span
+                          style={{ backgroundColor: act.user_color || "#2ca078" }}
+                          className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[8px] font-bold shrink-0"
+                        >
+                          {getUserInitials(act.user_name)}
+                        </span>
+                        <span>{act.user_name}</span>
+                      </span>
+                    )}
+                    <span
+                      className="text-[10px] text-gray-400"
+                      title={formatTimestamp(act.created_at, settings, true)}
+                    >
+                      {formatActivityTimestamp(act.created_at, settings)}
+                    </span>
+                  </div>
                   <p className="text-gray-700 leading-relaxed break-words font-medium">
                     {act.content}
                   </p>
-                  <span className="text-[10px] text-gray-400 block mt-0.5">
-                    {formatTimeAgo(act.created_at)}
-                  </span>
                 </div>
               </li>
             ))}

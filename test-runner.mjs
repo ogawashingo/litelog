@@ -15,6 +15,58 @@ async function runTests() {
   // テーブル定義
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      login_id TEXT UNIQUE,
+      password TEXT NOT NULL DEFAULT 'pass123',
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'メンバー',
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#2ca078',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  const userCols = db.prepare("PRAGMA table_info(users)").all();
+  if (!userCols.some((col) => col.name === "is_admin")) {
+    db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;");
+    console.log("✓ users.is_admin カラムのマイグレーションが成功しました");
+  }
+  if (!userCols.some((col) => col.name === "login_id")) {
+    db.exec("ALTER TABLE users ADD COLUMN login_id TEXT;");
+    console.log("✓ users.login_id カラムのマイグレーションが成功しました");
+  }
+  if (!userCols.some((col) => col.name === "password")) {
+    db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT 'pass123';");
+    console.log("✓ users.password カラムのマイグレーションが成功しました");
+  }
+  db.prepare(`
+    UPDATE users
+    SET is_admin = 1,
+        role = CASE WHEN role = 'プロジェクトリーダー' OR role = 'メンバー' THEN '管理者' ELSE role END,
+        login_id = COALESCE(NULLIF(login_id, ''), 'yamada'),
+        password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'yamada123' ELSE password END
+    WHERE name LIKE '山田%'
+  `).run();
+  db.prepare(`
+    UPDATE users
+    SET is_admin = 0,
+        login_id = COALESCE(NULLIF(login_id, ''), 'sato'),
+        password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'sato123' ELSE password END
+    WHERE name LIKE '佐藤%'
+  `).run();
+  db.prepare(`
+    UPDATE users
+    SET is_admin = 0,
+        login_id = COALESCE(NULLIF(login_id, ''), 'suzuki'),
+        password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'suzuki123' ELSE password END
+    WHERE name LIKE '鈴木%'
+  `).run();
+  db.prepare(`
+    UPDATE users
+    SET login_id = 'user' || id
+    WHERE login_id IS NULL OR login_id = ''
+  `).run();
+  db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key TEXT UNIQUE NOT NULL,
@@ -28,6 +80,8 @@ async function runTests() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       parent_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
+      assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       issue_key TEXT UNIQUE NOT NULL,
       issue_number INTEGER NOT NULL,
       title TEXT NOT NULL,
@@ -42,7 +96,7 @@ async function runTests() {
     );
   `);
 
-  // start_date / parent_id カラムの存在確認およびマイグレーション
+  // start_date / parent_id / assignee_id / created_by カラムの存在確認およびマイグレーション
   const tableCols = db.prepare("PRAGMA table_info(issues)").all();
   if (!tableCols.some((col) => col.name === "start_date")) {
     db.exec("ALTER TABLE issues ADD COLUMN start_date TEXT;");
@@ -52,23 +106,54 @@ async function runTests() {
     db.exec("ALTER TABLE issues ADD COLUMN parent_id INTEGER REFERENCES issues(id) ON DELETE SET NULL;");
     console.log("✓ parent_id カラムのマイグレーションが成功しました");
   }
+  if (!tableCols.some((col) => col.name === "assignee_id")) {
+    db.exec("ALTER TABLE issues ADD COLUMN assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
+    console.log("✓ assignee_id カラムのマイグレーションが成功しました");
+  }
+  if (!tableCols.some((col) => col.name === "created_by")) {
+    db.exec("ALTER TABLE issues ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;");
+    console.log("✓ created_by カラムのマイグレーションが成功しました");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       content TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  const commentCols = db.prepare("PRAGMA table_info(comments)").all();
+  if (!commentCols.some((col) => col.name === "user_id")) {
+    db.exec("ALTER TABLE comments ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       action_type TEXT NOT NULL,
       content TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  const activityCols = db.prepare("PRAGMA table_info(activities)").all();
+  if (!activityCols.some((col) => col.name === "user_id")) {
+    db.exec("ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
+  }
+
+  // 初期メンバー作成
+  const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
+  if (userCount === 0) {
+    const insertUser = db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, color) VALUES (?, ?, ?, ?, ?, ?)");
+    const u1 = insertUser.run("yamada", "yamada123", "山田 太郎", "管理者", 1, "#2ca078").lastInsertRowid;
+    const u2 = insertUser.run("sato", "sato123", "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
+    insertUser.run("suzuki", "suzuki123", "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
+    db.prepare("UPDATE issues SET assignee_id = ?, created_by = ? WHERE assignee_id IS NULL").run(u1, u1);
+    db.prepare("UPDATE comments SET user_id = ? WHERE user_id IS NULL").run(u2);
+    db.prepare("UPDATE activities SET user_id = ? WHERE user_id IS NULL").run(u1);
+    console.log("✓ 初期メンバーを作成し既存課題へ紐付けました");
+  }
 
   // 初期プロジェクト作成
   const projCount = db.prepare("SELECT COUNT(*) as count FROM projects").get().count;
@@ -234,6 +319,94 @@ async function runTests() {
   const diff = Math.round((utc2 - utc1) / 86400000);
   if (diff !== 10) throw new Error("日付差分計算エラー");
   console.log(`✓ 日付差分計算テスト成功: ${diff} 日間`);
+
+  // 13. 複数人（メンバー管理・山田さんのAdmin権限・佐藤さん/鈴木さんの一般ユーザー＆個別ログインID）検証
+  const usersList = db.prepare("SELECT * FROM users").all();
+  if (usersList.length === 0) throw new Error("初期メンバーが存在しません");
+  const yamada = usersList.find((u) => u.login_id === "yamada");
+  const sato = usersList.find((u) => u.login_id === "sato");
+  const suzuki = usersList.find((u) => u.login_id === "suzuki");
+  if (!yamada || yamada.is_admin !== 1) {
+    throw new Error("山田さん(login_id=yamada)にAdmin権限(is_admin=1)が設定されていません");
+  }
+  if (!sato || sato.is_admin !== 0 || !suzuki || suzuki.is_admin !== 0) {
+    throw new Error("佐藤さん(sato)・鈴木さん(suzuki)の一般ユーザーID設定が正しくありません");
+  }
+  console.log(`✓ 個別ログインID＆権限検証成功: ${yamada.name}(ID=${yamada.login_id}, Admin=${yamada.is_admin}), ${sato.name}(ID=${sato.login_id}, Admin=${sato.is_admin}), ${suzuki.name}(ID=${suzuki.login_id}, Admin=${suzuki.is_admin})`);
+
+  const tempUserRes = db.prepare("INSERT INTO users (name, role, color) VALUES (?, ?, ?)").run(
+    "テスト メンバー",
+    "QA",
+    "#ec4899"
+  );
+  const tempUserId = tempUserRes.lastInsertRowid;
+
+  const currentIssuesCount = db.prepare("SELECT COALESCE(MAX(issue_number), 0) as max_num FROM issues WHERE project_id = ?").get(projects[0].id).max_num;
+  const assignIssueKey = `MYPRJ-${currentIssuesCount + 1}`;
+  const assignIssueRes = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'task', 'open', 'medium')
+  `).run(projects[0].id, tempUserId, tempUserId, assignIssueKey, currentIssuesCount + 1, "担当者検証課題", "複数人担当テスト");
+  const assignIssueId = assignIssueRes.lastInsertRowid;
+
+  const joinedIssue = db.prepare(`
+    SELECT i.*, u.name AS assignee_name
+    FROM issues i
+    LEFT JOIN users u ON i.assignee_id = u.id
+    WHERE i.id = ?
+  `).get(assignIssueId);
+  if (joinedIssue.assignee_name !== "テスト メンバー") {
+    throw new Error("担当者結合クエリに失敗しました");
+  }
+  console.log(`✓ 課題への担当者割り当て＆結合取得テスト成功: 担当者=${joinedIssue.assignee_name}`);
+
+  // メンバー削除時に課題の assignee_id が NULL (未割当) になることを確認
+  db.prepare("DELETE FROM users WHERE id = ?").run(tempUserId);
+  const unassignedIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(assignIssueId);
+  if (!unassignedIssue || unassignedIssue.assignee_id !== null) {
+    throw new Error("メンバー削除時の担当者NULL化(ON DELETE SET NULL)に失敗しました");
+  }
+  db.prepare("DELETE FROM issues WHERE id = ?").run(assignIssueId);
+  console.log("✓ メンバー削除時の担当者未割当化(ON DELETE SET NULL)および後始末成功");
+
+  // 14. システム時刻・タイムゾーン設定テーブルおよびUTC→JST変換検証
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  const insertSetting = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
+  insertSetting.run("timezone", "Asia/Tokyo");
+  insertSetting.run("datetimeFormat", "slash_sec");
+  insertSetting.run("hour12", "false");
+  insertSetting.run("activityTimeStyle", "both");
+  insertSetting.run("timeOffsetMinutes", "0");
+
+  const tzRow = db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get();
+  if (!tzRow || !tzRow.value) throw new Error("settingsテーブルのtimezone取得に失敗しました");
+
+  // SQLiteのUTC文字列 "2026-11-12 03:53:22" をUTCとしてパースし、Asia/Tokyo (UTC+9) で "2026/11/12 12:53:22" になることを検証
+  const rawSqliteUtc = "2026-11-12 03:53:22";
+  const parsedUtcDate = new Date(rawSqliteUtc.replace(/\s+/, "T") + "Z");
+  const jstParts = new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+  }).formatToParts(parsedUtcDate);
+  const getP = (t) => jstParts.find((p) => p.type === t)?.value || "";
+  const formattedJst = `${getP("year")}/${getP("month")}/${getP("day")} ${getP("hour")}:${getP("minute")}:${getP("second")}`;
+  if (formattedJst !== "2026/11/12 12:53:22") {
+    throw new Error(`UTC→JST変換結果が期待値と異なります: ${formattedJst}`);
+  }
+  console.log(`✓ タイムスタンプUTC→JST変換テスト成功: "${rawSqliteUtc}" (UTC) -> "${formattedJst}" (Asia/Tokyo)`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }
