@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { User, SystemSettings } from "@/types";
 import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/dateUtils";
 import UserManageModal from "./UserManageModal";
+import PasswordChangeModal from "./PasswordChangeModal";
 
 interface LoginResult {
   ok: boolean;
@@ -21,6 +22,7 @@ interface UserContextValue {
   setCurrentUserById: (id: number) => void;
   refreshUsers: () => Promise<void>;
   openUserManageModal: () => void;
+  openPasswordChangeModal: () => void;
   settings: SystemSettings;
   refreshSettings: () => Promise<void>;
   updateSettings: (next: Partial<SystemSettings>) => Promise<SystemSettings>;
@@ -35,6 +37,7 @@ const UserContext = createContext<UserContextValue>({
   setCurrentUserById: () => {},
   refreshUsers: async () => {},
   openUserManageModal: () => {},
+  openPasswordChangeModal: () => {},
   settings: DEFAULT_SYSTEM_SETTINGS,
   refreshSettings: async () => {},
   updateSettings: async () => DEFAULT_SYSTEM_SETTINGS,
@@ -50,6 +53,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SYSTEM_SETTINGS);
 
   const refreshSettings = useCallback(async () => {
@@ -90,8 +94,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const refreshUsers = useCallback(async () => {
     try {
       const [usersRes, authRes] = await Promise.all([
-        fetch("/api/users"),
-        fetch("/api/auth"),
+        fetch("/api/users", { cache: "no-store" }),
+        fetch("/api/auth", { cache: "no-store" }),
       ]);
 
       let usersData: User[] = [];
@@ -170,17 +174,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   // ログアウト（セッション破棄 ＆ ログイン画面へ遷移）
   const logout = useCallback(async () => {
-    try {
-      await fetch("/api/auth", { method: "DELETE" });
-    } catch (err) {
-      console.error("ログアウトエラー:", err);
-    }
     setCurrentUserId(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem(STORAGE_KEY);
     }
     setIsManageOpen(false);
-    router.push("/login");
+    setIsPasswordModalOpen(false);
+    try {
+      await fetch("/api/auth", { method: "DELETE", cache: "no-store" });
+    } catch (err) {
+      console.error("ログアウトエラー:", err);
+    }
+    router.replace("/login");
   }, [router]);
 
   const setCurrentUserById = useCallback((id: number) => {
@@ -203,6 +208,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setCurrentUserById,
         refreshUsers,
         openUserManageModal: () => setIsManageOpen(true),
+        openPasswordChangeModal: () => setIsPasswordModalOpen(true),
         settings,
         refreshSettings,
         updateSettings,
@@ -216,6 +222,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         onSelectCurrentUser={(id) => setCurrentUserById(id)}
         onClose={() => setIsManageOpen(false)}
         onUpdated={refreshUsers}
+        onOpenPasswordChange={() => setIsPasswordModalOpen(true)}
+      />
+      <PasswordChangeModal
+        isOpen={isPasswordModalOpen}
+        currentUser={currentUser}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onSuccess={refreshUsers}
       />
     </UserContext.Provider>
   );

@@ -1,10 +1,10 @@
-// Backlog風グローバルヘッダー
+// オリジナリティ溢れるコズミック・インディゴ＆コーラルアンバー グローバルヘッダー
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Database, CheckCircle2, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Users, Crown, Settings, LogOut } from "lucide-react";
+import { Plus, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Users, Crown, Settings, LogOut, Sparkles, KeyRound } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -14,7 +14,7 @@ interface HeaderProps {
   selectedProjectId: number | null;
   onSelectProject: (id: number | null) => void;
   onOpenCreateIssue: () => void;
-  onOpenBackup: () => void;
+  onOpenBackup?: () => void;
 }
 
 export default function Header({
@@ -22,7 +22,6 @@ export default function Header({
   selectedProjectId,
   onSelectProject,
   onOpenCreateIssue,
-  onOpenBackup,
 }: HeaderProps) {
   const pathname = usePathname();
   const isBoard = pathname?.startsWith("/board");
@@ -30,66 +29,72 @@ export default function Header({
   const isAdmin = pathname?.startsWith("/admin");
   const isDashboard = pathname === "/" || (!isBoard && !isGantt && !isAdmin);
 
-  const { users, currentUser, logout, openUserManageModal } = useUser();
+  const { users, currentUser, logout, openUserManageModal, openPasswordChangeModal } = useUser();
 
   return (
-    <header className="bg-[#2ca078] text-white shadow-md sticky top-0 z-30">
+    <header className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] text-white shadow-lg border-b border-indigo-400/20 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
-          {/* 左側: ロゴとナビゲーション（ダッシュボード / ボード） */}
-          <div className="flex items-center gap-6">
-            {/* Backlog風ロゴ */}
+          {/* 左側: オリジナルロゴとナビゲーション（ダッシュボード / ボード / ガント / 管理） */}
+          <div className="flex items-center gap-4">
+            {/* オリジナルブランドロゴ */}
             <Link
               href="/"
-              className="flex items-center gap-2 cursor-pointer select-none group"
+              className="flex items-center gap-2.5 cursor-pointer select-none group whitespace-nowrap"
             >
-              <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center border border-white/30 group-hover:bg-white/30 transition-colors">
-                <CheckCircle2 className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500 via-amber-500 to-violet-500 p-[1.5px] shadow-md group-hover:scale-105 transition-transform">
+                <div className="w-full h-full bg-[#1e1b4b]/90 rounded-[10px] flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                </div>
               </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-lg leading-tight tracking-tight">Personal Backlog</span>
-                <span className="text-[10px] text-emerald-100 font-normal">チーム＆個人タスク管理</span>
+              <div className="flex flex-col leading-none">
+                <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-indigo-100 to-amber-200 bg-clip-text text-transparent">
+                  Personal Backlog
+                </span>
+                <span className="text-[9px] font-semibold tracking-widest text-indigo-300/90 uppercase">
+                  Twilight Studio
+                </span>
               </div>
             </Link>
 
             {/* ナビゲーションメニュー */}
-            <nav className="hidden md:flex items-center gap-1 pl-4 border-l border-white/20">
+            <nav className="hidden md:flex items-center gap-1 pl-3 border-l border-indigo-300/20">
               {/* ダッシュボードタブ */}
               <Link
                 href="/"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isDashboard
-                    ? "bg-white/20 text-white font-semibold"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                    ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
+                    : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <LayoutDashboard className="w-4 h-4" />
+                <LayoutDashboard className="w-3.5 h-3.5 text-amber-300" />
                 <span>ダッシュボード</span>
               </Link>
 
               {/* ボードタブ */}
               <Link
                 href="/board"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isBoard
-                    ? "bg-white/20 text-white font-semibold"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                    ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
+                    : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <Kanban className="w-4 h-4" />
+                <Kanban className="w-3.5 h-3.5 text-rose-300" />
                 <span>ボード</span>
               </Link>
 
               {/* ガントチャートタブ */}
               <Link
                 href="/gantt"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isGantt
-                    ? "bg-white/20 text-white font-semibold"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                    ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
+                    : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <ChartGantt className="w-4 h-4" />
+                <ChartGantt className="w-3.5 h-3.5 text-sky-300" />
                 <span>ガントチャート</span>
               </Link>
 
@@ -97,30 +102,30 @@ export default function Header({
               {Boolean(currentUser?.is_admin) && (
                 <Link
                   href="/admin"
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                     isAdmin
-                      ? "bg-white/20 text-white font-semibold"
-                      : "text-white/80 hover:bg-white/10 hover:text-white"
+                      ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
+                      : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <Settings className="w-4 h-4" />
+                  <Settings className="w-3.5 h-3.5 text-violet-300" />
                   <span>管理ページ</span>
                 </Link>
               )}
 
               {/* プロジェクト切り替えセレクトボックス */}
-              <div className="relative flex items-center ml-2">
-                <FolderGit2 className="w-4 h-4 text-white/70 absolute left-2.5 pointer-events-none" />
+              <div className="relative flex items-center ml-1.5">
+                <FolderGit2 className="w-3.5 h-3.5 text-indigo-200 absolute left-2.5 pointer-events-none" />
                 <select
                   value={selectedProjectId || ""}
                   onChange={(e) => onSelectProject(e.target.value ? Number(e.target.value) : null)}
-                  className="bg-emerald-800/60 text-white text-sm rounded-md pl-8 pr-4 py-1.5 border border-white/20 focus:outline-hidden focus:ring-2 focus:ring-white/40 cursor-pointer"
+                  className="bg-indigo-950/60 hover:bg-indigo-950/80 text-white text-xs rounded-lg pl-7 pr-3 py-1.5 max-w-[160px] lg:max-w-[200px] truncate border border-indigo-300/25 focus:outline-hidden focus:ring-2 focus:ring-amber-400/50 transition-colors cursor-pointer"
                 >
-                  <option value="" className="text-gray-900 bg-white">
+                  <option value="" className="text-slate-900 bg-white">
                     {isBoard || isGantt ? "すべてのプロジェクト" : "すべての課題"}
                   </option>
                   {projects.map((proj) => (
-                    <option key={proj.id} value={proj.id} className="text-gray-900 bg-white">
+                    <option key={proj.id} value={proj.id} className="text-slate-900 bg-white">
                       [{proj.key}] {proj.name}
                     </option>
                   ))}
@@ -129,14 +134,14 @@ export default function Header({
             </nav>
           </div>
 
-          {/* 右側: 課題の追加ボタン ＆ メンバー管理 ＆ バックアップ ＆ 操作ユーザー切替 */}
-          <div className="flex items-center gap-2.5">
-            {/* 課題追加ボタン（Backlog伝統の目立つ追加ボタン） */}
+          {/* 右側: 課題の追加ボタン ＆ メンバー管理 ＆ 操作ユーザー表示 */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* 課題追加ボタン（コーラルローズ〜アンバーの鮮やかなグラデーション） */}
             <button
               onClick={onOpenCreateIssue}
-              className="flex items-center gap-1.5 bg-[#f39c12] hover:bg-[#e67e22] text-white px-3.5 py-1.5 rounded-md font-semibold text-sm shadow-sm transition-all transform active:scale-95"
+              className="flex items-center gap-1 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white px-3.5 py-1.5 rounded-lg font-bold text-xs shadow-md shadow-rose-950/30 transition-all transform active:scale-95 whitespace-nowrap shrink-0 cursor-pointer border border-white/20"
             >
-              <Plus className="w-4 h-4 stroke-[3]" />
+              <Plus className="w-3.5 h-3.5 stroke-[3] shrink-0" />
               <span className="hidden sm:inline">課題の追加</span>
             </button>
 
@@ -144,59 +149,21 @@ export default function Header({
             <button
               onClick={openUserManageModal}
               title="チームメンバーの追加・管理"
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <Users className="w-4 h-4" />
+              <Users className="w-3.5 h-3.5 text-indigo-200 shrink-0" />
               <span className="hidden lg:inline">メンバー ({users.length})</span>
             </button>
 
-            {/* データバックアップ・復元ボタン（Admin権限） */}
-            <button
-              onClick={() => {
-                if (!currentUser?.is_admin) {
-                  alert("データのバックアップ・復元は管理者（Admin権限: 山田 太郎など）のみ実行できます。");
-                  return;
-                }
-                onOpenBackup();
-              }}
-              title={
-                currentUser?.is_admin
-                  ? "データのバックアップ・復元 (Admin)"
-                  : "データのバックアップ・復元 (Admin権限が必要)"
-              }
-              className={`p-2 rounded-md transition-colors ${
-                currentUser?.is_admin
-                  ? "hover:bg-white/10 text-white/90 hover:text-white"
-                  : "text-white/40 hover:bg-white/5 cursor-not-allowed"
-              }`}
-            >
-              <Database className="w-5 h-5" />
-            </button>
-
-            {/* 管理ページ（時刻設定・システム管理）ショートカット（Admin権限のみ） */}
-            {Boolean(currentUser?.is_admin) && (
-              <Link
-                href="/admin"
-                title="管理ページ（時刻設定・タイムゾーン・システム管理）"
-                className={`p-2 rounded-md transition-colors ${
-                  isAdmin
-                    ? "bg-white/25 text-white"
-                    : "hover:bg-white/10 text-white/90 hover:text-white"
-                }`}
-              >
-                <Settings className="w-5 h-5" />
-              </Link>
-            )}
-
             {/* ログイン中ユーザー表示 ＆ ログアウトボタン */}
-            <div className="flex items-center gap-2.5 pl-2 border-l border-white/20">
+            <div className="flex items-center gap-2 pl-2 border-l border-indigo-300/20 shrink-0">
               {currentUser ? (
                 <>
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="relative shrink-0">
                       <div
-                        style={{ backgroundColor: currentUser.color || "#065f46" }}
-                        className="w-7 h-7 rounded-full border-2 border-white/60 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0"
+                        style={{ backgroundColor: currentUser.color || "#4f46e5" }}
+                        className="w-7 h-7 rounded-full border-2 border-indigo-200/70 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0"
                         title={`ログイン中: ${currentUser.name} (ID: ${currentUser.login_id})`}
                       >
                         {getUserInitials(currentUser.name)}
@@ -210,22 +177,22 @@ export default function Header({
                         </span>
                       )}
                     </div>
-                    <div className="hidden sm:flex flex-col leading-tight">
+                    <div className="hidden sm:flex flex-col leading-tight whitespace-nowrap">
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-bold text-white">
+                        <span className="text-xs font-bold text-white whitespace-nowrap">
                           {currentUser.name}
                         </span>
                         <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
                             currentUser.is_admin
                               ? "bg-amber-300 text-amber-950"
-                              : "bg-white/20 text-white"
+                              : "bg-indigo-400/25 text-indigo-100"
                           }`}
                         >
                           {currentUser.is_admin ? "Admin" : "一般"}
                         </span>
                       </div>
-                      <span className="text-[10px] text-emerald-100 font-mono">
+                      <span className="text-[10px] text-indigo-200 font-mono whitespace-nowrap">
                         ID: {currentUser.login_id}
                       </span>
                     </div>
@@ -233,18 +200,28 @@ export default function Header({
 
                   <button
                     type="button"
+                    onClick={openPasswordChangeModal}
+                    title="自分のパスワードを変更"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-medium transition-all cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                    <span className="hidden xl:inline">パスワード変更</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={logout}
                     title="ログアウトして別IDでログイン"
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-950/40 hover:bg-emerald-950/70 border border-white/20 text-white text-xs font-semibold transition-colors cursor-pointer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-950/50 hover:bg-rose-600/80 border border-indigo-300/25 hover:border-rose-300/40 text-white text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-3.5 h-3.5 shrink-0" />
                     <span className="hidden md:inline">ログアウト</span>
                   </button>
                 </>
               ) : (
                 <Link
                   href="/login"
-                  className="px-3 py-1.5 rounded-md bg-white text-emerald-800 text-xs font-bold hover:bg-emerald-50 transition-colors"
+                  className="px-3 py-1.5 rounded-lg bg-white text-indigo-900 text-xs font-bold hover:bg-indigo-50 transition-colors whitespace-nowrap shrink-0"
                 >
                   ログイン
                 </Link>
