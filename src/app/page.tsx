@@ -201,11 +201,6 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* フッター */}
-      <footer className="bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-500 mt-auto">
-        <p>Personal Backlog - チーム＆個人タスク・プロジェクト管理</p>
-      </footer>
-
       {/* 課題追加モーダル */}
       <CreateIssueModal
         isOpen={isCreateIssueOpen}
