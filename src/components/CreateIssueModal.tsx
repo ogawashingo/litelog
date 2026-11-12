@@ -9,6 +9,7 @@ interface CreateIssueModalProps {
   isOpen: boolean;
   projects: Project[];
   selectedProjectId: number | null;
+  defaultStatus?: IssueStatus;
   onClose: () => void;
   onCreated: () => void;
 }
@@ -17,6 +18,7 @@ export default function CreateIssueModal({
   isOpen,
   projects,
   selectedProjectId,
+  defaultStatus = "open",
   onClose,
   onCreated,
 }: CreateIssueModalProps) {
@@ -26,11 +28,29 @@ export default function CreateIssueModal({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [issueType, setIssueType] = useState<IssueType>("task");
-  const [status, setStatus] = useState<IssueStatus>("open");
+  const [status, setStatus] = useState<IssueStatus>(defaultStatus);
   const [priority, setPriority] = useState<IssuePriority>("medium");
   const [dueDate, setDueDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // モーダルが開かれたときに初期状態を同期
+  React.useEffect(() => {
+    if (isOpen) {
+      if (selectedProjectId) {
+        setProjectId(selectedProjectId);
+      } else if (projects[0]) {
+        setProjectId(projects[0].id);
+      }
+      setStatus(defaultStatus);
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      setPriority("medium");
+      setIssueType("task");
+      setErrorMessage("");
+    }
+  }, [isOpen, selectedProjectId, defaultStatus, projects]);
 
   if (!isOpen) return null;
 

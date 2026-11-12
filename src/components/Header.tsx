@@ -2,7 +2,9 @@
 "use client";
 
 import React from "react";
-import { Plus, Database, CheckCircle2, FolderGit2 } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Plus, Database, CheckCircle2, FolderGit2, Kanban, LayoutDashboard } from "lucide-react";
 import { Project } from "@/types";
 
 interface HeaderProps {
@@ -20,35 +22,57 @@ export default function Header({
   onOpenCreateIssue,
   onOpenBackup,
 }: HeaderProps) {
+  const pathname = usePathname();
+  const isBoard = pathname?.startsWith("/board");
+  const isDashboard = pathname === "/" || !isBoard;
+
   return (
     <header className="bg-[#2ca078] text-white shadow-md sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
-          {/* 左側: ロゴとプロジェクト選択 */}
+          {/* 左側: ロゴとナビゲーション（ダッシュボード / ボード） */}
           <div className="flex items-center gap-6">
             {/* Backlog風ロゴ */}
-            <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => onSelectProject(null)}>
-              <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center border border-white/30">
+            <Link
+              href="/"
+              className="flex items-center gap-2 cursor-pointer select-none group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center border border-white/30 group-hover:bg-white/30 transition-colors">
                 <CheckCircle2 className="w-5 h-5 text-white" />
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-lg leading-tight tracking-tight">Personal Backlog</span>
                 <span className="text-[10px] text-emerald-100 font-normal">個人タスク・プロジェクト管理</span>
               </div>
-            </div>
+            </Link>
 
-            {/* ナビゲーション */}
+            {/* ナビゲーションメニュー */}
             <nav className="hidden md:flex items-center gap-1 pl-4 border-l border-white/20">
-              <button
-                onClick={() => onSelectProject(null)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  selectedProjectId === null
-                    ? "bg-white/20 text-white"
+              {/* ダッシュボードタブ */}
+              <Link
+                href="/"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  isDashboard
+                    ? "bg-white/20 text-white font-semibold"
                     : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                ダッシュボード
-              </button>
+                <LayoutDashboard className="w-4 h-4" />
+                <span>ダッシュボード</span>
+              </Link>
+
+              {/* ボードタブ */}
+              <Link
+                href="/board"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  isBoard
+                    ? "bg-white/20 text-white font-semibold"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Kanban className="w-4 h-4" />
+                <span>ボード</span>
+              </Link>
 
               {/* プロジェクト切り替えセレクトボックス */}
               <div className="relative flex items-center ml-2">
@@ -58,7 +82,9 @@ export default function Header({
                   onChange={(e) => onSelectProject(e.target.value ? Number(e.target.value) : null)}
                   className="bg-emerald-800/60 text-white text-sm rounded-md pl-8 pr-4 py-1.5 border border-white/20 focus:outline-hidden focus:ring-2 focus:ring-white/40 cursor-pointer"
                 >
-                  <option value="" className="text-gray-900 bg-white">すべてのプロジェクト</option>
+                  <option value="" className="text-gray-900 bg-white">
+                    {isBoard ? "すべてのプロジェクト" : "すべての課題"}
+                  </option>
                   {projects.map((proj) => (
                     <option key={proj.id} value={proj.id} className="text-gray-900 bg-white">
                       [{proj.key}] {proj.name}

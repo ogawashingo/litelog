@@ -139,7 +139,14 @@ async function runTests() {
   const activities = db.prepare("SELECT * FROM activities").all();
   console.log(`✓ アクティビティ取得成功: ${activities.length} 件`);
 
-  // 7. テスト課題の削除テスト
+  // 7. かんばんボード用ステータス別集計テスト
+  const boardCols = ["open", "in_progress", "resolved", "closed"];
+  for (const st of boardCols) {
+    const list = db.prepare("SELECT * FROM issues WHERE status = ?").all(st);
+    console.log(`✓ ボードレーン [${st}] 取得成功: ${list.length} 件`);
+  }
+
+  // 8. テスト課題の削除テスト
   db.prepare("DELETE FROM issues WHERE id = ?").run(createdId);
   const afterDelete = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);
   if (afterDelete) throw new Error("課題削除に失敗しました");

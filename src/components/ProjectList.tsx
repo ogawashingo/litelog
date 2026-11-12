@@ -2,7 +2,8 @@
 "use client";
 
 import React from "react";
-import { FolderPlus, Folder, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { FolderPlus, Folder, ChevronRight, Kanban } from "lucide-react";
 import { Project } from "@/types";
 
 interface ExtendedProject extends Project {
@@ -95,9 +96,20 @@ export default function ProjectList({
                 />
               </div>
 
-              <div className="flex justify-between items-center text-[11px] text-gray-500">
+              <div className="flex justify-between items-center text-[11px] text-gray-500 pt-1">
                 <span>未完了: <strong className="text-rose-600">{active}</strong> 件</span>
-                <span>完了: {completed} / 全 {total} 件</span>
+                <div className="flex items-center gap-2">
+                  <span>完了: {completed} / 全 {total} 件</span>
+                  <Link
+                    href={`/board/${encodeURIComponent(proj.key)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    title="このプロジェクトのボードを開く"
+                    className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded font-semibold transition-colors"
+                  >
+                    <Kanban className="w-3 h-3" />
+                    <span>ボード</span>
+                  </Link>
+                </div>
               </div>
             </div>
           );
