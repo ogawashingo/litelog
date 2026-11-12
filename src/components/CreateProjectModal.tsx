@@ -11,14 +11,14 @@ interface CreateProjectModalProps {
 }
 
 const COLOR_PALETTE = [
-  "#2ca078", // Backlogグリーン
-  "#2980b9", // ブルー
-  "#8e44ad", // パープル
-  "#e67e22", // オレンジ
-  "#e74c3c", // レッド
-  "#16a085", // ティール
-  "#34495e", // ネイビー
-  "#d35400", // ダークオレンジ
+  "#4f46e5", // コズミックインディゴ
+  "#7c3aed", // ロイヤルバイオレット
+  "#db2777", // マゼンタピンク
+  "#e11d48", // ローズレッド
+  "#ea580c", // コーラルオレンジ
+  "#d97706", // アンバーゴールド
+  "#0284c7", // スカイブルー
+  "#334155", // スレートネイビー
 ];
 
 export default function CreateProjectModal({
@@ -77,13 +77,13 @@ export default function CreateProjectModal({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="bg-[#2ca078] px-5 py-3.5 flex items-center justify-between text-white">
+      <div className="bg-white rounded-xl shadow-2xl border border-indigo-100 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-5 py-3.5 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
-            <FolderPlus className="w-5 h-5" />
+            <FolderPlus className="w-5 h-5 text-amber-300" />
             <h3 className="font-bold text-base">新規プロジェクトの作成</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/20 transition-colors">
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -96,22 +96,22 @@ export default function CreateProjectModal({
           )}
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
-              プロジェクト名 <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              プロジェクト名 <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               placeholder="例: 個人ブログリニューアル"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
-              プロジェクトキー（英数字） <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              プロジェクトキー（英数字） <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -119,14 +119,14 @@ export default function CreateProjectModal({
               value={key}
               onChange={(e) => setKey(e.target.value.toUpperCase())}
               maxLength={10}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 font-mono uppercase focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono uppercase focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               required
             />
-            <p className="text-[11px] text-gray-400 mt-1">課題キーの接頭辞になります（例: BLOG-1, BLOG-2）</p>
+            <p className="text-[11px] text-slate-400 mt-1">課題キーの接頭辞になります（例: BLOG-1, BLOG-2）</p>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
               プロジェクトカラー
             </label>
             <div className="flex items-center gap-2">
@@ -135,8 +135,8 @@ export default function CreateProjectModal({
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className={`w-7 h-7 rounded-full border-2 transition-transform ${
-                    color === c ? "scale-110 border-gray-800 ring-2 ring-offset-1 ring-gray-400" : "border-transparent hover:scale-105"
+                  className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${
+                    color === c ? "scale-110 border-slate-800 ring-2 ring-offset-1 ring-indigo-400" : "border-transparent hover:scale-105"
                   }`}
                   style={{ backgroundColor: c }}
                 />
@@ -144,18 +144,18 @@ export default function CreateProjectModal({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
             >
               キャンセル
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-1.5 rounded-lg bg-[#2ca078] hover:bg-[#238161] text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50"
+              className="px-5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? "作成中..." : "プロジェクトを作成"}
             </button>

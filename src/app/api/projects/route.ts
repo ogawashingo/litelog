@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       INSERT INTO projects (key, name, color)
       VALUES (?, ?, ?)
     `);
-    const result = insert.run(normalizedKey, name.trim(), color || "#2ca078");
+    const result = insert.run(normalizedKey, name.trim(), color || "#4f46e5");
 
     const created = db.prepare("SELECT * FROM projects WHERE id = ?").get(result.lastInsertRowid);
     return NextResponse.json(created, { status: 201 });

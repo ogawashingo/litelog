@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const status = searchParams.get("status");
     const issueType = searchParams.get("type");
     const priority = searchParams.get("priority");
+    const assigneeId = searchParams.get("assigneeId");
     const querySearch = searchParams.get("q");
 
     let sql = `
@@ -20,10 +21,15 @@ export async function GET(request: Request) {
         p.name AS project_name,
         p.color AS project_color,
         parent.issue_key AS parent_issue_key,
-        parent.title AS parent_title
+        parent.title AS parent_title,
+        u.name AS assignee_name,
+        u.color AS assignee_color,
+        creator.name AS creator_name
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN issues parent ON i.parent_id = parent.id
+      LEFT JOIN users u ON i.assignee_id = u.id
+      LEFT JOIN users creator ON i.created_by = creator.id
       WHERE 1=1
     `;
     const params: (string | number)[] = [];
@@ -46,6 +52,15 @@ export async function GET(request: Request) {
     if (priority && priority !== "all") {
       sql += " AND i.priority = ?";
       params.push(priority);
+    }
+
+    if (assigneeId && assigneeId !== "all") {
+      if (assigneeId === "unassigned") {
+        sql += " AND i.assignee_id IS NULL";
+      } else {
+        sql += " AND i.assignee_id = ?";
+        params.push(Number(assigneeId));
+      }
     }
 
     if (querySearch) {
@@ -72,6 +87,8 @@ export async function POST(request: Request) {
     const {
       projectId,
       parentId = null,
+      assigneeId = null,
+      actorId = null,
       title,
       description = "",
       issueType = "task",
@@ -107,13 +124,18 @@ export async function POST(request: Request) {
     const issueKey = `${project.key}-${nextNum}`;
 
     const insert = db.prepare(`
-      INSERT INTO issues (project_id, parent_id, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO issues (project_id, parent_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
+
+    const resolvedAssigneeId = assigneeId ? Number(assigneeId) : null;
+    const resolvedActorId = actorId ? Number(actorId) : null;
 
     const result = insert.run(
       projectId,
       parentId || null,
+      resolvedAssigneeId,
+      resolvedActorId,
       issueKey,
       nextNum,
       title.trim(),
@@ -129,10 +151,10 @@ export async function POST(request: Request) {
 
     // アクティビティ履歴を記録
     const insertActivity = db.prepare(`
-      INSERT INTO activities (issue_id, action_type, content)
-      VALUES (?, 'created', ?)
+      INSERT INTO activities (issue_id, user_id, action_type, content)
+      VALUES (?, ?, 'created', ?)
     `);
-    insertActivity.run(issueId, `課題 [${issueKey}] 「${title.trim()}」を追加しました`);
+    insertActivity.run(issueId, resolvedActorId, `課題 [${issueKey}] 「${title.trim()}」を追加しました`);
 
     const created = db.prepare(`
       SELECT 
@@ -140,10 +162,15 @@ export async function POST(request: Request) {
         p.name AS project_name, 
         p.color AS project_color,
         parent.issue_key AS parent_issue_key,
-        parent.title AS parent_title
+        parent.title AS parent_title,
+        u.name AS assignee_name,
+        u.color AS assignee_color,
+        creator.name AS creator_name
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN issues parent ON i.parent_id = parent.id
+      LEFT JOIN users u ON i.assignee_id = u.id
+      LEFT JOIN users creator ON i.created_by = creator.id
       WHERE i.id = ?
     `).get(issueId);
 

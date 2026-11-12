@@ -1,4 +1,4 @@
-// Backlog風の課題一覧テーブルコンポーネント（チーム全体／自分の課題／担当者別フィルター対応）
+// 課題一覧テーブルコンポーネント（チーム全体／自分の課題／担当者別フィルター対応）
 "use client";
 
 import React, { useState } from "react";
@@ -138,31 +138,31 @@ export default function IssueList({
   });
 
   return (
-    <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden">
+    <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
       {/* リストヘッダー & フィルターコントロール */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50/50 flex flex-wrap items-center justify-between gap-3">
+      <div className="p-4 border-b border-slate-200/80 bg-gradient-to-r from-indigo-50/40 via-white to-violet-50/40 flex flex-wrap items-center justify-between gap-3">
         {/* タイトル・クイック切替タブ（すべて / 自分の担当） */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-gray-800 text-base">
+            <h3 className="font-bold text-slate-800 text-base">
               {assigneeFilter === "me" && currentUser
                 ? `${currentUser.name} の担当課題`
                 : "課題一覧"}
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
               {sortedIssues.length} 件
             </span>
           </div>
 
           {/* ワンクリック切替ピル */}
-          <div className="flex items-center bg-gray-200/70 p-0.5 rounded-lg text-xs">
+          <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-xs">
             <button
               type="button"
               onClick={() => setAssigneeFilter("all")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                 assigneeFilter === "all"
-                  ? "bg-white text-emerald-800 shadow-2xs"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-white text-indigo-800 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <Users className="w-3.5 h-3.5" />
@@ -171,10 +171,10 @@ export default function IssueList({
             <button
               type="button"
               onClick={() => setAssigneeFilter("me")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                 assigneeFilter === "me"
-                  ? "bg-white text-emerald-800 shadow-2xs"
-                  : "text-gray-600 hover:text-gray-900"
+                  ? "bg-white text-indigo-800 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
@@ -187,13 +187,13 @@ export default function IssueList({
         <div className="flex flex-wrap items-center gap-2 text-sm w-full sm:w-auto">
           {/* キーワード検索 */}
           <div className="relative flex-1 sm:w-44">
-            <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="課題を検索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-300 rounded-md text-xs focus:outline-hidden focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
@@ -201,7 +201,7 @@ export default function IssueList({
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-xs text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">担当者: すべて</option>
             {currentUser && (
@@ -219,7 +219,7 @@ export default function IssueList({
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as IssueType | "all")}
-            className="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-xs text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">種別: すべて</option>
             <option value="task">タスク</option>
@@ -232,7 +232,7 @@ export default function IssueList({
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value as IssuePriority | "all")}
-            className="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-xs text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">優先度: すべて</option>
             <option value="high">優先度: 高</option>
@@ -244,7 +244,7 @@ export default function IssueList({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as "due" | "updated" | "priority")}
-            className="bg-white border border-gray-300 rounded-md px-2 py-1.5 text-xs text-gray-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="due">ソート: 期限順</option>
             <option value="updated">ソート: 更新順</option>
@@ -257,7 +257,7 @@ export default function IssueList({
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="bg-gray-100/70 border-b border-gray-200 text-gray-600 font-semibold text-xs uppercase tracking-wider">
+            <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
               <th className="py-2.5 px-3 w-20 whitespace-nowrap">種別</th>
               <th className="py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
               <th className="py-2.5 px-3 min-w-[240px]">件名</th>
@@ -268,14 +268,14 @@ export default function IssueList({
               <th className="py-2.5 px-2 w-10 text-center"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-slate-100">
             {sortedIssues.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-gray-400">
+                <td colSpan={8} className="py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
-                    <Filter className="w-8 h-8 text-gray-300" />
+                    <Filter className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-medium">該当する課題が見つかりません</p>
-                    <p className="text-xs text-gray-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+                    <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
                   </div>
                 </td>
               </tr>
@@ -283,13 +283,13 @@ export default function IssueList({
               sortedIssues.map((issue) => {
                 const dueInfo = formatDueDate(issue.due_date);
                 const isClosed = issue.status === "closed";
-                const assigneeColor = issue.assignee_color || "#9ca3af";
+                const assigneeColor = issue.assignee_color || "#4f46e5";
 
                 return (
                   <tr
                     key={issue.id}
-                    className={`hover:bg-emerald-50/30 transition-colors group ${
-                      isClosed ? "bg-gray-50/60 text-gray-400" : ""
+                    className={`hover:bg-indigo-50/40 transition-colors group ${
+                      isClosed ? "bg-slate-50/60 text-slate-400" : ""
                     }`}
                   >
                     {/* 種別 */}
@@ -301,7 +301,7 @@ export default function IssueList({
                     <td className="py-3 px-3 whitespace-nowrap">
                       <button
                         onClick={() => onSelectIssue(issue)}
-                        className="font-bold text-emerald-700 hover:text-emerald-900 hover:underline text-xs"
+                        className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-xs font-mono cursor-pointer"
                       >
                         {issue.issue_key}
                       </button>
@@ -313,8 +313,8 @@ export default function IssueList({
                         <button
                           onClick={() => onSelectIssue(issue)}
                           title={issue.title}
-                          className={`text-left font-medium hover:text-emerald-700 transition-colors max-w-full ${
-                            isClosed ? "text-gray-500" : "text-gray-900"
+                          className={`text-left font-medium hover:text-indigo-700 transition-colors max-w-full cursor-pointer ${
+                            isClosed ? "text-slate-500" : "text-slate-900"
                           }`}
                         >
                           <span
@@ -328,7 +328,7 @@ export default function IssueList({
                         {issue.project_name && (
                           <span
                             title={issue.project_name}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 shrink-0 max-w-[160px] truncate"
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0 max-w-[160px] truncate font-medium"
                           >
                             {issue.project_name}
                           </span>
@@ -355,7 +355,7 @@ export default function IssueList({
                             }
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-xs bg-transparent hover:bg-gray-100 border border-transparent hover:border-gray-300 rounded px-1 py-0.5 text-gray-700 font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-emerald-500 max-w-[110px] truncate"
+                          className="text-xs bg-transparent hover:bg-slate-100 border border-transparent hover:border-slate-300 rounded px-1 py-0.5 text-slate-700 font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-indigo-500 max-w-[110px] truncate"
                         >
                           <option value="">未割当</option>
                           {users.map((u) => (
@@ -377,7 +377,7 @@ export default function IssueList({
                           ISSUE_STATUS_CONFIG[issue.status].bg
                         } ${ISSUE_STATUS_CONFIG[issue.status].text} ${
                           ISSUE_STATUS_CONFIG[issue.status].border
-                        } focus:outline-hidden focus:ring-1 focus:ring-emerald-500`}
+                        } focus:outline-hidden focus:ring-1 focus:ring-indigo-500`}
                       >
                         <option value="open">未対応</option>
                         <option value="in_progress">処理中</option>
@@ -397,17 +397,17 @@ export default function IssueList({
                         <div
                           className={`flex items-center gap-1 font-medium ${
                             dueInfo.isOverdue && !isClosed
-                              ? "text-red-600 font-bold"
+                              ? "text-rose-600 font-bold"
                               : dueInfo.isToday && !isClosed
                               ? "text-amber-600 font-bold"
-                              : "text-gray-600"
+                              : "text-slate-600"
                           }`}
                         >
                           <Calendar className="w-3.5 h-3.5 shrink-0" />
                           <span>{dueInfo.text}</span>
                         </div>
                       ) : (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-slate-400">-</span>
                       )}
                     </td>
 
@@ -421,7 +421,7 @@ export default function IssueList({
                           }
                         }}
                         title="課題を削除"
-                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 rounded transition-all"
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded transition-all cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

@@ -80,7 +80,7 @@ export async function POST(request: Request) {
             u.name,
             u.role || (isAdminVal ? "管理者" : "メンバー"),
             isAdminVal,
-            u.color || "#2ca078",
+            u.color || "#4f46e5",
             u.created_at || new Date().toISOString()
           );
         }
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
         VALUES (?, ?, ?, ?, ?)
       `);
       for (const p of projects) {
-        insertProj.run(p.id, p.key, p.name, p.color || "#2ca078", p.created_at || new Date().toISOString());
+        insertProj.run(p.id, p.key, p.name, p.color || "#4f46e5", p.created_at || new Date().toISOString());
       }
 
       const insertIssue = db.prepare(`

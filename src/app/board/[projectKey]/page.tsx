@@ -122,7 +122,7 @@ export default function ProjectBoardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-sans">
+    <div className="min-h-screen bg-transparent flex flex-col font-sans">
       {/* グローバルヘッダー */}
       <Header
         projects={projects}

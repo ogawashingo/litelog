@@ -22,7 +22,7 @@ async function runTests() {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'メンバー',
       is_admin INTEGER NOT NULL DEFAULT 0,
-      color TEXT NOT NULL DEFAULT '#2ca078',
+      color TEXT NOT NULL DEFAULT '#4f46e5',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -71,9 +71,13 @@ async function runTests() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
-      color TEXT NOT NULL DEFAULT '#2ca078',
+      color TEXT NOT NULL DEFAULT '#4f46e5',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+  `);
+  db.exec(`
+    UPDATE users SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
+    UPDATE projects SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
   `);
   db.exec(`
     CREATE TABLE IF NOT EXISTS issues (
@@ -169,7 +173,7 @@ async function runTests() {
   const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
   if (userCount === 0) {
     const insertUser = db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, color) VALUES (?, ?, ?, ?, ?, ?)");
-    const u1 = insertUser.run("yamada", "yamada123", "山田 太郎", "管理者", 1, "#2ca078").lastInsertRowid;
+    const u1 = insertUser.run("yamada", "yamada123", "山田 太郎", "管理者", 1, "#4f46e5").lastInsertRowid;
     const u2 = insertUser.run("sato", "sato123", "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
     insertUser.run("suzuki", "suzuki123", "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
     db.prepare("UPDATE issues SET assignee_id = ?, created_by = ? WHERE assignee_id IS NULL").run(u1, u1);
@@ -183,7 +187,7 @@ async function runTests() {
   if (projCount === 0) {
     db.prepare(`
       INSERT INTO projects (key, name, color)
-      VALUES ('MYPRJ', '個人メインプロジェクト', '#2ca078')
+      VALUES ('MYPRJ', '個人メインプロジェクト', '#4f46e5')
     `).run();
     console.log("✓ 初期プロジェクト「MYPRJ」を作成しました");
   }

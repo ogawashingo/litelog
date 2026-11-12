@@ -157,8 +157,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f6f7] flex flex-col font-sans">
-      {/* Backlogヘッダー */}
+    <div className="min-h-screen bg-transparent flex flex-col font-sans">
+      {/* グローバルヘッダー */}
       <Header
         projects={projects}
         selectedProjectId={selectedProjectId}

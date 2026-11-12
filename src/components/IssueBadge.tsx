@@ -5,38 +5,38 @@ import React from "react";
 import { CheckSquare, Bug, Sparkles, HelpCircle, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
 import { IssueType, IssueStatus, IssuePriority } from "@/types";
 
-// 種別情報マッピング
+// 種別情報マッピング（オリジナル・コズミックカラーパレット）
 export const ISSUE_TYPE_CONFIG: Record<
   IssueType,
   { label: string; bg: string; text: string; icon: React.ElementType }
 > = {
   task: {
     label: "タスク",
-    bg: "bg-blue-500",
+    bg: "bg-indigo-600",
     text: "text-white",
     icon: CheckSquare,
   },
   bug: {
     label: "バグ",
-    bg: "bg-red-500",
+    bg: "bg-rose-600",
     text: "text-white",
     icon: Bug,
   },
   request: {
     label: "要望",
-    bg: "bg-emerald-600",
+    bg: "bg-amber-500",
     text: "text-white",
     icon: Sparkles,
   },
   other: {
     label: "その他",
-    bg: "bg-slate-500",
+    bg: "bg-violet-600",
     text: "text-white",
     icon: HelpCircle,
   },
 };
 
-// ステータス情報マッピング（Backlog標準カラー準拠）
+// ステータス情報マッピング（緑を排除したオリジナル配色：ローズ／スカイ／バイオレット／スレート）
 export const ISSUE_STATUS_CONFIG: Record<
   IssueStatus,
   { label: string; bg: string; text: string; border: string }
@@ -55,15 +55,15 @@ export const ISSUE_STATUS_CONFIG: Record<
   },
   resolved: {
     label: "処理済み",
-    bg: "bg-teal-50",
-    text: "text-teal-700",
-    border: "border-teal-300",
+    bg: "bg-violet-50",
+    text: "text-violet-700",
+    border: "border-violet-300",
   },
   closed: {
     label: "完了",
-    bg: "bg-gray-100",
-    text: "text-gray-600",
-    border: "border-gray-300",
+    bg: "bg-slate-100",
+    text: "text-slate-600",
+    border: "border-slate-300",
   },
 };
 
@@ -74,7 +74,7 @@ export const ISSUE_PRIORITY_CONFIG: Record<
 > = {
   high: {
     label: "高",
-    text: "text-red-600 font-bold",
+    text: "text-rose-600 font-bold",
     icon: ArrowUp,
   },
   medium: {
@@ -103,7 +103,7 @@ export function TypeBadge({
     <span
       className={`inline-flex items-center gap-1 ${
         showLabel ? "px-2 py-0.5" : "p-1"
-      } rounded text-xs font-medium ${config.bg} ${config.text} shadow-xs`}
+      } rounded-md text-xs font-semibold ${config.bg} ${config.text} shadow-2xs`}
       title={config.label}
     >
       <Icon className="w-3 h-3" />

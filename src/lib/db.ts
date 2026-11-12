@@ -37,7 +37,7 @@ function initDb(db: DatabaseSync) {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'メンバー',
       is_admin INTEGER NOT NULL DEFAULT 0,
-      color TEXT NOT NULL DEFAULT '#2ca078',
+      color TEXT NOT NULL DEFAULT '#4f46e5',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -99,10 +99,20 @@ function initDb(db: DatabaseSync) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       key TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
-      color TEXT NOT NULL DEFAULT '#2ca078',
+      color TEXT NOT NULL DEFAULT '#4f46e5',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // 旧緑系テーマカラーが登録されているユーザー・プロジェクトをインディゴ(#4f46e5)へ移行
+  try {
+    db.exec(`
+      UPDATE users SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
+      UPDATE projects SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
+    `);
+  } catch (colorMigErr) {
+    console.error("テーマカラーマイグレーション確認エラー:", colorMigErr);
+  }
 
   // 課題（タスク）テーブル
   db.exec(`
@@ -188,6 +198,29 @@ function initDb(db: DatabaseSync) {
     if (!activityCols.some((col) => col.name === "user_id")) {
       db.exec("ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
     }
+    // 既存の「〜にコメントを追加しました」というアクティビティ文言を実際のコメント内容へマイグレーション
+    db.exec(`
+      UPDATE activities
+      SET content = COALESCE(
+        (
+          SELECT c.content
+          FROM comments c
+          WHERE c.issue_id = activities.issue_id
+            AND c.created_at = activities.created_at
+          LIMIT 1
+        ),
+        (
+          SELECT c.content
+          FROM comments c
+          WHERE c.issue_id = activities.issue_id
+          ORDER BY ABS(strftime('%s', c.created_at) - strftime('%s', activities.created_at)) ASC
+          LIMIT 1
+        ),
+        content
+      )
+      WHERE action_type = 'commented'
+        AND content LIKE '%にコメントを追加しました%';
+    `);
   } catch (migErr) {
     console.error("activities テーブルのカラムマイグレーション確認エラー:", migErr);
   }
@@ -218,7 +251,7 @@ function initDb(db: DatabaseSync) {
     const insertUser = db.prepare(`
       INSERT INTO users (login_id, password, name, role, is_admin, color) VALUES (?, ?, ?, ?, ?, ?)
     `);
-    const u1 = insertUser.run("yamada", "yamada123", "山田 太郎", "管理者", 1, "#2ca078").lastInsertRowid;
+    const u1 = insertUser.run("yamada", "yamada123", "山田 太郎", "管理者", 1, "#4f46e5").lastInsertRowid;
     const u2 = insertUser.run("sato", "sato123", "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
     insertUser.run("suzuki", "suzuki123", "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
 
@@ -241,7 +274,7 @@ function initDb(db: DatabaseSync) {
     // デフォルトプロジェクト作成
     const insertProj = db.prepare(`
       INSERT INTO projects (key, name, color)
-      VALUES ('MYPRJ', 'メインプロジェクト', '#2ca078')
+      VALUES ('MYPRJ', 'メインプロジェクト', '#4f46e5')
     `);
     const projResult = insertProj.run();
     const projId = projResult.lastInsertRowid;

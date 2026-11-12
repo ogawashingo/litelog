@@ -23,6 +23,8 @@ import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge } from "./IssueBadge";
 import IssueDetailModal from "./IssueDetailModal";
 import CreateIssueModal from "./CreateIssueModal";
+import { useUser } from "./UserContext";
+import { getUserInitials } from "./UserManageModal";
 import {
   parseDateString,
   formatDateString,
@@ -53,29 +55,29 @@ const SCALE_CELL_WIDTH: Record<ViewScale, number> = {
   months: 5,
 };
 
-// ステータスに応じたバーの配色設定
+// ステータスに応じたバーの配色設定（緑を排除したオリジナルカラー）
 const STATUS_BAR_STYLES: Record<
   IssueStatus,
   { bg: string; border: string; text: string }
 > = {
   open: {
-    bg: "bg-blue-500",
-    border: "border-blue-600",
+    bg: "bg-rose-500",
+    border: "border-rose-600",
     text: "text-white",
   },
   in_progress: {
-    bg: "bg-[#2ca078]",
-    border: "border-[#238161]",
+    bg: "bg-indigo-600",
+    border: "border-indigo-700",
     text: "text-white",
   },
   resolved: {
-    bg: "bg-teal-500",
-    border: "border-teal-600",
+    bg: "bg-violet-500",
+    border: "border-violet-600",
     text: "text-white",
   },
   closed: {
-    bg: "bg-gray-400",
-    border: "border-gray-500",
+    bg: "bg-slate-400",
+    border: "border-slate-500",
     text: "text-white",
   },
 };
@@ -194,8 +196,11 @@ export default function GanttChart({
   // 折りたたまれている親課題IDのSet
   const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set());
 
+  const { users, currentUser } = useUser();
+
   // フィルター用State
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterType, setFilterType] = useState<IssueType | "all">("all");
   const [filterStatus, setFilterStatus] = useState<IssueStatus | "all">("all");
   const [filterPriority, setFilterPriority] = useState<IssuePriority | "all">("all");
@@ -267,6 +272,13 @@ export default function GanttChart({
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
       if (!showClosed && issue.status === "closed") return false;
+      if (filterAssignee === "me") {
+        if (!currentUser || issue.assignee_id !== currentUser.id) return false;
+      } else if (filterAssignee === "unassigned") {
+        if (issue.assignee_id !== null && issue.assignee_id !== undefined) return false;
+      } else if (filterAssignee !== "all") {
+        if (issue.assignee_id !== Number(filterAssignee)) return false;
+      }
       if (filterType !== "all" && issue.issue_type !== filterType) return false;
       if (filterStatus !== "all" && issue.status !== filterStatus) return false;
       if (filterPriority !== "all" && issue.priority !== filterPriority) return false;
@@ -275,11 +287,12 @@ export default function GanttChart({
         const inKey = issue.issue_key.toLowerCase().includes(query);
         const inTitle = issue.title.toLowerCase().includes(query);
         const inDesc = (issue.description || "").toLowerCase().includes(query);
-        if (!inKey && !inTitle && !inDesc) return false;
+        const inAssignee = (issue.assignee_name || "").toLowerCase().includes(query);
+        if (!inKey && !inTitle && !inDesc && !inAssignee) return false;
       }
       return true;
     });
-  }, [issues, showClosed, filterType, filterStatus, filterPriority, searchQuery]);
+  }, [issues, showClosed, filterAssignee, currentUser, filterType, filterStatus, filterPriority, searchQuery]);
 
   // 親子関係ツリー構造の構築（withParentRelation に対応）
   const displayRows = useMemo<DisplayRow[]>(() => {
@@ -559,19 +572,19 @@ export default function GanttChart({
   return (
     <div className="space-y-4">
       {/* ツールバー / フィルター・コントロールバー */}
-      <div className="bg-white rounded-lg shadow-xs border border-gray-200 p-4">
+      <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* 左側: プロジェクト選択とタイトル */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <div
                 className="w-3.5 h-7 rounded-sm"
-                style={{ backgroundColor: currentProject?.color || "#2ca078" }}
+                style={{ backgroundColor: currentProject?.color || "#4f46e5" }}
               />
-              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <span>{currentProject ? currentProject.name : "すべてのプロジェクト"}</span>
                 {currentProject && (
-                  <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                  <span className="text-sm font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
                     {currentProject.key}
                   </span>
                 )}
@@ -588,7 +601,7 @@ export default function GanttChart({
                       onSelectProjectKey(e.target.value);
                     }
                   }}
-                  className="text-xs bg-gray-50 border border-gray-300 rounded-md px-2.5 py-1.5 text-gray-700 hover:bg-gray-100 cursor-pointer font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 cursor-pointer font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">すべてのプロジェクト</option>
                   {projects.map((proj) => (
@@ -604,10 +617,10 @@ export default function GanttChart({
             {currentProject && (
               <Link
                 href={`/board/${encodeURIComponent(currentProject.key)}`}
-                className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md font-medium border border-gray-300 transition-colors"
+                className="inline-flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg font-semibold border border-indigo-200 transition-colors"
                 title="かんばんボードで確認"
               >
-                <Kanban className="w-3.5 h-3.5 text-gray-500" />
+                <Kanban className="w-3.5 h-3.5 text-indigo-600" />
                 <span>ボード</span>
               </Link>
             )}
@@ -616,22 +629,40 @@ export default function GanttChart({
           {/* 右側: 検索・フィルター・課題追加 */}
           <div className="flex flex-wrap items-center gap-2">
             {/* 検索入力 */}
-            <div className="relative min-w-[160px] max-w-xs">
-              <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="relative min-w-[150px] max-w-xs">
+              <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="課題を検索..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs pl-8 pr-3 py-1.5 border border-gray-300 rounded-md bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="w-full text-xs pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
+
+            {/* 担当者フィルター */}
+            <select
+              value={filterAssignee}
+              onChange={(e) => setFilterAssignee(e.target.value)}
+              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">担当者: すべて</option>
+              {currentUser && (
+                <option value="me">担当者: 自分 ({currentUser.name})</option>
+              )}
+              <option value="unassigned">担当者: 未割当</option>
+              {users.map((u) => (
+                <option key={u.id} value={String(u.id)}>
+                  担当者: {u.name}
+                </option>
+              ))}
+            </select>
 
             {/* 種別フィルター */}
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as IssueType | "all")}
-              className="text-xs bg-white border border-gray-300 rounded-md px-2 py-1.5 text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">種別: すべて</option>
               <option value="task">タスク</option>
@@ -644,7 +675,7 @@ export default function GanttChart({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as IssueStatus | "all")}
-              className="text-xs bg-white border border-gray-300 rounded-md px-2 py-1.5 text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">状態: すべて</option>
               <option value="open">未対応</option>
@@ -657,7 +688,7 @@ export default function GanttChart({
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value as IssuePriority | "all")}
-              className="text-xs bg-white border border-gray-300 rounded-md px-2 py-1.5 text-gray-700 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">優先度: すべて</option>
               <option value="high">高</option>
@@ -668,14 +699,14 @@ export default function GanttChart({
             {/* 完了課題の表示トグル */}
             <button
               onClick={() => setShowClosed(!showClosed)}
-              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border transition-colors ${
+              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
                 showClosed
-                  ? "bg-gray-100 text-gray-700 border-gray-300"
-                  : "bg-white text-gray-400 border-gray-200"
+                  ? "bg-indigo-50/70 text-indigo-800 border-indigo-200"
+                  : "bg-white text-slate-400 border-slate-200"
               }`}
               title="完了した課題の表示を切り替えます"
             >
-              <CheckCircle2 className={`w-3.5 h-3.5 ${showClosed ? "text-emerald-600" : "text-gray-400"}`} />
+              <CheckCircle2 className={`w-3.5 h-3.5 ${showClosed ? "text-indigo-600" : "text-slate-400"}`} />
               <span>完了を含む</span>
             </button>
 
@@ -685,7 +716,7 @@ export default function GanttChart({
                 setCreateDefaultParentId(null);
                 setIsCreateOpen(true);
               }}
-              className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-md bg-[#2ca078] hover:bg-[#238161] text-white shadow-xs transition-colors"
+              className="flex items-center gap-1 text-xs font-bold px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-xs transition-all cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>課題の追加</span>
@@ -693,30 +724,30 @@ export default function GanttChart({
           </div>
         </div>
 
-        {/* ガントチャート専用コントローラー行（Backlog仕様準拠: 開始日 / スパン / スケール / 親子関係） */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-3 border-t border-gray-100">
+        {/* ガントチャート専用コントローラー行（開始日 / スパン / スケール / 親子関係） */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-3 border-t border-slate-100">
           {/* 左側：期間移動と開始日(startDate)・表示スパン(span) */}
           <div className="flex flex-wrap items-center gap-3">
             {/* 前へ / 今日 / 次へ */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => handleShiftPeriod(-1)}
-                className="p-1.5 rounded hover:bg-gray-100 text-gray-600 border border-gray-300 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
                 title="1ヶ月前へ移動"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={handleGoToToday}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 rounded-lg transition-colors cursor-pointer"
                 title="今日の日付へ移動"
               >
-                <CalendarIcon className="w-3.5 h-3.5 text-emerald-600" />
+                <CalendarIcon className="w-3.5 h-3.5 text-indigo-600" />
                 <span>今日</span>
               </button>
               <button
                 onClick={() => handleShiftPeriod(1)}
-                className="p-1.5 rounded hover:bg-gray-100 text-gray-600 border border-gray-300 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
                 title="1ヶ月先へ移動"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -725,7 +756,7 @@ export default function GanttChart({
 
             {/* 開始日指定（startDate） */}
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-gray-500 font-semibold">開始日:</span>
+              <span className="text-slate-500 font-semibold">開始日:</span>
               <input
                 type="date"
                 value={formatDateString(startDate)}
@@ -736,13 +767,13 @@ export default function GanttChart({
                     updateUrlParams({ startDate: nextD });
                   }
                 }}
-                className="bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             {/* 表示スパン指定（span） */}
             <div className="flex items-center gap-1.5 text-xs">
-              <span className="text-gray-500 font-semibold">表示期間:</span>
+              <span className="text-slate-500 font-semibold">表示期間:</span>
               <select
                 value={span}
                 onChange={(e) => {
@@ -750,7 +781,7 @@ export default function GanttChart({
                   setSpan(nextSpan);
                   updateUrlParams({ span: nextSpan });
                 }}
-                className="bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 font-semibold cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 font-semibold cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               >
                 <option value={1}>1ヶ月</option>
                 <option value={3}>3ヶ月</option>
@@ -763,7 +794,7 @@ export default function GanttChart({
           {/* 右側：親子関係トグル(withParentRelation) ・ スケール(scale) ・ 一覧開閉 */}
           <div className="flex flex-wrap items-center gap-3">
             {/* 親子課題関連の表示切り替え (withParentRelation) */}
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 cursor-pointer select-none bg-gray-50 hover:bg-gray-100 border border-gray-300 px-2.5 py-1 rounded-md transition-colors">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 py-1 rounded-lg transition-colors">
               <input
                 type="checkbox"
                 checked={withParentRelation}
@@ -772,14 +803,14 @@ export default function GanttChart({
                   setWithParentRelation(val);
                   updateUrlParams({ withParentRelation: val });
                 }}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
-              <GitBranch className="w-3.5 h-3.5 text-emerald-600" />
+              <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
               <span>親子課題を表示</span>
             </label>
 
             {/* スケール切替ボタングループ (scale=days/weeks/months) */}
-            <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
               {[
                 { value: "days" as ViewScale, label: "日" },
                 { value: "weeks" as ViewScale, label: "週" },
@@ -791,10 +822,10 @@ export default function GanttChart({
                     setScale(item.value);
                     updateUrlParams({ scale: item.value });
                   }}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
                     scale === item.value
-                      ? "bg-white text-emerald-800 shadow-xs"
-                      : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white text-indigo-800 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {item.label}
@@ -831,10 +862,11 @@ export default function GanttChart({
           <div className="w-[380px] md:w-[450px] shrink-0 border-r border-gray-200 flex flex-col bg-white select-none">
             {/* テーブルヘッダー（高さ: 52px = 右側の2段ヘッダーと正確に一致） */}
             <div className="h-[52px] bg-gray-50 border-b border-gray-200 flex items-center px-3 text-xs font-bold text-gray-600">
-              <div className="w-[115px] shrink-0">課題キー</div>
+              <div className="w-[105px] shrink-0">課題キー</div>
               <div className="flex-1 min-w-0 pr-2">件名</div>
-              <div className="w-[72px] shrink-0 text-center">状態</div>
-              <div className="w-[82px] shrink-0 text-center">期限日</div>
+              <div className="w-[34px] shrink-0 text-center">担当</div>
+              <div className="w-[70px] shrink-0 text-center">状態</div>
+              <div className="w-[62px] shrink-0 text-center">期限日</div>
             </div>
 
             {/* 課題一覧ボディ（タイムラインと連動して縦スクロール） */}
@@ -864,17 +896,17 @@ export default function GanttChart({
                       style={{ height: `${ROW_HEIGHT}px` }}
                       className={`group flex items-center px-3 text-xs transition-colors ${
                         hasChildren ? "bg-slate-50/70 font-semibold" : ""
-                      } ${isHovered ? "bg-emerald-50/70" : "hover:bg-gray-50/80"}`}
+                      } ${isHovered ? "bg-indigo-50/70" : "hover:bg-slate-50/80"}`}
                     >
                       {/* 課題キー ＆ 展開トグル/ツリーアイコン ＆ 種別アイコン */}
-                      <div className="w-[115px] shrink-0 flex items-center gap-1">
+                      <div className="w-[105px] shrink-0 flex items-center gap-1">
                         {withParentRelation && depth > 0 && (
-                          <CornerDownRight className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-1" />
+                          <CornerDownRight className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
                         )}
                         {withParentRelation && hasChildren && (
                           <button
                             onClick={() => toggleParentCollapse(issue.id)}
-                            className="p-0.5 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+                            className="p-0.5 rounded hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
                             title={isCollapsed ? "子課題を展開" : "子課題を折りたたむ"}
                           >
                             {isCollapsed ? (
@@ -890,7 +922,7 @@ export default function GanttChart({
                             setDetailIssue(issue);
                             setIsDetailOpen(true);
                           }}
-                          className="font-semibold text-emerald-800 hover:text-emerald-950 hover:underline truncate"
+                          className="font-semibold text-indigo-700 hover:text-indigo-950 hover:underline truncate cursor-pointer font-mono"
                           title="詳細を開く"
                         >
                           {issue.issue_key}
@@ -904,12 +936,12 @@ export default function GanttChart({
                             setDetailIssue(issue);
                             setIsDetailOpen(true);
                           }}
-                          className={`text-left truncate flex-1 ${
+                          className={`text-left truncate flex-1 cursor-pointer ${
                             isClosed
-                              ? "line-through text-gray-400"
+                              ? "line-through text-slate-400"
                               : hasChildren
-                              ? "font-bold text-gray-900 hover:text-emerald-700"
-                              : "font-medium text-gray-800 hover:text-emerald-700"
+                              ? "font-bold text-slate-900 hover:text-indigo-700"
+                              : "font-medium text-slate-800 hover:text-indigo-700"
                           }`}
                           title={issue.title}
                         >
@@ -920,7 +952,7 @@ export default function GanttChart({
                         {withParentRelation && depth === 0 && (
                           <div className="flex items-center gap-1 shrink-0">
                             {hasChildren && (
-                              <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-full font-bold">
+                              <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full font-bold">
                                 {childrenIssues.length}
                               </span>
                             )}
@@ -930,7 +962,7 @@ export default function GanttChart({
                                 setCreateDefaultParentId(issue.id);
                                 setIsCreateOpen(true);
                               }}
-                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-opacity"
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-opacity cursor-pointer"
                               title="この課題の子課題を追加"
                             >
                               <Plus className="w-3 h-3" />
@@ -939,14 +971,29 @@ export default function GanttChart({
                         )}
                       </div>
 
+                      {/* 担当者アバター */}
+                      <div className="w-[34px] shrink-0 flex items-center justify-center">
+                        <div
+                          style={{
+                            backgroundColor: issue.assignee_id
+                              ? issue.assignee_color || "#4f46e5"
+                              : "#cbd5e1",
+                          }}
+                          className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold"
+                          title={issue.assignee_name ? `担当: ${issue.assignee_name}` : "担当: 未割当"}
+                        >
+                          {getUserInitials(issue.assignee_name)}
+                        </div>
+                      </div>
+
                       {/* 状態変更セレクター */}
-                      <div className="w-[72px] shrink-0 text-center">
+                      <div className="w-[70px] shrink-0 text-center">
                         <select
                           value={issue.status}
                           onChange={(e) =>
                             handleQuickStatusChange(issue.id, e.target.value as IssueStatus)
                           }
-                          className="w-full text-[11px] font-semibold bg-white border border-gray-300 rounded px-1 py-0.5 text-gray-700 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                          className="w-full text-[11px] font-semibold bg-white border border-slate-300 rounded px-1 py-0.5 text-slate-700 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                         >
                           <option value="open">未対応</option>
                           <option value="in_progress">処理中</option>
@@ -956,7 +1003,7 @@ export default function GanttChart({
                       </div>
 
                       {/* 期限日 */}
-                      <div className="w-[82px] shrink-0 text-center font-medium text-[11px]">
+                      <div className="w-[62px] shrink-0 text-center font-medium text-[11px]">
                         {issue.due_date ? (
                           <span
                             className={
@@ -1035,21 +1082,21 @@ export default function GanttChart({
                         <div
                           key={idx}
                           style={{ width: `${cellWidth}px` }}
-                          className={`shrink-0 flex flex-col items-center justify-center border-r border-gray-200 ${colBg} ${
-                            isToday ? "bg-emerald-100/70 font-bold" : ""
+                          className={`shrink-0 flex flex-col items-center justify-center border-r border-slate-200 ${colBg} ${
+                            isToday ? "bg-indigo-100/80 font-bold" : ""
                           }`}
                           title={`${dateStr} (${weekday})`}
                         >
                           <span
                             className={`leading-none ${
-                              isToday ? "text-emerald-800 font-extrabold" : textColor
+                              isToday ? "text-indigo-900 font-extrabold" : textColor
                             }`}
                           >
                             {dayNum}
                           </span>
                           <span
                             className={`text-[9px] scale-90 leading-none ${
-                              isToday ? "text-emerald-700 font-bold" : textColor
+                              isToday ? "text-indigo-700 font-bold" : textColor
                             }`}
                           >
                             {weekday}
@@ -1216,12 +1263,12 @@ export default function GanttChart({
                         onMouseLeave={() => setHoveredIssueId(null)}
                         style={{ height: `${ROW_HEIGHT}px` }}
                         className={`relative flex items-center transition-colors ${
-                          isHovered ? "bg-emerald-50/40" : ""
+                          isHovered ? "bg-indigo-50/40" : ""
                         }`}
                       >
                         {isBarVisible ? (
                           isSummaryBar ? (
-                            // 親課題用のBacklog風サマリーバー（ブラケット風）
+                            // 親課題用のサマリーバー（ブラケット風）
                             <div
                               style={{
                                 left: `${barLeft + 1}px`,
@@ -1236,11 +1283,11 @@ export default function GanttChart({
                               title={`[親課題: ${issue.issue_key}] ${issue.title}\n全体期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\n子課題進捗: ${completedChildrenCount}/${childrenIssues.length} (${progressPercent}%)`}
                             >
                               {/* 親バー本体 */}
-                              <div className="w-full h-3.5 bg-slate-700 rounded-t-sm relative overflow-hidden flex items-center px-1.5 shadow-xs">
+                              <div className="w-full h-3.5 bg-indigo-950 rounded-t-sm relative overflow-hidden flex items-center px-1.5 shadow-xs">
                                 {/* 進捗ゲージ */}
                                 <div
                                   style={{ width: `${progressPercent}%` }}
-                                  className="absolute left-0 top-0 bottom-0 bg-emerald-500/70 transition-all"
+                                  className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
                                 />
                                 <span className="relative z-10 text-[9px] font-bold text-white truncate">
                                   {issue.issue_key} {issue.title} ({progressPercent}%)
@@ -1248,8 +1295,8 @@ export default function GanttChart({
                               </div>
                               {/* 両端の下向き三角形ブラケット装飾 */}
                               <div className="flex justify-between w-full">
-                                <div className="w-0 h-0 border-t-[6px] border-t-slate-700 border-r-[6px] border-r-transparent" />
-                                <div className="w-0 h-0 border-t-[6px] border-t-slate-700 border-l-[6px] border-l-transparent" />
+                                <div className="w-0 h-0 border-t-[6px] border-t-indigo-950 border-r-[6px] border-r-transparent" />
+                                <div className="w-0 h-0 border-t-[6px] border-t-indigo-950 border-l-[6px] border-l-transparent" />
                               </div>
                             </div>
                           ) : (
@@ -1273,7 +1320,7 @@ export default function GanttChart({
                                   : ""
                               } ${
                                 isDraggingThis
-                                  ? "opacity-80 scale-[1.02] shadow-md ring-2 ring-emerald-400 z-20"
+                                  ? "opacity-80 scale-[1.02] shadow-md ring-2 ring-indigo-400 z-20"
                                   : "hover:brightness-105"
                               }`}
                               title={`[${issue.issue_key}] ${issue.title}\n期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\nドラッグして日付移動、左右端でリサイズ`}
@@ -1310,7 +1357,7 @@ export default function GanttChart({
                           <div className="px-3">
                             <button
                               onClick={() => handleSetDefaultDates(issue)}
-                              className="text-[10px] text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded border border-dashed border-gray-300 hover:border-emerald-400 flex items-center gap-1 transition-colors"
+                              className="text-[10px] text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-0.5 rounded border border-dashed border-slate-300 hover:border-indigo-400 flex items-center gap-1 transition-colors cursor-pointer"
                               title="クリックすると基準日で期間を設定します"
                             >
                               <Plus className="w-3 h-3" />

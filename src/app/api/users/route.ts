@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       name,
       role = "メンバー",
       isAdmin = false,
-      color = "#2ca078",
+      color = "#4f46e5",
     } = body;
 
     if (!name || !name.trim()) {
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       name.trim(),
       (role || (isAdmin ? "管理者" : "メンバー")).trim(),
       isAdmin ? 1 : 0,
-      color || "#2ca078"
+      color || "#4f46e5"
     );
 
     const created = db.prepare(`

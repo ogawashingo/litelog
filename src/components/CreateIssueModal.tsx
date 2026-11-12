@@ -2,8 +2,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch } from "lucide-react";
+import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck } from "lucide-react";
 import { Project, Issue, IssueType, IssueStatus, IssuePriority } from "@/types";
+import { useUser } from "./UserContext";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -24,10 +25,13 @@ export default function CreateIssueModal({
   onClose,
   onCreated,
 }: CreateIssueModalProps) {
+  const { users, currentUser, refreshUsers } = useUser();
+
   const [projectId, setProjectId] = useState<number>(
     selectedProjectId || (projects[0] ? projects[0].id : 1)
   );
   const [parentId, setParentId] = useState<string>(defaultParentId ? String(defaultParentId) : "");
+  const [assigneeId, setAssigneeId] = useState<string>("");
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -48,6 +52,7 @@ export default function CreateIssueModal({
         setProjectId(projects[0].id);
       }
       setParentId(defaultParentId ? String(defaultParentId) : "");
+      setAssigneeId(currentUser ? String(currentUser.id) : "");
       setStatus(defaultStatus);
       setTitle("");
       setDescription("");
@@ -57,7 +62,7 @@ export default function CreateIssueModal({
       setIssueType("task");
       setErrorMessage("");
     }
-  }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, projects]);
+  }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, projects, currentUser]);
 
   // プロジェクトが変わったら親課題候補一覧を取得
   useEffect(() => {
@@ -91,6 +96,8 @@ export default function CreateIssueModal({
         body: JSON.stringify({
           projectId,
           parentId: parentId ? Number(parentId) : null,
+          assigneeId: assigneeId ? Number(assigneeId) : null,
+          actorId: currentUser?.id || null,
           title: title.trim(),
           description: description.trim(),
           issueType,
@@ -111,6 +118,7 @@ export default function CreateIssueModal({
       setDescription("");
       setStartDate("");
       setDueDate("");
+      await refreshUsers();
       onCreated();
       onClose();
     } catch (err: unknown) {
@@ -126,16 +134,16 @@ export default function CreateIssueModal({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-xl shadow-2xl border border-indigo-100 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* モーダルヘッダー */}
-        <div className="bg-[#2ca078] px-6 py-4 flex items-center justify-between text-white">
+        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-6 py-4 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
-            <Plus className="w-5 h-5 stroke-[2.5]" />
+            <Plus className="w-5 h-5 stroke-[2.5] text-amber-300" />
             <h3 className="font-bold text-lg">課題の追加</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-white/20 transition-colors text-white"
+            className="p-1 rounded-md hover:bg-white/20 transition-colors text-white cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -149,11 +157,11 @@ export default function CreateIssueModal({
             </div>
           )}
 
-          {/* プロジェクト選択 ＆ 親課題選択 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* プロジェクト選択 ＆ 親課題選択 ＆ 担当者選択 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                プロジェクト <span className="text-red-500">*</span>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                プロジェクト <span className="text-rose-500">*</span>
               </label>
               <select
                 value={projectId}
@@ -161,7 +169,7 @@ export default function CreateIssueModal({
                   setProjectId(Number(e.target.value));
                   setParentId("");
                 }}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
                 {projects.map((proj) => (
                   <option key={proj.id} value={proj.id}>
@@ -172,16 +180,37 @@ export default function CreateIssueModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 <span className="flex items-center gap-1">
-                  <GitBranch className="w-3.5 h-3.5 text-gray-500" />
+                  <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+                  担当者
+                </span>
+              </label>
+              <select
+                value={assigneeId}
+                onChange={(e) => setAssigneeId(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="">未割当</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} {currentUser?.id === u.id ? "(自分)" : `(${u.role})`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                <span className="flex items-center gap-1">
+                  <GitBranch className="w-3.5 h-3.5 text-slate-500" />
                   親課題（任意）
                 </span>
               </label>
               <select
                 value={parentId}
                 onChange={(e) => setParentId(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="">親課題なし（単独課題）</option>
                 {availableParents
@@ -195,17 +224,17 @@ export default function CreateIssueModal({
             </div>
           </div>
 
-          {/* 種別の選択（Backlog風の四角いボタングループ） */}
+          {/* 種別の選択（ボタングループ） */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
-              種別 <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              種別 <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-4 gap-2">
               {[
-                { type: "task" as IssueType, label: "タスク", icon: CheckSquare, activeBg: "bg-blue-600 text-white" },
-                { type: "bug" as IssueType, label: "バグ", icon: Bug, activeBg: "bg-red-600 text-white" },
-                { type: "request" as IssueType, label: "要望", icon: Sparkles, activeBg: "bg-emerald-600 text-white" },
-                { type: "other" as IssueType, label: "その他", icon: HelpCircle, activeBg: "bg-slate-600 text-white" },
+                { type: "task" as IssueType, label: "タスク", icon: CheckSquare, activeBg: "bg-indigo-600 text-white" },
+                { type: "bug" as IssueType, label: "バグ", icon: Bug, activeBg: "bg-rose-600 text-white" },
+                { type: "request" as IssueType, label: "要望", icon: Sparkles, activeBg: "bg-amber-500 text-white" },
+                { type: "other" as IssueType, label: "その他", icon: HelpCircle, activeBg: "bg-violet-600 text-white" },
               ].map((item) => {
                 const Icon = item.icon;
                 const isSelected = issueType === item.type;
@@ -214,10 +243,10 @@ export default function CreateIssueModal({
                     key={item.type}
                     type="button"
                     onClick={() => setIssueType(item.type)}
-                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-bold transition-all ${
+                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                       isSelected
                         ? item.activeBg + " shadow-sm border-transparent"
-                        : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -230,22 +259,22 @@ export default function CreateIssueModal({
 
           {/* 件名 */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
-              件名 <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              件名 <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               placeholder="課題の概要を入力してください"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
           </div>
 
           {/* 詳細（メモ） */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
+            <label className="block text-xs font-bold text-slate-700 mb-1">
               詳細
             </label>
             <textarea
@@ -253,7 +282,7 @@ export default function CreateIssueModal({
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
@@ -261,11 +290,11 @@ export default function CreateIssueModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {/* 状態 */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">状態</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">状態</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as IssueStatus)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="open">未対応</option>
                 <option value="in_progress">処理中</option>
@@ -276,11 +305,11 @@ export default function CreateIssueModal({
 
             {/* 優先度 */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">優先度</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">優先度</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as IssuePriority)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="high">高</option>
                 <option value="medium">中</option>
@@ -290,9 +319,9 @@ export default function CreateIssueModal({
 
             {/* 開始日 */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
                   開始日
                 </span>
               </label>
@@ -300,15 +329,15 @@ export default function CreateIssueModal({
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
             {/* 期限日 */}
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
                   期限日
                 </span>
               </label>
@@ -316,24 +345,24 @@ export default function CreateIssueModal({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
 
           {/* フッター操作ボタン */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 rounded-lg border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               キャンセル
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2 rounded-lg bg-[#2ca078] hover:bg-[#238161] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+              className="px-6 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? "追加中..." : "追加する"}
             </button>

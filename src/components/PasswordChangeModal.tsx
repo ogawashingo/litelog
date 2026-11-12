@@ -6,16 +6,16 @@ import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, U
 import { User } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 
-// プリセットアバターカラー
+// プリセットアバターカラー（オリジナリティのあるコズミック＆コーラルパレット）
 const AVATAR_COLORS = [
-  "#2ca078", // Backlogグリーン
+  "#4f46e5", // コズミックインディゴ
   "#3b82f6", // ブルー
-  "#8b5cf6", // パープル
-  "#ec4899", // ピンク
-  "#f59e0b", // アンバー
-  "#ef4444", // レッド
-  "#14b8a6", // ティール
-  "#6366f1", // インディゴ
+  "#8b5cf6", // バイオレット
+  "#ec4899", // ローズピンク
+  "#f59e0b", // コーラルアンバー
+  "#ef4444", // クリムゾンレッド
+  "#06b6d4", // シアン
+  "#d946ef", // フューシャ
 ];
 
 interface PasswordChangeModalProps {
@@ -201,8 +201,8 @@ export default function PasswordChangeModal({
 
           {/* 完了メッセージ */}
           {successMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-lg font-medium flex items-center gap-2">
-              <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+            <div className="p-3 bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs rounded-lg font-medium flex items-center gap-2">
+              <Check className="w-4 h-4 shrink-0 text-indigo-600" />
               <span>{successMsg}</span>
             </div>
           )}
@@ -351,7 +351,7 @@ export default function PasswordChangeModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2ca078] hover:bg-[#238161] text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
             >
               <Check className="w-3.5 h-3.5" />
               <span>{isSubmitting ? "保存中..." : "設定を保存する"}</span>

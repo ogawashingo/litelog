@@ -96,20 +96,20 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        <div className="bg-[#2ca078] px-5 py-3.5 flex items-center justify-between text-white">
+      <div className="bg-white rounded-xl shadow-2xl border border-indigo-100 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-5 py-3.5 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
-            <Database className="w-5 h-5" />
+            <Database className="w-5 h-5 text-amber-300" />
             <h3 className="font-bold text-base">データバックアップ・復元</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/20 transition-colors">
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
-          <p className="text-xs text-gray-600 leading-relaxed">
-            一人で安心してお使いいただくために、登録したすべてのプロジェクト、課題、コメント、履歴を1つのJSONファイルとして保存・復元できます。
+          <p className="text-xs text-slate-600 leading-relaxed">
+            安心してお使いいただくために、登録したすべてのプロジェクト、課題、コメント、履歴を1つのJSONファイルとして保存・復元できます。
           </p>
 
           {message && (
@@ -117,7 +117,7 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
               className={`p-3 rounded-lg text-xs font-semibold flex items-center gap-2 ${
                 message.isError
                   ? "bg-red-50 text-red-700 border border-red-200"
-                  : "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-indigo-50 text-indigo-800 border border-indigo-200"
               }`}
             >
               {message.isError ? (
@@ -130,18 +130,18 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
           )}
 
           {/* バックアップダウンロード */}
-          <div className="p-4 border border-gray-200 rounded-lg bg-gray-50/60 space-y-2">
-            <h4 className="font-bold text-xs text-gray-800 flex items-center gap-1.5">
-              <Download className="w-4 h-4 text-emerald-600" />
+          <div className="p-4 border border-slate-200 rounded-lg bg-slate-50/60 space-y-2">
+            <h4 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+              <Download className="w-4 h-4 text-indigo-600" />
               <span>バックアップの作成（エクスポート）</span>
             </h4>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[11px] text-slate-500">
               現在のSQLiteデータベースの全データをJSONファイルとしてダウンロードします。
             </p>
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="w-full flex items-center justify-center gap-2 bg-[#2ca078] hover:bg-[#238161] text-white py-2 px-3 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white py-2 px-3 rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>{isExporting ? "エクスポート中..." : "JSONファイルをダウンロード"}</span>

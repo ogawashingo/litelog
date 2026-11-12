@@ -62,7 +62,7 @@ function GanttIndexContent() {
   }, [fetchData]);
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7] flex flex-col font-sans">
+    <div className="min-h-screen bg-transparent flex flex-col font-sans">
       <Header
         projects={projects}
         selectedProjectId={null}
@@ -122,8 +122,8 @@ export default function GanttIndexPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f4f5f7] flex items-center justify-center">
-          <div className="text-gray-500 text-sm animate-pulse">読み込み中...</div>
+        <div className="min-h-screen bg-transparent flex items-center justify-center">
+          <div className="text-slate-500 text-sm animate-pulse">読み込み中...</div>
         </div>
       }
     >

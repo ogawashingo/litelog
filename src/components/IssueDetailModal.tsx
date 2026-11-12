@@ -232,7 +232,7 @@ export default function IssueDetailModal({
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 <Edit2 className="w-3.5 h-3.5" />
                 <span>編集</span>
@@ -241,7 +241,7 @@ export default function IssueDetailModal({
               <button
                 onClick={handleSaveEdit}
                 disabled={isSaving}
-                className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded bg-[#2ca078] text-white hover:bg-[#238161] transition-colors"
+                className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 transition-colors cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>{isSaving ? "保存中..." : "保存"}</span>
@@ -269,12 +269,12 @@ export default function IssueDetailModal({
           {isEditing ? (
             <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">件名</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">件名</label>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -367,7 +367,7 @@ export default function IssueDetailModal({
                 <select
                   value={editParentId}
                   onChange={(e) => setEditParentId(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded px-3 py-1.5 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-white border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">親課題なし（単独課題）</option>
                   {availableParents
@@ -381,12 +381,12 @@ export default function IssueDetailModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">詳細</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">詳細</label>
                 <textarea
                   rows={5}
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                  className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
@@ -394,7 +394,7 @@ export default function IssueDetailModal({
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                  className="px-3 py-1.5 text-xs font-semibold rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer"
                 >
                   キャンセル
                 </button>
@@ -402,7 +402,7 @@ export default function IssueDetailModal({
                   type="button"
                   onClick={handleSaveEdit}
                   disabled={isSaving}
-                  className="px-4 py-1.5 text-xs font-bold rounded bg-[#2ca078] text-white hover:bg-[#238161]"
+                  className="px-4 py-1.5 text-xs font-bold rounded bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 cursor-pointer"
                 >
                   {isSaving ? "保存中..." : "保存する"}
                 </button>
@@ -413,27 +413,27 @@ export default function IssueDetailModal({
               {/* タイトル ＆ 親課題バッジ */}
               <div>
                 {issue.parent_id && issue.parent_issue_key && (
-                  <div className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-xs text-slate-700 font-medium">
-                    <GitBranch className="w-3.5 h-3.5 text-slate-500" />
+                  <div className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-xs text-slate-700 font-medium">
+                    <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
                     <span className="text-slate-500">親課題:</span>
-                    <span className="font-bold text-emerald-700">[{issue.parent_issue_key}]</span>
+                    <span className="font-bold text-indigo-700">[{issue.parent_issue_key}]</span>
                     <span className="truncate max-w-sm">{issue.parent_title}</span>
                   </div>
                 )}
-                <h2 className="text-xl font-bold text-gray-900 leading-snug">
+                <h2 className="text-xl font-bold text-slate-900 leading-snug">
                   {issue.title}
                 </h2>
               </div>
 
               {/* 属性グリッド（状態、担当者、優先度、開始日、期限日、登録日時） */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-xs">
                 {/* 状態変更セレクター */}
                 <div>
-                  <span className="text-gray-500 block mb-1 font-medium">状態</span>
+                  <span className="text-slate-500 block mb-1 font-medium">状態</span>
                   <select
                     value={editStatus}
                     onChange={(e) => handleQuickStatusChange(e.target.value as IssueStatus)}
-                    className="bg-white border border-gray-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-emerald-500"
+                    className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="open">未対応</option>
                     <option value="in_progress">処理中</option>
@@ -444,7 +444,7 @@ export default function IssueDetailModal({
 
                 {/* 担当者即時変更セレクター */}
                 <div>
-                  <span className="text-gray-500 block mb-1 font-medium">担当者</span>
+                  <span className="text-slate-500 block mb-1 font-medium">担当者</span>
                   <div className="flex items-center gap-1.5">
                     <div
                       style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
@@ -455,7 +455,7 @@ export default function IssueDetailModal({
                     <select
                       value={editAssigneeId}
                       onChange={(e) => handleQuickAssigneeChange(e.target.value)}
-                      className="bg-white border border-gray-300 rounded px-1.5 py-1 text-xs font-medium text-gray-800 cursor-pointer focus:ring-1 focus:ring-emerald-500 max-w-[110px] truncate"
+                      className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-medium text-slate-800 cursor-pointer focus:ring-1 focus:ring-indigo-500 max-w-[110px] truncate"
                     >
                       <option value="">未割当</option>
                       {users.map((u) => (
@@ -517,27 +517,27 @@ export default function IssueDetailModal({
               {/* 子課題一覧（存在する場合のみ表示） */}
               {childrenIssues.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <GitBranch className="w-3.5 h-3.5 text-emerald-600" />
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
                     <span>子課題 ({childrenIssues.length})</span>
                   </h4>
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg divide-y divide-gray-200">
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-200">
                     {childrenIssues.map((child) => (
                       <div key={child.id} className="px-3 py-2 flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2 min-w-0">
                           <TypeBadge type={child.issue_type} showLabel={false} />
-                          <span className="font-bold text-emerald-800 shrink-0">{child.issue_key}</span>
-                          <span className="text-gray-800 truncate">{child.title}</span>
+                          <span className="font-bold text-indigo-800 shrink-0">{child.issue_key}</span>
+                          <span className="text-slate-800 truncate">{child.title}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {child.assignee_name && (
-                            <span className="text-[11px] text-gray-600 bg-white border border-gray-200 px-1.5 py-0.5 rounded">
+                            <span className="text-[11px] text-slate-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
                               {child.assignee_name}
                             </span>
                           )}
                           <StatusBadge status={child.status} />
                           {child.due_date && (
-                            <span className="text-[11px] text-gray-500">{child.due_date}</span>
+                            <span className="text-[11px] text-slate-500">{child.due_date}</span>
                           )}
                         </div>
                       </div>
@@ -549,16 +549,16 @@ export default function IssueDetailModal({
           )}
 
           {/* コメントセクション */}
-          <div className="pt-4 border-t border-gray-200 space-y-4">
+          <div className="pt-4 border-t border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                <MessageSquare className="w-4 h-4 text-emerald-600" />
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                <MessageSquare className="w-4 h-4 text-indigo-600" />
                 <span>コメント・作業メモ ({comments.length})</span>
               </h4>
               {currentUser && (
-                <span className="text-[11px] text-gray-500 flex items-center gap-1">
+                <span className="text-[11px] text-slate-500 flex items-center gap-1">
                   投稿者:
-                  <strong className="text-gray-800">{currentUser.name}</strong>
+                  <strong className="text-slate-800">{currentUser.name}</strong>
                 </span>
               )}
             </div>
@@ -567,11 +567,11 @@ export default function IssueDetailModal({
             <div className="space-y-3">
               {comments.map((comment) => {
                 const authorName = comment.user_name || "メンバー";
-                const authorColor = comment.user_color || "#2ca078";
+                const authorColor = comment.user_color || "#4f46e5";
 
                 return (
-                  <div key={comment.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs space-y-1">
-                    <div className="flex items-center justify-between text-gray-500">
+                  <div key={comment.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+                    <div className="flex items-center justify-between text-slate-500">
                       <div className="flex items-center gap-1.5">
                         <span
                           style={{ backgroundColor: authorColor }}
@@ -579,13 +579,13 @@ export default function IssueDetailModal({
                         >
                           {getUserInitials(authorName)}
                         </span>
-                        <span className="font-semibold text-gray-800">{authorName}</span>
+                        <span className="font-semibold text-slate-800">{authorName}</span>
                       </div>
                       <span className="text-[10px]">
                         {formatTimestamp(comment.created_at, settings, true)}
                       </span>
                     </div>
-                    <p className="text-gray-800 whitespace-pre-wrap pl-6 text-sm">
+                    <p className="text-slate-800 whitespace-pre-wrap pl-6 text-sm">
                       {comment.content}
                     </p>
                   </div>
@@ -604,13 +604,13 @@ export default function IssueDetailModal({
                 }
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
               <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={!newComment.trim() || isPostingComment}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#2ca078] hover:bg-[#238161] text-white text-xs font-bold transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isPostingComment ? "投稿中..." : "コメントを投稿"}</span>
