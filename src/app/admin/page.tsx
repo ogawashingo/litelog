@@ -41,6 +41,7 @@ import {
   formatTimestamp,
   formatActivityTimestamp,
 } from "@/lib/dateUtils";
+import versionData from "@/lib/version.json";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -339,7 +340,12 @@ export default function AdminPage() {
               <Settings className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-slate-900">管理ページ・システム設定</h1>
+              <div className="flex flex-wrap items-baseline gap-2">
+                <h1 className="text-lg font-bold text-slate-900">管理ページ・システム設定</h1>
+                <span className="text-[11px] text-slate-400 font-mono select-all">
+                  {versionData.version}
+                </span>
+              </div>
               <p className="text-xs text-slate-500">
                 タイムスタンプのタイムゾーン・時刻フォーマット設定や、メンバー・プロジェクト・バックアップを一元管理します
               </p>
@@ -1039,6 +1045,13 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* ページ下部 バージョン表記 */}
+        <div className="text-center pt-2 pb-4">
+          <span className="text-[11px] text-slate-400 font-mono select-all">
+            Personal Backlog • {versionData.version}
+          </span>
         </div>
       </main>
 
