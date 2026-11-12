@@ -702,6 +702,60 @@ async function runTests() {
   }
   console.log(`✓ セキュリティ検証（全ユーザーscryptハッシュ化・初期アカウント照合・HMACセッショントークン改ざん防止）成功`);
 
+  // 19. 初回管理者セットアップ機能およびデモユーザー削除マイグレーション検証
+  const setupDb = new DatabaseSync(":memory:");
+  setupDb.exec("PRAGMA foreign_keys = ON;");
+  setupDb.exec(`
+    CREATE TABLE users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      login_id TEXT UNIQUE,
+      password TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'メンバー',
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      color TEXT NOT NULL DEFAULT '#4f46e5',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE issues (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      assignee_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      title TEXT NOT NULL
+    );
+  `);
+
+  // デモユーザーが残っていた場合の削除マイグレーション検証
+  setupDb.prepare("INSERT INTO users (login_id, password, name, is_admin) VALUES ('yamada', 'pass', '山田 太郎', 1)").run();
+  setupDb.prepare("INSERT INTO users (login_id, password, name) VALUES ('sato', 'pass', '佐藤 花子')").run();
+  setupDb.prepare("DELETE FROM users WHERE login_id IN ('yamada', 'sato', 'suzuki')").run();
+  const countAfterDelete = setupDb.prepare("SELECT COUNT(*) as c FROM users").get().c;
+  if (countAfterDelete !== 0) throw new Error("デモユーザー削除マイグレーションに失敗しました");
+
+  // ユーザー0件時の初回管理者登録テスト
+  const adminName = "小川 慎吾";
+  const adminLoginId = "ogawa";
+  const adminPass = "ogawa1234";
+  const adminHash = hashPassword(adminPass);
+  const newAdminId = setupDb.prepare(`
+    INSERT INTO users (login_id, password, name, role, is_admin, color)
+    VALUES (?, ?, ?, '管理者', 1, '#4f46e5')
+  `).run(adminLoginId, adminHash, adminName).lastInsertRowid;
+
+  const createdAdmin = setupDb.prepare("SELECT * FROM users WHERE id = ?").get(newAdminId);
+  if (!createdAdmin || createdAdmin.is_admin !== 1 || createdAdmin.login_id !== "ogawa" || !verifyPassword(adminPass, createdAdmin.password)) {
+    throw new Error("初回管理者アカウント登録テストに失敗しました");
+  }
+
+  // 既にユーザーが存在する場合の重複セットアップ防止チェック
+  const reCheckCount = setupDb.prepare("SELECT COUNT(*) as c FROM users").get().c;
+  if (reCheckCount <= 0) throw new Error("ユーザー存在判定エラー");
+  console.log(`✓ 初回セットアップ＆デモユーザー削除マイグレーション検証成功: 管理者「${createdAdmin.name}」(ID=${createdAdmin.login_id}) 作成完了`);
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

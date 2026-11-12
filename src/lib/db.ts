@@ -58,38 +58,27 @@ function initDb(db: DatabaseSync) {
       db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT 'pass123';");
     }
 
-    // 山田さん（初期メンバーでlogin_id未設定の場合のみ補完）
-    db.prepare(`
-      UPDATE users
-      SET is_admin = 1,
-          role = CASE WHEN role = 'プロジェクトリーダー' OR role = 'メンバー' THEN '管理者' ELSE role END,
-          login_id = 'yamada',
-          password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'yamada123' ELSE password END
-      WHERE name LIKE '山田%' AND (login_id IS NULL OR login_id = '' OR login_id = 'yamada')
-    `).run();
-
-    // 佐藤さん（初期メンバーでlogin_id未設定の場合のみ補完）
-    db.prepare(`
-      UPDATE users
-      SET login_id = 'sato',
-          password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'sato123' ELSE password END
-      WHERE name LIKE '佐藤%' AND (login_id IS NULL OR login_id = '' OR login_id = 'sato')
-    `).run();
-
-    // 鈴木さん（初期メンバーでlogin_id未設定の場合のみ補完）
-    db.prepare(`
-      UPDATE users
-      SET login_id = 'suzuki',
-          password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'suzuki123' ELSE password END
-      WHERE name LIKE '鈴木%' AND (login_id IS NULL OR login_id = '' OR login_id = 'suzuki')
-    `).run();
-
     // その他login_idが未設定のユーザーにユニークなlogin_idを補完
     db.prepare(`
       UPDATE users
       SET login_id = 'user' || id
       WHERE login_id IS NULL OR login_id = ''
     `).run();
+
+    // デモ用アカウント（yamada, sato, suzuki）が存在する場合は削除し、本番用初期セットアップ画面へ移行
+    try {
+      const demoMigrated = db.prepare("SELECT value FROM settings WHERE key = 'migrated_remove_demo_users'").get();
+      if (!demoMigrated) {
+        db.prepare("DELETE FROM users WHERE login_id IN ('yamada', 'sato', 'suzuki')").run();
+        db.prepare(`
+          INSERT INTO settings (key, value, updated_at)
+          VALUES ('migrated_remove_demo_users', '1', CURRENT_TIMESTAMP)
+          ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = CURRENT_TIMESTAMP
+        `).run();
+      }
+    } catch (demoErr) {
+      console.error("デモアカウント削除マイグレーションエラー:", demoErr);
+    }
 
     // 平文パスワードが保存されている場合は自動的にソルト付きscryptハッシュへ移行
     const existingUsers = db
@@ -303,29 +292,6 @@ function initDb(db: DatabaseSync) {
     }
   }
 
-
-  // 初回ユーザー（メンバーが0件の場合に初期メンバーを投入・パスワードはハッシュ化して保存）
-  const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
-  if (userCount.count === 0) {
-    const insertUser = db.prepare(`
-      INSERT INTO users (login_id, password, name, role, is_admin, color) VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    const u1 = insertUser.run("yamada", hashPassword("yamada123"), "山田 太郎", "管理者", 1, "#4f46e5").lastInsertRowid;
-    const u2 = insertUser.run("sato", hashPassword("sato123"), "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
-    insertUser.run("suzuki", hashPassword("suzuki123"), "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
-
-    // もし既に課題が存在していて担当者が未設定なら、初期メンバーを割り当てる
-    const existingIssues = db.prepare("SELECT id FROM issues WHERE assignee_id IS NULL").all() as { id: number }[];
-    if (existingIssues.length > 0) {
-      const updateAssignee = db.prepare("UPDATE issues SET assignee_id = ?, created_by = ? WHERE id = ?");
-      existingIssues.forEach((iss, idx) => {
-        const targetUser = idx % 2 === 0 ? u1 : u2;
-        updateAssignee.run(targetUser, u1, iss.id);
-      });
-    }
-    db.prepare("UPDATE comments SET user_id = ? WHERE user_id IS NULL").run(u1);
-    db.prepare("UPDATE activities SET user_id = ? WHERE user_id IS NULL").run(u1);
-  }
 
   // 初回データ（プロジェクトが0件の場合に初期投入）
   const projectCount = db.prepare("SELECT COUNT(*) as count FROM projects").get() as { count: number };

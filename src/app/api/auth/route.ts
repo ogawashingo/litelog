@@ -12,17 +12,21 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 
-// 現在のログインセッション確認（HMAC署名検証付き）
+// 現在のログインセッション確認（HMAC署名検証付き＆初回セットアップ要否判定）
 export async function GET() {
   try {
+    const db = getDb();
+    const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
+    const needsSetup = userCount.count === 0;
+
     const user = await getSessionUser();
     if (user) {
-      return NextResponse.json({ authenticated: true, user });
+      return NextResponse.json({ authenticated: true, user, needsSetup: false });
     }
-    return NextResponse.json({ authenticated: false, user: null });
+    return NextResponse.json({ authenticated: false, user: null, needsSetup });
   } catch (error) {
     console.error("セッション確認エラー:", error);
-    return NextResponse.json({ authenticated: false, user: null }, { status: 500 });
+    return NextResponse.json({ authenticated: false, user: null, needsSetup: false }, { status: 500 });
   }
 }
 

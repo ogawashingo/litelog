@@ -18,6 +18,7 @@ interface UserContextValue {
   currentUser: User | null;
   isAuthReady: boolean;
   login: (loginId: string, password: string) => Promise<LoginResult>;
+  setupAdmin: (name: string, loginId: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   setCurrentUserById: (id: number) => void;
   refreshUsers: () => Promise<void>;
@@ -33,6 +34,7 @@ const UserContext = createContext<UserContextValue>({
   currentUser: null,
   isAuthReady: false,
   login: async () => ({ ok: false }),
+  setupAdmin: async () => ({ ok: false }),
   logout: async () => {},
   setCurrentUserById: () => {},
   refreshUsers: async () => {},
@@ -169,6 +171,34 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     [refreshUsers]
   );
 
+  // 初回セットアップ用管理者アカウント作成
+  const setupAdmin = useCallback(
+    async (name: string, loginId: string, password: string): Promise<LoginResult> => {
+      try {
+        const res = await fetch("/api/auth/setup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, loginId, password }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.authenticated) {
+          return { ok: false, error: data.error || "管理者アカウントの作成に失敗しました" };
+        }
+
+        setCurrentUserId(data.user.id);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, String(data.user.id));
+        }
+        await refreshUsers();
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "管理者アカウント作成通信に失敗しました" };
+      }
+    },
+    [refreshUsers]
+  );
+
   // ログアウト（セッション破棄 ＆ ログイン画面へ遷移）
   const logout = useCallback(async () => {
     setCurrentUserId(null);
@@ -201,6 +231,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         currentUser,
         isAuthReady,
         login,
+        setupAdmin,
         logout,
         setCurrentUserById,
         refreshUsers,
