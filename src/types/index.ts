@@ -22,6 +22,7 @@ export type IssuePriority = "high" | "medium" | "low";
 export interface Issue {
   id: number;
   project_id: number;
+  parent_id: number | null; // 親課題ID（親子関係用）
   issue_key: string;      // 課題キー（例: 'MYPRJ-1'）
   issue_number: number;   // 連番
   title: string;          // 課題名・件名
@@ -35,6 +36,9 @@ export interface Issue {
   updated_at: string;
   project_name?: string;  // 結合時のプロジェクト名
   project_color?: string; // 結合時のプロジェクトカラー
+  parent_issue_key?: string | null; // 結合時の親課題キー
+  parent_title?: string | null;     // 結合時の親課題タイトル
+  children?: Issue[];     // 親子ツリー時の子課題リスト
 }
 
 // コメント情報

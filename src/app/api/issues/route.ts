@@ -18,9 +18,12 @@ export async function GET(request: Request) {
       SELECT 
         i.*,
         p.name AS project_name,
-        p.color AS project_color
+        p.color AS project_color,
+        parent.issue_key AS parent_issue_key,
+        parent.title AS parent_title
       FROM issues i
       JOIN projects p ON i.project_id = p.id
+      LEFT JOIN issues parent ON i.parent_id = parent.id
       WHERE 1=1
     `;
     const params: (string | number)[] = [];
@@ -68,6 +71,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       projectId,
+      parentId = null,
       title,
       description = "",
       issueType = "task",
@@ -103,12 +107,13 @@ export async function POST(request: Request) {
     const issueKey = `${project.key}-${nextNum}`;
 
     const insert = db.prepare(`
-      INSERT INTO issues (project_id, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO issues (project_id, parent_id, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
       projectId,
+      parentId || null,
       issueKey,
       nextNum,
       title.trim(),
@@ -130,9 +135,15 @@ export async function POST(request: Request) {
     insertActivity.run(issueId, `課題 [${issueKey}] 「${title.trim()}」を追加しました`);
 
     const created = db.prepare(`
-      SELECT i.*, p.name AS project_name, p.color AS project_color
+      SELECT 
+        i.*, 
+        p.name AS project_name, 
+        p.color AS project_color,
+        parent.issue_key AS parent_issue_key,
+        parent.title AS parent_title
       FROM issues i
       JOIN projects p ON i.project_id = p.id
+      LEFT JOIN issues parent ON i.parent_id = parent.id
       WHERE i.id = ?
     `).get(issueId);
 

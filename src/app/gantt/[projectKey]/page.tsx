@@ -1,7 +1,7 @@
 // Backlog風ガントチャート プロジェクト別ページ (/gantt/[projectKey])
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import GanttChart from "@/components/GanttChart";
@@ -9,7 +9,7 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { Project, Issue } from "@/types";
 
-export default function ProjectGanttPage() {
+function ProjectGanttContent() {
   const params = useParams();
   const router = useRouter();
   const projectKey = (params?.projectKey as string) || "";
@@ -86,12 +86,13 @@ export default function ProjectGanttPage() {
     init();
   }, [fetchProjects, fetchIssues, projectKey]);
 
-  // プロジェクト選択時のルーティング遷移
+  // プロジェクト選択時のルーティング遷移（現在のクエリパラメータを保持）
   const handleSelectProjectKey = (newKey: string) => {
+    const search = typeof window !== "undefined" ? window.location.search : "";
     if (!newKey) {
-      router.push("/gantt");
+      router.push(`/gantt${search}`);
     } else {
-      router.push(`/gantt/${encodeURIComponent(newKey)}`);
+      router.push(`/gantt/${encodeURIComponent(newKey)}${search}`);
     }
   };
 
@@ -102,12 +103,13 @@ export default function ProjectGanttPage() {
         projects={projects}
         selectedProjectId={currentProject?.id || null}
         onSelectProject={(id) => {
+          const search = typeof window !== "undefined" ? window.location.search : "";
           if (!id) {
-            router.push("/gantt");
+            router.push(`/gantt${search}`);
           } else {
             const found = projects.find((p) => p.id === id);
             if (found) {
-              router.push(`/gantt/${encodeURIComponent(found.key)}`);
+              router.push(`/gantt/${encodeURIComponent(found.key)}${search}`);
             }
           }
         }}
@@ -156,5 +158,19 @@ export default function ProjectGanttPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function ProjectGanttPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f4f5f7] flex items-center justify-center">
+          <div className="text-gray-500 text-sm animate-pulse">読み込み中...</div>
+        </div>
+      }
+    >
+      <ProjectGanttContent />
+    </Suspense>
   );
 }

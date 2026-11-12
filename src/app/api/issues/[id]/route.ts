@@ -16,9 +16,12 @@ export async function GET(request: Request, { params }: RouteParams) {
       SELECT 
         i.*,
         p.name AS project_name,
-        p.color AS project_color
+        p.color AS project_color,
+        parent.issue_key AS parent_issue_key,
+        parent.title AS parent_title
       FROM issues i
       JOIN projects p ON i.project_id = p.id
+      LEFT JOIN issues parent ON i.parent_id = parent.id
       WHERE i.id = ?
     `).get(Number(id));
 
@@ -26,12 +29,24 @@ export async function GET(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
     }
 
+    // 子課題一覧を取得
+    const children = db.prepare(`
+      SELECT 
+        i.*,
+        p.name AS project_name,
+        p.color AS project_color
+      FROM issues i
+      JOIN projects p ON i.project_id = p.id
+      WHERE i.parent_id = ?
+      ORDER BY i.issue_number ASC
+    `).all(Number(id));
+
     // コメント取得
     const comments = db.prepare(`
       SELECT * FROM comments WHERE issue_id = ? ORDER BY created_at ASC
     `).all(Number(id));
 
-    return NextResponse.json({ issue, comments });
+    return NextResponse.json({ issue, children, comments });
   } catch (error) {
     console.error("課題詳細取得エラー:", error);
     return NextResponse.json({ error: "課題詳細の取得に失敗しました" }, { status: 500 });
@@ -93,6 +108,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updates.push("priority = ?");
       values.push(body.priority);
     }
+    if (body.parentId !== undefined) {
+      const targetParentId = body.parentId ? Number(body.parentId) : null;
+      if (targetParentId === Number(id)) {
+        return NextResponse.json({ error: "自分自身を親課題に設定することはできません" }, { status: 400 });
+      }
+      updates.push("parent_id = ?");
+      values.push(targetParentId);
+    }
     if (body.startDate !== undefined) {
       updates.push("start_date = ?");
       values.push(body.startDate || null);
@@ -127,9 +150,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const updated = db.prepare(`
-      SELECT i.*, p.name AS project_name, p.color AS project_color
+      SELECT 
+        i.*, 
+        p.name AS project_name, 
+        p.color AS project_color,
+        parent.issue_key AS parent_issue_key,
+        parent.title AS parent_title
       FROM issues i
       JOIN projects p ON i.project_id = p.id
+      LEFT JOIN issues parent ON i.parent_id = parent.id
       WHERE i.id = ?
     `).get(Number(id));
 

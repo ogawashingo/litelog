@@ -27,6 +27,7 @@ async function runTests() {
     CREATE TABLE IF NOT EXISTS issues (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      parent_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
       issue_key TEXT UNIQUE NOT NULL,
       issue_number INTEGER NOT NULL,
       title TEXT NOT NULL,
@@ -41,11 +42,15 @@ async function runTests() {
     );
   `);
 
-  // start_date カラムの存在確認およびマイグレーション
+  // start_date / parent_id カラムの存在確認およびマイグレーション
   const tableCols = db.prepare("PRAGMA table_info(issues)").all();
   if (!tableCols.some((col) => col.name === "start_date")) {
     db.exec("ALTER TABLE issues ADD COLUMN start_date TEXT;");
     console.log("✓ start_date カラムのマイグレーションが成功しました");
+  }
+  if (!tableCols.some((col) => col.name === "parent_id")) {
+    db.exec("ALTER TABLE issues ADD COLUMN parent_id INTEGER REFERENCES issues(id) ON DELETE SET NULL;");
+    console.log("✓ parent_id カラムのマイグレーションが成功しました");
   }
   db.exec(`
     CREATE TABLE IF NOT EXISTS comments (
@@ -174,13 +179,54 @@ async function runTests() {
   `).all();
   console.log(`✓ ガントチャート対象課題取得成功: ${rangeIssues.length} 件`);
 
-  // 10. テスト課題の削除テスト
+  // 10. 親子課題（withParentRelation）連携テスト
+  const childNum = nextNum + 1;
+  const childKey = `MYPRJ-${childNum}`;
+  const childRes = db.prepare(`
+    INSERT INTO issues (project_id, parent_id, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    projects[0].id,
+    createdId,
+    childKey,
+    childNum,
+    "自動検証テスト子課題",
+    "親課題に紐づく子課題テスト",
+    "task",
+    "in_progress",
+    "medium",
+    "2026-11-12",
+    "2026-11-18"
+  );
+  const childId = childRes.lastInsertRowid;
+  const linkedChildren = db.prepare("SELECT * FROM issues WHERE parent_id = ?").all(createdId);
+  if (linkedChildren.length !== 1 || linkedChildren[0].issue_key !== childKey) {
+    throw new Error("親子課題の紐付け取得に失敗しました");
+  }
+  console.log(`✓ 親子課題連携テスト成功: 親ID=${createdId} -> 子=${childKey}`);
+
+  // 11. 親課題削除時の子課題ON DELETE SET NULLおよび後始末
   db.prepare("DELETE FROM issues WHERE id = ?").run(createdId);
   const afterDelete = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);
-  if (afterDelete) throw new Error("課題削除に失敗しました");
-  console.log("✓ 課題削除テスト成功");
+  if (afterDelete) throw new Error("親課題削除に失敗しました");
+  const orphanChild = db.prepare("SELECT * FROM issues WHERE id = ?").get(childId);
+  if (!orphanChild || orphanChild.parent_id !== null) {
+    throw new Error("親課題削除時の parent_id NULL化(ON DELETE SET NULL)に失敗しました");
+  }
+  db.prepare("DELETE FROM issues WHERE id = ?").run(childId);
+  console.log("✓ 課題削除および親子参照クリアテスト成功");
 
-  // 11. ガントチャート向け日付ユーティリティ検証
+  // 12. ガントチャート向け日付ユーティリティ検証（YYYY/MM/DD形式 ＆ 月スパン計算）
+  const slashStr = "2026/11/05";
+  const [sy, sm, sd] = slashStr.replace(/\//g, "-").split("-").map(Number);
+  const startDt = new Date(sy, sm - 1, sd);
+  const spanEndDt = new Date(startDt.getTime());
+  spanEndDt.setMonth(spanEndDt.getMonth() + 6); // span=6
+  if (spanEndDt.getFullYear() !== 2027 || spanEndDt.getMonth() !== 4 || spanEndDt.getDate() !== 5) {
+    throw new Error("span=6 の日付計算に失敗しました");
+  }
+  console.log(`✓ 日付スパン計算テスト成功: 2026/11/05 + 6ヶ月 = ${spanEndDt.getFullYear()}/${spanEndDt.getMonth() + 1}/${spanEndDt.getDate()}`);
+
   const d1 = new Date(2026, 10, 10); // 2026-11-10
   const d2 = new Date(2026, 10, 20); // 2026-11-20
   const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());

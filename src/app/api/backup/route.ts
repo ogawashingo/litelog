@@ -77,6 +77,14 @@ export async function POST(request: Request) {
         );
       }
 
+      // 親子課題（parent_id）の関連性を復元
+      const updateParent = db.prepare("UPDATE issues SET parent_id = ? WHERE id = ?");
+      for (const i of issues) {
+        if (i.parent_id) {
+          updateParent.run(i.parent_id, i.id);
+        }
+      }
+
       if (Array.isArray(comments)) {
         const insertComment = db.prepare(`
           INSERT INTO comments (id, issue_id, content, created_at)

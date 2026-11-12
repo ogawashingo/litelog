@@ -1,15 +1,16 @@
 // 課題の新規作成モーダルコンポーネント
 "use client";
 
-import React, { useState } from "react";
-import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus } from "lucide-react";
-import { Project, IssueType, IssueStatus, IssuePriority } from "@/types";
+import React, { useState, useEffect } from "react";
+import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch } from "lucide-react";
+import { Project, Issue, IssueType, IssueStatus, IssuePriority } from "@/types";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
   projects: Project[];
   selectedProjectId: number | null;
   defaultStatus?: IssueStatus;
+  defaultParentId?: number | null;
   onClose: () => void;
   onCreated: () => void;
 }
@@ -19,12 +20,15 @@ export default function CreateIssueModal({
   projects,
   selectedProjectId,
   defaultStatus = "open",
+  defaultParentId = null,
   onClose,
   onCreated,
 }: CreateIssueModalProps) {
   const [projectId, setProjectId] = useState<number>(
     selectedProjectId || (projects[0] ? projects[0].id : 1)
   );
+  const [parentId, setParentId] = useState<string>(defaultParentId ? String(defaultParentId) : "");
+  const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [issueType, setIssueType] = useState<IssueType>("task");
@@ -36,13 +40,14 @@ export default function CreateIssueModal({
   const [errorMessage, setErrorMessage] = useState("");
 
   // モーダルが開かれたときに初期状態を同期
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       if (selectedProjectId) {
         setProjectId(selectedProjectId);
       } else if (projects[0]) {
         setProjectId(projects[0].id);
       }
+      setParentId(defaultParentId ? String(defaultParentId) : "");
       setStatus(defaultStatus);
       setTitle("");
       setDescription("");
@@ -52,7 +57,20 @@ export default function CreateIssueModal({
       setIssueType("task");
       setErrorMessage("");
     }
-  }, [isOpen, selectedProjectId, defaultStatus, projects]);
+  }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, projects]);
+
+  // プロジェクトが変わったら親課題候補一覧を取得
+  useEffect(() => {
+    if (!isOpen || !projectId) return;
+    fetch(`/api/issues?projectId=${projectId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setAvailableParents(data);
+        }
+      })
+      .catch((err) => console.error("親課題候補の取得エラー:", err));
+  }, [isOpen, projectId]);
 
   if (!isOpen) return null;
 
@@ -72,6 +90,7 @@ export default function CreateIssueModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
+          parentId: parentId ? Number(parentId) : null,
           title: title.trim(),
           description: description.trim(),
           issueType,
@@ -130,22 +149,50 @@ export default function CreateIssueModal({
             </div>
           )}
 
-          {/* プロジェクト選択 */}
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
-              プロジェクト <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(Number(e.target.value))}
-              className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            >
-              {projects.map((proj) => (
-                <option key={proj.id} value={proj.id}>
-                  [{proj.key}] {proj.name}
-                </option>
-              ))}
-            </select>
+          {/* プロジェクト選択 ＆ 親課題選択 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                プロジェクト <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={projectId}
+                onChange={(e) => {
+                  setProjectId(Number(e.target.value));
+                  setParentId("");
+                }}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                {projects.map((proj) => (
+                  <option key={proj.id} value={proj.id}>
+                    [{proj.key}] {proj.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                <span className="flex items-center gap-1">
+                  <GitBranch className="w-3.5 h-3.5 text-gray-500" />
+                  親課題（任意）
+                </span>
+              </label>
+              <select
+                value={parentId}
+                onChange={(e) => setParentId(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                <option value="">親課題なし（単独課題）</option>
+                {availableParents
+                  .filter((p) => !p.parent_id) // 親課題になれる課題（トップレベル課題）を優先表示
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      [{p.issue_key}] {p.title}
+                    </option>
+                  ))}
+              </select>
+            </div>
           </div>
 
           {/* 種別の選択（Backlog風の四角いボタングループ） */}

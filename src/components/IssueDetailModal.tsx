@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2 } from "lucide-react";
+import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
 
@@ -22,6 +22,8 @@ export default function IssueDetailModal({
   onDeleted,
 }: IssueDetailModalProps) {
   const [comments, setComments] = useState<Comment[]>([]);
+  const [childrenIssues, setChildrenIssues] = useState<Issue[]>([]);
+  const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -32,11 +34,12 @@ export default function IssueDetailModal({
   const [editStatus, setEditStatus] = useState<IssueStatus>("open");
   const [editPriority, setEditPriority] = useState<IssuePriority>("medium");
   const [editType, setEditType] = useState<IssueType>("task");
+  const [editParentId, setEditParentId] = useState<string>("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // 課題が切り替わったときにコメント一覧を取得し、編集状態を同期
+  // 課題が切り替わったときに詳細・コメント・子課題・親候補を取得し、編集状態を同期
   useEffect(() => {
     if (!issue || !isOpen) return;
 
@@ -45,19 +48,33 @@ export default function IssueDetailModal({
     setEditStatus(issue.status);
     setEditPriority(issue.priority);
     setEditType(issue.issue_type);
+    setEditParentId(issue.parent_id ? String(issue.parent_id) : "");
     setEditStartDate(issue.start_date || "");
     setEditDueDate(issue.due_date || "");
     setIsEditing(false);
 
-    // コメント一覧の取得
-    fetch(`/api/issues/${issue.id}/comments`)
+    // 課題詳細（コメントや子課題含む）の取得
+    fetch(`/api/issues/${issue.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data.comments)) {
+          setComments(data.comments);
+        }
+        if (Array.isArray(data.children)) {
+          setChildrenIssues(data.children);
+        }
+      })
+      .catch((err) => console.error("詳細取得失敗:", err));
+
+    // 同プロジェクト内の親課題候補一覧を取得
+    fetch(`/api/issues?projectId=${issue.project_id}`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          setComments(data);
+          setAvailableParents(data.filter((item: Issue) => item.id !== issue.id));
         }
       })
-      .catch((err) => console.error("コメント取得失敗:", err));
+      .catch((err) => console.error("親課題候補取得失敗:", err));
   }, [issue, isOpen]);
 
   if (!isOpen || !issue) return null;
@@ -77,6 +94,7 @@ export default function IssueDetailModal({
           status: editStatus,
           priority: editPriority,
           issueType: editType,
+          parentId: editParentId ? Number(editParentId) : null,
           startDate: editStartDate || null,
           dueDate: editDueDate || null,
         }),
@@ -282,6 +300,29 @@ export default function IssueDetailModal({
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  <span className="flex items-center gap-1">
+                    <GitBranch className="w-3.5 h-3.5 text-gray-500" />
+                    親課題（任意）
+                  </span>
+                </label>
+                <select
+                  value={editParentId}
+                  onChange={(e) => setEditParentId(e.target.value)}
+                  className="w-full bg-white border border-gray-300 rounded px-3 py-1.5 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">親課題なし（単独課題）</option>
+                  {availableParents
+                    .filter((p) => !p.parent_id && p.id !== issue.id)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        [{p.issue_key}] {p.title}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">詳細</label>
                 <textarea
                   rows={5}
@@ -311,8 +352,16 @@ export default function IssueDetailModal({
             </div>
           ) : (
             <>
-              {/* タイトル */}
+              {/* タイトル ＆ 親課題バッジ */}
               <div>
+                {issue.parent_id && issue.parent_issue_key && (
+                  <div className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-xs text-slate-700 font-medium">
+                    <GitBranch className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-slate-500">親課題:</span>
+                    <span className="font-bold text-emerald-700">[{issue.parent_issue_key}]</span>
+                    <span className="truncate max-w-sm">{issue.parent_title}</span>
+                  </div>
+                )}
                 <h2 className="text-xl font-bold text-gray-900 leading-snug">
                   {issue.title}
                 </h2>
@@ -378,6 +427,33 @@ export default function IssueDetailModal({
                   )}
                 </div>
               </div>
+
+              {/* 子課題一覧（存在する場合のみ表示） */}
+              {childrenIssues.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>子課題 ({childrenIssues.length})</span>
+                  </h4>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg divide-y divide-gray-200">
+                    {childrenIssues.map((child) => (
+                      <div key={child.id} className="px-3 py-2 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <TypeBadge type={child.issue_type} showLabel={false} />
+                          <span className="font-bold text-emerald-800 shrink-0">{child.issue_key}</span>
+                          <span className="text-gray-800 truncate">{child.title}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <StatusBadge status={child.status} />
+                          {child.due_date && (
+                            <span className="text-[11px] text-gray-500">{child.due_date}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
 

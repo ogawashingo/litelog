@@ -44,6 +44,7 @@ function initDb(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS issues (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      parent_id INTEGER REFERENCES issues(id) ON DELETE SET NULL,
       issue_key TEXT UNIQUE NOT NULL,
       issue_number INTEGER NOT NULL,
       title TEXT NOT NULL,
@@ -58,15 +59,19 @@ function initDb(db: DatabaseSync) {
     );
   `);
 
-  // 既存テーブルへのカラム追加マイグレーション（start_date が存在しない場合に追加）
+  // 既存テーブルへのカラム追加マイグレーション
   try {
     const tableInfo = db.prepare("PRAGMA table_info(issues)").all() as { name: string }[];
     const hasStartDate = tableInfo.some((col) => col.name === "start_date");
     if (!hasStartDate) {
       db.exec("ALTER TABLE issues ADD COLUMN start_date TEXT;");
     }
+    const hasParentId = tableInfo.some((col) => col.name === "parent_id");
+    if (!hasParentId) {
+      db.exec("ALTER TABLE issues ADD COLUMN parent_id INTEGER REFERENCES issues(id) ON DELETE SET NULL;");
+    }
   } catch (migErr) {
-    console.error("issues テーブルの start_date カラムマイグレーション確認エラー:", migErr);
+    console.error("issues テーブルのカラムマイグレーション確認エラー:", migErr);
   }
 
   // コメントテーブル

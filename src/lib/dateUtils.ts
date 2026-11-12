@@ -2,10 +2,14 @@
 // タイムゾーンによるズレを防ぐため、YYYY-MM-DD形式を基本に安全に取り扱います。
 
 /**
- * YYYY-MM-DD 文字列をローカル時間の Date オブジェクトに変換
+ * YYYY-MM-DD または YYYY/MM/DD 文字列をローカル時間の Date オブジェクトに変換
  */
 export function parseDateString(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
+  const normalized = dateStr.trim().replace(/\//g, "-");
+  const [y, m, d] = normalized.split("-").map(Number);
+  if (!y || !m || !d || isNaN(y) || isNaN(m) || isNaN(d)) {
+    return new Date();
+  }
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
@@ -17,6 +21,25 @@ export function formatDateString(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * Date オブジェクトを YYYY/MM/DD 文字列に変換（Backlog URLパラメータ形式）
+ */
+export function formatSlashDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}/${m}/${d}`;
+}
+
+/**
+ * 指定月数分進めた/戻した Date を取得
+ */
+export function addMonths(date: Date, months: number): Date {
+  const result = new Date(date.getTime());
+  result.setMonth(result.getMonth() + months);
+  return result;
 }
 
 /**

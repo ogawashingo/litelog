@@ -1,34 +1,35 @@
-// Backlog風ガントチャートコンポーネント
+// Backlog仕様準拠 ガントチャートコンポーネント
+// URLクエリパラメータ（span, scale, startDate, withParentRelation）との双方向同期および親子課題ツリー表示対応
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams, usePathname } from "next/navigation";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Calendar as CalendarIcon,
   Search,
-  Filter,
   CheckCircle2,
-  Clock,
-  AlertCircle,
   Plus,
   Maximize2,
   Minimize2,
   Kanban,
-  LayoutDashboard,
-  ExternalLink,
+  GitBranch,
+  CornerDownRight,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
-import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
+import { TypeBadge } from "./IssueBadge";
 import IssueDetailModal from "./IssueDetailModal";
 import CreateIssueModal from "./CreateIssueModal";
 import {
   parseDateString,
   formatDateString,
+  formatSlashDateString,
   addDays,
+  addMonths,
   diffInDays,
-  isSameDay,
   getWeekendInfo,
   getWeekdayJa,
   generateDateRange,
@@ -42,46 +43,50 @@ interface GanttChartProps {
   onSelectProjectKey?: (key: string) => void;
 }
 
-// 表示スケール種別
-type ViewScale = "day" | "week" | "month";
+// Backlog準拠の表示スケール種別
+type ViewScale = "days" | "weeks" | "months";
 
-// 各スケールでの1日あたりのセル幅（px）
+// スケールごとの1日あたりのセル幅（px）
 const SCALE_CELL_WIDTH: Record<ViewScale, number> = {
-  day: 38,
-  week: 20,
-  month: 10,
+  days: 34,
+  weeks: 14,
+  months: 5,
 };
 
 // ステータスに応じたバーの配色設定
 const STATUS_BAR_STYLES: Record<
   IssueStatus,
-  { bg: string; border: string; text: string; barGradient: string }
+  { bg: string; border: string; text: string }
 > = {
   open: {
     bg: "bg-blue-500",
     border: "border-blue-600",
     text: "text-white",
-    barGradient: "from-blue-500 to-blue-600",
   },
   in_progress: {
     bg: "bg-[#2ca078]",
     border: "border-[#238161]",
     text: "text-white",
-    barGradient: "from-emerald-500 to-[#2ca078]",
   },
   resolved: {
     bg: "bg-teal-500",
     border: "border-teal-600",
     text: "text-white",
-    barGradient: "from-teal-400 to-teal-600",
   },
   closed: {
     bg: "bg-gray-400",
     border: "border-gray-500",
     text: "text-white",
-    barGradient: "from-gray-400 to-gray-500",
   },
 };
+
+// ツリー表示用の平坦化アイテム型
+interface DisplayRow {
+  issue: Issue;
+  depth: number; // 0: 親または単独課題, 1: 子課題
+  hasChildren: boolean;
+  childrenIssues: Issue[];
+}
 
 export default function GanttChart({
   projects,
@@ -90,11 +95,104 @@ export default function GanttChart({
   onRefresh,
   onSelectProjectKey,
 }: GanttChartProps) {
-  // 表示スケール（日 / 週 / 月）
-  const [scale, setScale] = useState<ViewScale>("day");
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  // 今日の日付（ローカル日付）
+  const today = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }, []);
+  const todayStr = useMemo(() => formatDateString(today), [today]);
+
+  // URLクエリパラメータから初期値を取得
+  const initialSpan = useMemo(() => {
+    const raw = Number(searchParams?.get("span"));
+    return [1, 3, 6, 12].includes(raw) ? raw : 3;
+  }, [searchParams]);
+
+  const initialScale = useMemo<ViewScale>(() => {
+    const raw = searchParams?.get("scale");
+    if (raw === "days" || raw === "weeks" || raw === "months") return raw;
+    return "days";
+  }, [searchParams]);
+
+  const initialStartDate = useMemo<Date>(() => {
+    const raw = searchParams?.get("startDate");
+    if (raw) {
+      return parseDateString(raw);
+    }
+    // デフォルトは今日の7日前
+    return addDays(today, -7);
+  }, [searchParams, today]);
+
+  const initialWithParentRelation = useMemo<boolean>(() => {
+    const raw = searchParams?.get("withParentRelation");
+    if (raw === "false") return false;
+    return true; // デフォルトはON
+  }, [searchParams]);
+
+  // コントロールState
+  const [span, setSpan] = useState<number>(initialSpan);
+  const [scale, setScale] = useState<ViewScale>(initialScale);
+  const [startDate, setStartDate] = useState<Date>(initialStartDate);
+  const [withParentRelation, setWithParentRelation] = useState<boolean>(initialWithParentRelation);
+
+  // ブラウザの戻る/進む操作（popstate）時にURLパラメータとStateを同期
+  useEffect(() => {
+    const handlePopState = () => {
+      const sp = new URLSearchParams(window.location.search);
+      const spSpan = Number(sp.get("span"));
+      if ([1, 3, 6, 12].includes(spSpan)) setSpan(spSpan);
+
+      const spScale = sp.get("scale");
+      if (spScale === "days" || spScale === "weeks" || spScale === "months") setScale(spScale);
+
+      const spStart = sp.get("startDate");
+      if (spStart) setStartDate(parseDateString(spStart));
+
+      const spParent = sp.get("withParentRelation");
+      if (spParent === "true" || spParent === "false") {
+        setWithParentRelation(spParent === "true");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // パラメータ変更時にURLクエリを更新する関数
+  const updateUrlParams = useCallback(
+    (next: {
+      span?: number;
+      scale?: ViewScale;
+      startDate?: Date;
+      withParentRelation?: boolean;
+    }) => {
+      const nextSpan = next.span ?? span;
+      const nextScale = next.scale ?? scale;
+      const nextStart = next.startDate ?? startDate;
+      const nextParent = next.withParentRelation ?? withParentRelation;
+
+      const params = new URLSearchParams();
+      params.set("span", String(nextSpan));
+      params.set("scale", nextScale);
+      params.set("startDate", formatSlashDateString(nextStart));
+      params.set("withParentRelation", String(nextParent));
+
+      const newUrl = `${pathname}?${params.toString()}`;
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", newUrl);
+      }
+    },
+    [pathname, span, scale, startDate, withParentRelation]
+  );
 
   // 左ペイン（課題一覧テーブル）の開閉
   const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
+
+  // 折りたたまれている親課題IDのSet
+  const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set());
 
   // フィルター用State
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,52 +203,24 @@ export default function GanttChart({
 
   // モーダル用State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createDefaultParentId, setCreateDefaultParentId] = useState<number | null>(null);
   const [detailIssue, setDetailIssue] = useState<Issue | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   // ホバー中の課題ID（左右ペイン同期用）
   const [hoveredIssueId, setHoveredIssueId] = useState<number | null>(null);
 
-  // タイムラインの基準日（現在のビューの中心付近）
-  const [timelineBaseDate, setTimelineBaseDate] = useState<Date>(() => {
-    const today = new Date();
-    // 今月1日を開始基準にする
-    return new Date(today.getFullYear(), today.getMonth(), 1);
-  });
-
-  // タイムラインの表示日数（スケールに応じて調整）
-  const daysCount = useMemo(() => {
-    switch (scale) {
-      case "day":
-        return 60; // 約2ヶ月分
-      case "week":
-        return 90; // 約3ヶ月分
-      case "month":
-        return 180; // 約半年分
-    }
-  }, [scale]);
-
-  // タイムラインの日付範囲を生成
-  const dateRange = useMemo(() => {
-    // 基準日の7日前から開始して余裕を持たせる
-    const start = addDays(timelineBaseDate, -7);
-    const end = addDays(start, daysCount);
-    return generateDateRange(start, end);
-  }, [timelineBaseDate, daysCount]);
-
-  // 今日の日付
-  const today = useMemo(() => new Date(), []);
-  const todayStr = useMemo(() => formatDateString(today), [today]);
+  // タイムラインの表示終了日（startDate + spanヶ月）と日付配列を生成
+  const endDate = useMemo(() => addMonths(startDate, span), [startDate, span]);
+  const dateRange = useMemo(() => generateDateRange(startDate, endDate), [startDate, endDate]);
 
   const cellWidth = SCALE_CELL_WIDTH[scale];
   const timelineStartDate = dateRange[0];
-  const timelineEndDate = dateRange[dateRange.length - 1];
 
-  // タイムラインコンテナへのRef（スクロール位置制御用）
+  // スクロール同期用Ref
   const timelineScrollRef = useRef<HTMLDivElement>(null);
   const leftTableScrollRef = useRef<HTMLDivElement>(null);
 
-  // 左右ペインの縦スクロール同期
   const handleTimelineScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (leftTableScrollRef.current) {
       leftTableScrollRef.current.scrollTop = e.currentTarget.scrollTop;
@@ -163,36 +233,34 @@ export default function GanttChart({
     }
   };
 
-  // 「今日」の位置へスクロールする関数
-  const scrollToToday = useCallback(() => {
-    if (!timelineScrollRef.current || !timelineStartDate) return;
-    const daysFromStart = diffInDays(timelineStartDate, today);
-    if (daysFromStart >= 0 && daysFromStart <= daysCount) {
-      const targetLeft = daysFromStart * cellWidth - timelineScrollRef.current.clientWidth / 2 + cellWidth / 2;
+  // 「今日」の位置へ移動＆スクロールする関数
+  const handleGoToToday = () => {
+    const todayOffsetStart = addDays(today, -7);
+    // もし今日が現在の範囲外なら、開始日を今日の7日前に更新
+    const diffFromStart = diffInDays(timelineStartDate, today);
+    if (diffFromStart < 0 || diffFromStart >= dateRange.length) {
+      setStartDate(todayOffsetStart);
+      updateUrlParams({ startDate: todayOffsetStart });
+      setTimeout(() => {
+        if (timelineScrollRef.current) {
+          timelineScrollRef.current.scrollTo({ left: 0, behavior: "smooth" });
+        }
+      }, 100);
+    } else if (timelineScrollRef.current) {
+      const targetLeft =
+        diffFromStart * cellWidth - timelineScrollRef.current.clientWidth / 3;
       timelineScrollRef.current.scrollTo({
         left: Math.max(0, targetLeft),
         behavior: "smooth",
       });
-    } else {
-      // 範囲外なら基準日を今日の月初にリセットして再スクロール
-      setTimelineBaseDate(new Date(today.getFullYear(), today.getMonth(), 1));
     }
-  }, [timelineStartDate, today, daysCount, cellWidth]);
+  };
 
-  // 初回表示時に今日へスクロール
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToToday();
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [scrollToToday]);
-
-  // 月移動（前へ / 次へ）
-  const handleShiftMonth = (months: number) => {
-    setTimelineBaseDate((prev) => {
-      const next = new Date(prev.getFullYear(), prev.getMonth() + months, 1);
-      return next;
-    });
+  // 期間前後シフト
+  const handleShiftPeriod = (monthsDelta: number) => {
+    const nextStart = addMonths(startDate, monthsDelta);
+    setStartDate(nextStart);
+    updateUrlParams({ startDate: nextStart });
   };
 
   // フィルター後の課題一覧
@@ -212,6 +280,81 @@ export default function GanttChart({
       return true;
     });
   }, [issues, showClosed, filterType, filterStatus, filterPriority, searchQuery]);
+
+  // 親子関係ツリー構造の構築（withParentRelation に対応）
+  const displayRows = useMemo<DisplayRow[]>(() => {
+    if (!withParentRelation) {
+      // フラット表示
+      return filteredIssues.map((issue) => ({
+        issue,
+        depth: 0,
+        hasChildren: false,
+        childrenIssues: [],
+      }));
+    }
+
+    // 親IDごとに子課題をグループ化
+    const childrenMap = new Map<number, Issue[]>();
+    const issueMap = new Map<number, Issue>();
+
+    filteredIssues.forEach((issue) => {
+      issueMap.set(issue.id, issue);
+    });
+
+    filteredIssues.forEach((issue) => {
+      if (issue.parent_id && issueMap.has(issue.parent_id)) {
+        const list = childrenMap.get(issue.parent_id) || [];
+        list.push(issue);
+        childrenMap.set(issue.parent_id, list);
+      }
+    });
+
+    // ルート（親がいない、またはフィルター後の親が存在しない課題）を抽出
+    const roots = filteredIssues.filter(
+      (issue) => !issue.parent_id || !issueMap.has(issue.parent_id)
+    );
+
+    const rows: DisplayRow[] = [];
+    roots.forEach((root) => {
+      const children = childrenMap.get(root.id) || [];
+      // 子課題は課題番号順にソート
+      children.sort((a, b) => a.issue_number - b.issue_number);
+
+      rows.push({
+        issue: root,
+        depth: 0,
+        hasChildren: children.length > 0,
+        childrenIssues: children,
+      });
+
+      // 折りたたまれていなければ子課題を展開
+      if (children.length > 0 && !collapsedParentIds.has(root.id)) {
+        children.forEach((child) => {
+          rows.push({
+            issue: child,
+            depth: 1,
+            hasChildren: false,
+            childrenIssues: [],
+          });
+        });
+      }
+    });
+
+    return rows;
+  }, [filteredIssues, withParentRelation, collapsedParentIds]);
+
+  // 親課題の展開/折りたたみ切り替え
+  const toggleParentCollapse = (parentId: number) => {
+    setCollapsedParentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentId)) {
+        next.delete(parentId);
+      } else {
+        next.add(parentId);
+      }
+      return next;
+    });
+  };
 
   // 課題の状態即時変更
   const handleQuickStatusChange = async (issueId: number, newStatus: IssueStatus) => {
@@ -248,7 +391,6 @@ export default function GanttChart({
     e.stopPropagation();
     e.preventDefault();
 
-    // 日付が未設定の場合は今日をデフォルト基準にする
     const startStr = issue.start_date || issue.due_date || todayStr;
     const dueStr = issue.due_date || issue.start_date || todayStr;
 
@@ -273,11 +415,14 @@ export default function GanttChart({
 
       if (daysShift === 0 && dragState.currentStartDate === dragState.initialStartDate) return;
 
-      const initStart = dragState.initialStartDate ? parseDateString(dragState.initialStartDate) : today;
-      const initDue = dragState.initialDueDate ? parseDateString(dragState.initialDueDate) : today;
+      const initStart = dragState.initialStartDate
+        ? parseDateString(dragState.initialStartDate)
+        : today;
+      const initDue = dragState.initialDueDate
+        ? parseDateString(dragState.initialDueDate)
+        : today;
 
       if (dragState.mode === "move") {
-        // 全体を左右シフト
         const newStart = addDays(initStart, daysShift);
         const newDue = addDays(initDue, daysShift);
         setDragState((prev) =>
@@ -290,7 +435,6 @@ export default function GanttChart({
             : null
         );
       } else if (dragState.mode === "resize-start") {
-        // 開始日のみリサイズ（期限日を超えないように制御）
         const newStart = addDays(initStart, daysShift);
         if (newStart <= initDue) {
           setDragState((prev) =>
@@ -303,7 +447,6 @@ export default function GanttChart({
           );
         }
       } else if (dragState.mode === "resize-end") {
-        // 期限日のみリサイズ（開始日を下回らないように制御）
         const newDue = addDays(initDue, daysShift);
         if (newDue >= initStart) {
           setDragState((prev) =>
@@ -327,7 +470,6 @@ export default function GanttChart({
     const { issueId, currentStartDate, currentDueDate, initialStartDate, initialDueDate } = dragState;
     setDragState(null);
 
-    // 変更がない場合は何もしない
     if (currentStartDate === initialStartDate && currentDueDate === initialDueDate) {
       return;
     }
@@ -347,7 +489,6 @@ export default function GanttChart({
     }
   }, [dragState, onRefresh]);
 
-  // グローバルマウスイベントのリスナー登録
   useEffect(() => {
     if (dragState) {
       window.addEventListener("mousemove", handleMouseMove);
@@ -359,16 +500,16 @@ export default function GanttChart({
     }
   }, [dragState, handleMouseMove, handleMouseUp]);
 
-  // 日付未設定のセルクリックで新規期間を設定
-  const handleCellClick = async (issue: Issue, clickedDate: Date) => {
-    const dateStr = formatDateString(clickedDate);
+  // 日付未設定の行でクリックして設定
+  const handleSetDefaultDates = async (issue: Issue) => {
     try {
+      const targetStr = formatDateString(startDate > today ? startDate : today);
       await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          startDate: dateStr,
-          dueDate: dateStr,
+          startDate: targetStr,
+          dueDate: targetStr,
         }),
       });
       onRefresh();
@@ -389,6 +530,24 @@ export default function GanttChart({
         lastGroup.daysCount++;
       } else {
         groups.push({ year, month, daysCount: 1 });
+      }
+    });
+    return groups;
+  }, [dateRange]);
+
+  // 週スケール用のグループ化（月曜始まりまたは先頭区切り）
+  const weekGroups = useMemo(() => {
+    const groups: { label: string; daysCount: number; startDateStr: string }[] = [];
+    dateRange.forEach((d, idx) => {
+      const isMonday = d.getDay() === 1;
+      if (idx === 0 || isMonday) {
+        groups.push({
+          label: `${d.getMonth() + 1}/${d.getDate()}`,
+          daysCount: 1,
+          startDateStr: formatDateString(d),
+        });
+      } else {
+        groups[groups.length - 1].daysCount++;
       }
     });
     return groups;
@@ -522,7 +681,10 @@ export default function GanttChart({
 
             {/* 課題追加ボタン */}
             <button
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => {
+                setCreateDefaultParentId(null);
+                setIsCreateOpen(true);
+              }}
               className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-md bg-[#2ca078] hover:bg-[#238161] text-white shadow-xs transition-colors"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
@@ -531,72 +693,113 @@ export default function GanttChart({
           </div>
         </div>
 
-        {/* ガントチャート専用コントローラー行（期間ナビ・今日へ移動・スケール切替・左ペイン切替） */}
+        {/* ガントチャート専用コントローラー行（Backlog仕様準拠: 開始日 / スパン / スケール / 親子関係） */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-3 border-t border-gray-100">
-          {/* 期間ナビゲーション */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handleShiftMonth(-1)}
-              className="p-1.5 rounded hover:bg-gray-100 text-gray-600 border border-gray-300 transition-colors"
-              title="前月へ移動"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={scrollToToday}
-              className="flex items-center gap-1 px-3 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded transition-colors"
-              title="今日の日付へスクロール"
-            >
-              <CalendarIcon className="w-3.5 h-3.5 text-emerald-600" />
-              <span>今日</span>
-            </button>
-            <button
-              onClick={() => handleShiftMonth(1)}
-              className="p-1.5 rounded hover:bg-gray-100 text-gray-600 border border-gray-300 transition-colors"
-              title="次月へ移動"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          {/* 左側：期間移動と開始日(startDate)・表示スパン(span) */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* 前へ / 今日 / 次へ */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handleShiftPeriod(-1)}
+                className="p-1.5 rounded hover:bg-gray-100 text-gray-600 border border-gray-300 transition-colors"
+                title="1ヶ月前へ移動"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleGoToToday}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded transition-colors"
+                title="今日の日付へ移動"
+              >
+                <CalendarIcon className="w-3.5 h-3.5 text-emerald-600" />
+                <span>今日</span>
+              </button>
+              <button
+                onClick={() => handleShiftPeriod(1)}
+                className="p-1.5 rounded hover:bg-gray-100 text-gray-600 border border-gray-300 transition-colors"
+                title="1ヶ月先へ移動"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
 
-            <span className="text-xs font-bold text-gray-700 ml-2">
-              {timelineBaseDate.getFullYear()}年 {timelineBaseDate.getMonth() + 1}月
-            </span>
+            {/* 開始日指定（startDate） */}
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-gray-500 font-semibold">開始日:</span>
+              <input
+                type="date"
+                value={formatDateString(startDate)}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    const nextD = parseDateString(e.target.value);
+                    setStartDate(nextD);
+                    updateUrlParams({ startDate: nextD });
+                  }
+                }}
+                className="bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 font-medium focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            {/* 表示スパン指定（span） */}
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-gray-500 font-semibold">表示期間:</span>
+              <select
+                value={span}
+                onChange={(e) => {
+                  const nextSpan = Number(e.target.value);
+                  setSpan(nextSpan);
+                  updateUrlParams({ span: nextSpan });
+                }}
+                className="bg-white border border-gray-300 rounded px-2 py-1 text-xs text-gray-700 font-semibold cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value={1}>1ヶ月</option>
+                <option value={3}>3ヶ月</option>
+                <option value={6}>6ヶ月</option>
+                <option value={12}>1年</option>
+              </select>
+            </div>
           </div>
 
-          {/* 右側：スケール切替と左ペイン開閉ボタン */}
-          <div className="flex items-center gap-3">
-            {/* スケール切替ラジオ風ボタングループ */}
+          {/* 右側：親子関係トグル(withParentRelation) ・ スケール(scale) ・ 一覧開閉 */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* 親子課題関連の表示切り替え (withParentRelation) */}
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 cursor-pointer select-none bg-gray-50 hover:bg-gray-100 border border-gray-300 px-2.5 py-1 rounded-md transition-colors">
+              <input
+                type="checkbox"
+                checked={withParentRelation}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setWithParentRelation(val);
+                  updateUrlParams({ withParentRelation: val });
+                }}
+                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <GitBranch className="w-3.5 h-3.5 text-emerald-600" />
+              <span>親子課題を表示</span>
+            </label>
+
+            {/* スケール切替ボタングループ (scale=days/weeks/months) */}
             <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 text-xs">
-              <button
-                onClick={() => setScale("day")}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
-                  scale === "day"
-                    ? "bg-white text-emerald-800 shadow-xs"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                日
-              </button>
-              <button
-                onClick={() => setScale("week")}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
-                  scale === "week"
-                    ? "bg-white text-emerald-800 shadow-xs"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                週
-              </button>
-              <button
-                onClick={() => setScale("month")}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
-                  scale === "month"
-                    ? "bg-white text-emerald-800 shadow-xs"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                月
-              </button>
+              {[
+                { value: "days" as ViewScale, label: "日" },
+                { value: "weeks" as ViewScale, label: "週" },
+                { value: "months" as ViewScale, label: "月" },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  onClick={() => {
+                    setScale(item.value);
+                    updateUrlParams({ scale: item.value });
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-all ${
+                    scale === item.value
+                      ? "bg-white text-emerald-800 shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
 
             {/* 左側課題リストの開閉ボタン */}
@@ -625,13 +828,13 @@ export default function GanttChart({
       <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden flex">
         {/* ================= 左ペイン：課題一覧テーブル ================= */}
         {isLeftPaneOpen && (
-          <div className="w-[360px] md:w-[420px] shrink-0 border-r border-gray-200 flex flex-col bg-white select-none">
+          <div className="w-[380px] md:w-[450px] shrink-0 border-r border-gray-200 flex flex-col bg-white select-none">
             {/* テーブルヘッダー（高さ: 52px = 右側の2段ヘッダーと正確に一致） */}
             <div className="h-[52px] bg-gray-50 border-b border-gray-200 flex items-center px-3 text-xs font-bold text-gray-600">
-              <div className="w-[105px] shrink-0">課題キー</div>
+              <div className="w-[115px] shrink-0">課題キー</div>
               <div className="flex-1 min-w-0 pr-2">件名</div>
               <div className="w-[72px] shrink-0 text-center">状態</div>
-              <div className="w-[85px] shrink-0 text-center">期限日</div>
+              <div className="w-[82px] shrink-0 text-center">期限日</div>
             </div>
 
             {/* 課題一覧ボディ（タイムラインと連動して縦スクロール） */}
@@ -640,16 +843,18 @@ export default function GanttChart({
               onScroll={handleLeftTableScroll}
               className="overflow-y-auto overflow-x-hidden max-h-[620px] divide-y divide-gray-100"
             >
-              {filteredIssues.length === 0 ? (
+              {displayRows.length === 0 ? (
                 <div className="p-8 text-center text-xs text-gray-400">
                   表示する課題がありません
                 </div>
               ) : (
-                filteredIssues.map((issue) => {
+                displayRows.map((row) => {
+                  const { issue, depth, hasChildren, childrenIssues } = row;
                   const isHovered = hoveredIssueId === issue.id;
                   const isClosed = issue.status === "closed";
                   const isOverdue =
                     !isClosed && issue.due_date && issue.due_date < todayStr;
+                  const isCollapsed = collapsedParentIds.has(issue.id);
 
                   return (
                     <div
@@ -657,12 +862,28 @@ export default function GanttChart({
                       onMouseEnter={() => setHoveredIssueId(issue.id)}
                       onMouseLeave={() => setHoveredIssueId(null)}
                       style={{ height: `${ROW_HEIGHT}px` }}
-                      className={`flex items-center px-3 text-xs transition-colors ${
-                        isHovered ? "bg-emerald-50/60" : "hover:bg-gray-50/80"
-                      }`}
+                      className={`group flex items-center px-3 text-xs transition-colors ${
+                        hasChildren ? "bg-slate-50/70 font-semibold" : ""
+                      } ${isHovered ? "bg-emerald-50/70" : "hover:bg-gray-50/80"}`}
                     >
-                      {/* 課題キー ＆ 種別アイコン */}
-                      <div className="w-[105px] shrink-0 flex items-center gap-1.5">
+                      {/* 課題キー ＆ 展開トグル/ツリーアイコン ＆ 種別アイコン */}
+                      <div className="w-[115px] shrink-0 flex items-center gap-1">
+                        {withParentRelation && depth > 0 && (
+                          <CornerDownRight className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-1" />
+                        )}
+                        {withParentRelation && hasChildren && (
+                          <button
+                            onClick={() => toggleParentCollapse(issue.id)}
+                            className="p-0.5 rounded hover:bg-gray-200 text-gray-500 transition-colors"
+                            title={isCollapsed ? "子課題を展開" : "子課題を折りたたむ"}
+                          >
+                            {isCollapsed ? (
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        )}
                         <TypeBadge type={issue.issue_type} showLabel={false} />
                         <button
                           onClick={() => {
@@ -676,22 +897,46 @@ export default function GanttChart({
                         </button>
                       </div>
 
-                      {/* 課題名 */}
-                      <div className="flex-1 min-w-0 pr-2">
+                      {/* 課題名 ＆ クイック子課題追加ボタン */}
+                      <div className="flex-1 min-w-0 pr-2 flex items-center justify-between gap-1">
                         <button
                           onClick={() => {
                             setDetailIssue(issue);
                             setIsDetailOpen(true);
                           }}
-                          className={`text-left truncate w-full font-medium ${
+                          className={`text-left truncate flex-1 ${
                             isClosed
                               ? "line-through text-gray-400"
-                              : "text-gray-800 hover:text-emerald-700"
+                              : hasChildren
+                              ? "font-bold text-gray-900 hover:text-emerald-700"
+                              : "font-medium text-gray-800 hover:text-emerald-700"
                           }`}
                           title={issue.title}
                         >
                           {issue.title}
                         </button>
+
+                        {/* 親課題の場合、子課題件数と＋ボタンを表示 */}
+                        {withParentRelation && depth === 0 && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            {hasChildren && (
+                              <span className="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.2 rounded-full font-bold">
+                                {childrenIssues.length}
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCreateDefaultParentId(issue.id);
+                                setIsCreateOpen(true);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-opacity"
+                              title="この課題の子課題を追加"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* 状態変更セレクター */}
@@ -711,7 +956,7 @@ export default function GanttChart({
                       </div>
 
                       {/* 期限日 */}
-                      <div className="w-[85px] shrink-0 text-center font-medium text-[11px]">
+                      <div className="w-[82px] shrink-0 text-center font-medium text-[11px]">
                         {issue.due_date ? (
                           <span
                             className={
@@ -749,7 +994,7 @@ export default function GanttChart({
               style={{ width: `${dateRange.length * cellWidth}px` }}
               className="relative min-w-full"
             >
-              {/* ---------- タイムラインヘッダー（2段：年月 ＆ 日付曜日） ---------- */}
+              {/* ---------- タイムラインヘッダー（2段：年月 ＆ 日/週/月ラベル） ---------- */}
               <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 {/* 1段目：年月グループ */}
                 <div className="flex border-b border-gray-200 text-xs font-bold text-gray-700 h-[26px]">
@@ -757,7 +1002,7 @@ export default function GanttChart({
                     <div
                       key={idx}
                       style={{ width: `${g.daysCount * cellWidth}px` }}
-                      className="px-2 flex items-center border-r border-gray-200 truncate bg-gray-100/80"
+                      className="px-2 flex items-center border-r border-gray-300 truncate bg-gray-100/90"
                     >
                       <span>
                         {g.year}年 {g.month}月
@@ -766,42 +1011,42 @@ export default function GanttChart({
                   ))}
                 </div>
 
-                {/* 2段目：日 ＆ 曜日 */}
-                <div className="flex text-[11px] h-[26px]">
-                  {dateRange.map((d, idx) => {
-                    const dateStr = formatDateString(d);
-                    const isToday = dateStr === todayStr;
-                    const weekend = getWeekendInfo(d);
-                    const dayNum = d.getDate();
-                    const weekday = getWeekdayJa(d);
+                {/* 2段目：スケールに応じた目盛り */}
+                {scale === "days" && (
+                  <div className="flex text-[11px] h-[26px]">
+                    {dateRange.map((d, idx) => {
+                      const dateStr = formatDateString(d);
+                      const isToday = dateStr === todayStr;
+                      const weekend = getWeekendInfo(d);
+                      const dayNum = d.getDate();
+                      const weekday = getWeekdayJa(d);
 
-                    let colBg = "bg-white";
-                    let textColor = "text-gray-600";
-                    if (weekend.isSaturday) {
-                      colBg = "bg-blue-50/70";
-                      textColor = "text-blue-600";
-                    } else if (weekend.isSunday) {
-                      colBg = "bg-rose-50/70";
-                      textColor = "text-rose-600";
-                    }
+                      let colBg = "bg-white";
+                      let textColor = "text-gray-600";
+                      if (weekend.isSaturday) {
+                        colBg = "bg-blue-50/70";
+                        textColor = "text-blue-600";
+                      } else if (weekend.isSunday) {
+                        colBg = "bg-rose-50/70";
+                        textColor = "text-rose-600";
+                      }
 
-                    return (
-                      <div
-                        key={idx}
-                        style={{ width: `${cellWidth}px` }}
-                        className={`shrink-0 flex flex-col items-center justify-center border-r border-gray-200 ${colBg} ${
-                          isToday ? "bg-emerald-100/70 font-bold" : ""
-                        }`}
-                        title={`${dateStr} (${weekday})`}
-                      >
-                        <span
-                          className={`leading-none ${
-                            isToday ? "text-emerald-800 font-extrabold" : textColor
+                      return (
+                        <div
+                          key={idx}
+                          style={{ width: `${cellWidth}px` }}
+                          className={`shrink-0 flex flex-col items-center justify-center border-r border-gray-200 ${colBg} ${
+                            isToday ? "bg-emerald-100/70 font-bold" : ""
                           }`}
+                          title={`${dateStr} (${weekday})`}
                         >
-                          {dayNum}
-                        </span>
-                        {scale === "day" && (
+                          <span
+                            className={`leading-none ${
+                              isToday ? "text-emerald-800 font-extrabold" : textColor
+                            }`}
+                          >
+                            {dayNum}
+                          </span>
                           <span
                             className={`text-[9px] scale-90 leading-none ${
                               isToday ? "text-emerald-700 font-bold" : textColor
@@ -809,15 +1054,77 @@ export default function GanttChart({
                           >
                             {weekday}
                           </span>
-                        )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {scale === "weeks" && (
+                  <div className="flex text-[10px] h-[26px]">
+                    {weekGroups.map((wg, idx) => (
+                      <div
+                        key={idx}
+                        style={{ width: `${wg.daysCount * cellWidth}px` }}
+                        className="shrink-0 flex items-center px-1.5 border-r border-gray-300 bg-white text-gray-600 font-medium truncate"
+                      >
+                        {wg.label}〜
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {scale === "months" && (
+                  <div className="flex text-[10px] h-[26px]">
+                    {monthGroups.map((mg, idx) => (
+                      <div
+                        key={idx}
+                        style={{ width: `${mg.daysCount * cellWidth}px` }}
+                        className="shrink-0 flex items-center justify-around border-r border-gray-300 bg-white text-gray-500"
+                      >
+                        <span>上旬</span>
+                        <span>中旬</span>
+                        <span>下旬</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* ---------- タイムライングリッド背景レイヤー（軽量化のため1回だけ描画） ---------- */}
+              <div className="relative">
+                {/* 背面グリッド縦線と週末色付け */}
+                <div className="absolute inset-0 flex pointer-events-none z-0">
+                  {dateRange.map((d, colIdx) => {
+                    const weekend = getWeekendInfo(d);
+                    const isMonday = d.getDay() === 1;
+                    const isFirstOfMonth = d.getDate() === 1;
+
+                    let bg = "";
+                    if (scale === "days") {
+                      if (weekend.isSaturday) bg = "bg-blue-50/30";
+                      else if (weekend.isSunday) bg = "bg-rose-50/30";
+                    }
+
+                    let borderClass = "border-r border-gray-100";
+                    if (scale === "weeks" && d.getDay() === 0) {
+                      borderClass = "border-r border-gray-300";
+                    } else if (scale === "months") {
+                      borderClass = isFirstOfMonth ? "border-l border-gray-300" : "";
+                    } else if (isMonday && scale === "days") {
+                      borderClass = "border-r border-gray-100 border-l border-l-gray-200/70";
+                    }
+
+                    return (
+                      <div
+                        key={colIdx}
+                        style={{ width: `${cellWidth}px` }}
+                        className={`shrink-0 h-full ${borderClass} ${bg}`}
+                      />
                     );
                   })}
                 </div>
-              </div>
 
-              {/* ---------- タイムライン行グリッド ＆ タスクバー描画 ---------- */}
-              <div className="relative divide-y divide-gray-100">
                 {/* 今日の赤い縦線（タイムライン全体を縦断） */}
                 {(() => {
                   const todayIndex = dateRange.findIndex((d) => formatDateString(d) === todayStr);
@@ -837,135 +1144,184 @@ export default function GanttChart({
                   return null;
                 })()}
 
-                {/* 各課題の行 */}
-                {filteredIssues.map((issue) => {
-                  const isHovered = hoveredIssueId === issue.id;
-                  const isDraggingThis = dragState?.issueId === issue.id;
+                {/* ---------- 各課題の行 ＆ タスクバー描画 ---------- */}
+                <div className="relative divide-y divide-gray-100 z-10">
+                  {displayRows.map((row) => {
+                    const { issue, hasChildren, childrenIssues } = row;
+                    const isHovered = hoveredIssueId === issue.id;
+                    const isDraggingThis = dragState?.issueId === issue.id;
 
-                  // 表示用の開始日・期限日（ドラッグ中の場合はドラッグプレビュー値を使用）
-                  const effectiveStartDate = isDraggingThis
-                    ? dragState.currentStartDate
-                    : issue.start_date || issue.due_date;
-                  const effectiveDueDate = isDraggingThis
-                    ? dragState.currentDueDate
-                    : issue.due_date || issue.start_date;
+                    // 親課題かつ子課題が存在する場合：子課題の期間を包括するサマリー期間を計算
+                    let summaryStartStr: string | null = null;
+                    let summaryDueStr: string | null = null;
 
-                  // 期間バーの描画座標計算
-                  let barLeft = 0;
-                  let barWidth = 0;
-                  let isBarVisible = false;
+                    if (withParentRelation && hasChildren) {
+                      const allDates: string[] = [];
+                      if (issue.start_date) allDates.push(issue.start_date);
+                      if (issue.due_date) allDates.push(issue.due_date);
+                      childrenIssues.forEach((c) => {
+                        if (c.start_date) allDates.push(c.start_date);
+                        if (c.due_date) allDates.push(c.due_date);
+                      });
+                      if (allDates.length > 0) {
+                        allDates.sort();
+                        summaryStartStr = allDates[0];
+                        summaryDueStr = allDates[allDates.length - 1];
+                      }
+                    }
 
-                  if (effectiveStartDate && effectiveDueDate) {
-                    const startD = parseDateString(effectiveStartDate);
-                    const dueD = parseDateString(effectiveDueDate);
+                    // 実際にバー描画に使う開始日・期限日
+                    const effectiveStartDate = isDraggingThis
+                      ? dragState.currentStartDate
+                      : summaryStartStr || issue.start_date || issue.due_date;
+                    const effectiveDueDate = isDraggingThis
+                      ? dragState.currentDueDate
+                      : summaryDueStr || issue.due_date || issue.start_date;
 
-                    const startOffset = diffInDays(timelineStartDate, startD);
-                    const durationDays = Math.max(1, diffInDays(startD, dueD) + 1);
+                    let barLeft = 0;
+                    let barWidth = 0;
+                    let isBarVisible = false;
 
-                    barLeft = startOffset * cellWidth;
-                    barWidth = durationDays * cellWidth - 4; // 少しマージンを空ける
-                    isBarVisible = true;
-                  }
+                    if (effectiveStartDate && effectiveDueDate) {
+                      const startD = parseDateString(effectiveStartDate);
+                      const dueD = parseDateString(effectiveDueDate);
 
-                  const isClosed = issue.status === "closed";
-                  const isOverdue =
-                    !isClosed && issue.due_date && issue.due_date < todayStr;
-                  const styleCfg = STATUS_BAR_STYLES[issue.status] || STATUS_BAR_STYLES.open;
+                      const startOffset = diffInDays(timelineStartDate, startD);
+                      const durationDays = Math.max(1, diffInDays(startD, dueD) + 1);
 
-                  return (
-                    <div
-                      key={issue.id}
-                      onMouseEnter={() => setHoveredIssueId(issue.id)}
-                      onMouseLeave={() => setHoveredIssueId(null)}
-                      style={{ height: `${ROW_HEIGHT}px` }}
-                      className={`relative flex items-center transition-colors ${
-                        isHovered ? "bg-emerald-50/40" : "hover:bg-gray-50/50"
-                      }`}
-                    >
-                      {/* 背景グリッド縦線（週末色付け） */}
-                      <div className="absolute inset-0 flex pointer-events-none">
-                        {dateRange.map((d, colIdx) => {
-                          const weekend = getWeekendInfo(d);
-                          let bg = "";
-                          if (weekend.isSaturday) bg = "bg-blue-50/30";
-                          else if (weekend.isSunday) bg = "bg-rose-50/30";
+                      barLeft = startOffset * cellWidth;
+                      barWidth = durationDays * cellWidth - 2;
+                      isBarVisible = true;
+                    }
 
-                          return (
+                    const isClosed = issue.status === "closed";
+                    const isOverdue =
+                      !isClosed && issue.due_date && issue.due_date < todayStr;
+                    const styleCfg = STATUS_BAR_STYLES[issue.status] || STATUS_BAR_STYLES.open;
+                    const isSummaryBar = withParentRelation && hasChildren;
+
+                    // 親バーの場合の子課題完了進捗率
+                    const completedChildrenCount = childrenIssues.filter(
+                      (c) => c.status === "closed"
+                    ).length;
+                    const progressPercent =
+                      childrenIssues.length > 0
+                        ? Math.round((completedChildrenCount / childrenIssues.length) * 100)
+                        : 0;
+
+                    return (
+                      <div
+                        key={issue.id}
+                        onMouseEnter={() => setHoveredIssueId(issue.id)}
+                        onMouseLeave={() => setHoveredIssueId(null)}
+                        style={{ height: `${ROW_HEIGHT}px` }}
+                        className={`relative flex items-center transition-colors ${
+                          isHovered ? "bg-emerald-50/40" : ""
+                        }`}
+                      >
+                        {isBarVisible ? (
+                          isSummaryBar ? (
+                            // 親課題用のBacklog風サマリーバー（ブラケット風）
                             <div
-                              key={colIdx}
-                              style={{ width: `${cellWidth}px` }}
-                              className={`shrink-0 border-r border-gray-100 h-full ${bg}`}
-                            />
-                          );
-                        })}
+                              style={{
+                                left: `${barLeft + 1}px`,
+                                width: `${Math.max(16, barWidth)}px`,
+                                height: "20px",
+                              }}
+                              onClick={() => {
+                                setDetailIssue(issue);
+                                setIsDetailOpen(true);
+                              }}
+                              className="absolute flex flex-col justify-start cursor-pointer group/bar"
+                              title={`[親課題: ${issue.issue_key}] ${issue.title}\n全体期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\n子課題進捗: ${completedChildrenCount}/${childrenIssues.length} (${progressPercent}%)`}
+                            >
+                              {/* 親バー本体 */}
+                              <div className="w-full h-3.5 bg-slate-700 rounded-t-sm relative overflow-hidden flex items-center px-1.5 shadow-xs">
+                                {/* 進捗ゲージ */}
+                                <div
+                                  style={{ width: `${progressPercent}%` }}
+                                  className="absolute left-0 top-0 bottom-0 bg-emerald-500/70 transition-all"
+                                />
+                                <span className="relative z-10 text-[9px] font-bold text-white truncate">
+                                  {issue.issue_key} {issue.title} ({progressPercent}%)
+                                </span>
+                              </div>
+                              {/* 両端の下向き三角形ブラケット装飾 */}
+                              <div className="flex justify-between w-full">
+                                <div className="w-0 h-0 border-t-[6px] border-t-slate-700 border-r-[6px] border-r-transparent" />
+                                <div className="w-0 h-0 border-t-[6px] border-t-slate-700 border-l-[6px] border-l-transparent" />
+                              </div>
+                            </div>
+                          ) : (
+                            // 通常課題／子課題用のドラッグ＆リサイズ可能バー
+                            <div
+                              style={{
+                                left: `${barLeft + 1}px`,
+                                width: `${Math.max(14, barWidth)}px`,
+                                height: "24px",
+                              }}
+                              onMouseDown={(e) => handleBarMouseDown(e, issue, "move")}
+                              onDoubleClick={() => {
+                                setDetailIssue(issue);
+                                setIsDetailOpen(true);
+                              }}
+                              className={`absolute flex items-center px-1.5 rounded-md shadow-xs cursor-move select-none border transition-all ${
+                                styleCfg.bg
+                              } ${styleCfg.border} ${styleCfg.text} ${
+                                isOverdue
+                                  ? "ring-2 ring-rose-500 ring-offset-1 border-rose-600"
+                                  : ""
+                              } ${
+                                isDraggingThis
+                                  ? "opacity-80 scale-[1.02] shadow-md ring-2 ring-emerald-400 z-20"
+                                  : "hover:brightness-105"
+                              }`}
+                              title={`[${issue.issue_key}] ${issue.title}\n期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\nドラッグして日付移動、左右端でリサイズ`}
+                            >
+                              {/* 左端リサイズハンドル */}
+                              <div
+                                onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-start")}
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-l-md transition-colors"
+                                title="開始日を変更"
+                              />
+
+                              {/* バー内テキスト（幅が狭いときは隠れる） */}
+                              {barWidth >= 40 && (
+                                <div className="flex-1 min-w-0 flex items-center gap-1 px-1 truncate pointer-events-none">
+                                  <span className="text-[10px] font-bold opacity-90 shrink-0">
+                                    {issue.issue_key}
+                                  </span>
+                                  <span className="text-[11px] font-medium truncate">
+                                    {issue.title}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* 右端リサイズハンドル */}
+                              <div
+                                onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-end")}
+                                className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-r-md transition-colors"
+                                title="期限日を変更"
+                              />
+                            </div>
+                          )
+                        ) : (
+                          // 日付未設定の場合
+                          <div className="px-3">
+                            <button
+                              onClick={() => handleSetDefaultDates(issue)}
+                              className="text-[10px] text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded border border-dashed border-gray-300 hover:border-emerald-400 flex items-center gap-1 transition-colors"
+                              title="クリックすると基準日で期間を設定します"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>期間未設定</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-
-                      {/* タスクバーの描画 */}
-                      {isBarVisible ? (
-                        <div
-                          style={{
-                            left: `${Math.max(2, barLeft + 2)}px`,
-                            width: `${Math.max(20, barWidth)}px`,
-                            height: "26px",
-                          }}
-                          onMouseDown={(e) => handleBarMouseDown(e, issue, "move")}
-                          onDoubleClick={() => {
-                            setDetailIssue(issue);
-                            setIsDetailOpen(true);
-                          }}
-                          className={`absolute z-10 flex items-center px-2 rounded-md shadow-xs cursor-move select-none border transition-all ${
-                            styleCfg.bg
-                          } ${styleCfg.border} ${styleCfg.text} ${
-                            isOverdue
-                              ? "ring-2 ring-rose-500 ring-offset-1 border-rose-600 animate-pulse"
-                              : ""
-                          } ${isDraggingThis ? "opacity-80 scale-[1.02] shadow-md ring-2 ring-emerald-400" : "hover:brightness-105"}`}
-                          title={`[${issue.issue_key}] ${issue.title}\n期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\nドラッグして期間移動、端をドラッグして伸縮`}
-                        >
-                          {/* 左端リサイズハンドル */}
-                          <div
-                            onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-start")}
-                            className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/40 rounded-l-md transition-colors flex items-center justify-center"
-                            title="開始日を変更"
-                          >
-                            <span className="w-0.5 h-3 bg-white/60 rounded-full" />
-                          </div>
-
-                          {/* バー内コンテンツ（キー ＆ タイトル） */}
-                          <div className="flex-1 min-w-0 flex items-center gap-1.5 px-1 truncate pointer-events-none">
-                            <span className="text-[10px] font-bold opacity-90 shrink-0">
-                              {issue.issue_key}
-                            </span>
-                            <span className="text-[11px] font-medium truncate">
-                              {issue.title}
-                            </span>
-                          </div>
-
-                          {/* 右端リサイズハンドル */}
-                          <div
-                            onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-end")}
-                            className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/40 rounded-r-md transition-colors flex items-center justify-center"
-                            title="期限日を変更"
-                          >
-                            <span className="w-0.5 h-3 bg-white/60 rounded-full" />
-                          </div>
-                        </div>
-                      ) : (
-                        // 日付未設定の場合：行のセルをクリックして日付を設定できるようにガイド
-                        <div className="absolute inset-0 flex items-center px-4">
-                          <button
-                            onClick={() => handleCellClick(issue, today)}
-                            className="text-[11px] text-gray-400 hover:text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded border border-dashed border-gray-300 hover:border-emerald-400 flex items-center gap-1 transition-colors"
-                            title="クリックすると本日の日付で期間を設定します"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>期間未設定（クリックで今日を設定）</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -977,9 +1333,14 @@ export default function GanttChart({
         isOpen={isCreateOpen}
         projects={projects}
         selectedProjectId={currentProject?.id || null}
-        onClose={() => setIsCreateOpen(false)}
+        defaultParentId={createDefaultParentId}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setCreateDefaultParentId(null);
+        }}
         onCreated={() => {
           setIsCreateOpen(false);
+          setCreateDefaultParentId(null);
           onRefresh();
         }}
       />
@@ -994,7 +1355,6 @@ export default function GanttChart({
         }}
         onUpdated={() => {
           onRefresh();
-          // 更新後の最新課題情報を取得して反映
           if (detailIssue) {
             fetch(`/api/issues/${detailIssue.id}`)
               .then((res) => res.json())
