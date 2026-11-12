@@ -47,14 +47,9 @@ export default function Header({
                   <Sparkles className="w-4 h-4 text-amber-300" />
                 </div>
               </div>
-              <div className="flex flex-col leading-none">
-                <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-indigo-100 to-amber-200 bg-clip-text text-transparent">
-                  Personal Backlog
-                </span>
-                <span className="text-[9px] font-semibold tracking-widest text-indigo-300/90 uppercase">
-                  Twilight Studio
-                </span>
-              </div>
+              <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-indigo-100 to-amber-200 bg-clip-text text-transparent">
+                Personal Backlog
+              </span>
             </Link>
 
             {/* ナビゲーションメニュー */}

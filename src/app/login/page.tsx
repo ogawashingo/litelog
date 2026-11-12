@@ -84,12 +84,9 @@ export default function LoginPage() {
               <Sparkles className="w-6 h-6 text-amber-300" />
             </div>
           </div>
-          <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-amber-300/90 block mb-0.5">
-            Twilight Studio
-          </span>
           <h1 className="text-xl font-extrabold tracking-tight">Personal Backlog</h1>
           <p className="text-xs text-indigo-200 mt-1">
-            クリエイティブ・プロジェクト＆タスク管理 Webログイン
+            チーム＆個人タスク管理 Webログイン
           </p>
         </div>
 
