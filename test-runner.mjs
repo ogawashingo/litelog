@@ -737,9 +737,9 @@ async function runTests() {
   if (countAfterDelete !== 0) throw new Error("デモユーザー削除マイグレーションに失敗しました");
 
   // ユーザー0件時の初回管理者登録テスト
-  const adminName = "小川 慎吾";
-  const adminLoginId = "ogawa";
-  const adminPass = "ogawa1234";
+  const adminName = "システム 管理者";
+  const adminLoginId = "admin";
+  const adminPass = "admin1234";
   const adminHash = hashPassword(adminPass);
   const newAdminId = setupDb.prepare(`
     INSERT INTO users (login_id, password, name, role, is_admin, color)
@@ -747,7 +747,7 @@ async function runTests() {
   `).run(adminLoginId, adminHash, adminName).lastInsertRowid;
 
   const createdAdmin = setupDb.prepare("SELECT * FROM users WHERE id = ?").get(newAdminId);
-  if (!createdAdmin || createdAdmin.is_admin !== 1 || createdAdmin.login_id !== "ogawa" || !verifyPassword(adminPass, createdAdmin.password)) {
+  if (!createdAdmin || createdAdmin.is_admin !== 1 || createdAdmin.login_id !== "admin" || !verifyPassword(adminPass, createdAdmin.password)) {
     throw new Error("初回管理者アカウント登録テストに失敗しました");
   }
 

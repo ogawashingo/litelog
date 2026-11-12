@@ -143,7 +143,7 @@ export default function LoginPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="例: 小川 慎吾"
+                  placeholder="お名前を入力"
                   className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   required
                 />
@@ -160,7 +160,7 @@ export default function LoginPage() {
                   type="text"
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
-                  placeholder="例: ogawa"
+                  placeholder="ログインIDを入力（半角英数）"
                   autoComplete="username"
                   className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   required
