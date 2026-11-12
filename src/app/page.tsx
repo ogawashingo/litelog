@@ -181,6 +181,7 @@ export default function DashboardPage() {
           <IssueList
             issues={issues}
             selectedStatus={selectedStatus}
+            onSelectStatus={(st) => setSelectedStatus(st)}
             onSelectIssue={handleSelectIssue}
             onUpdateStatus={handleUpdateStatus}
             onUpdateAssignee={handleUpdateAssignee}
@@ -195,6 +196,7 @@ export default function DashboardPage() {
             selectedProjectId={selectedProjectId}
             onSelectProject={(id) => setSelectedProjectId(id)}
             onOpenCreateProject={() => setIsCreateProjectOpen(true)}
+            onUpdated={refreshAll}
           />
 
           <ActivityList

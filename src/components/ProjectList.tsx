@@ -1,9 +1,9 @@
 // プロジェクト一覧ウィジェットコンポーネント
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt } from "lucide-react";
+import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Check, X } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 
@@ -17,6 +17,7 @@ interface ProjectListProps {
   selectedProjectId: number | null;
   onSelectProject: (id: number | null) => void;
   onOpenCreateProject: () => void;
+  onUpdated?: () => void;
 }
 
 export default function ProjectList({
@@ -24,8 +25,70 @@ export default function ProjectList({
   selectedProjectId,
   onSelectProject,
   onOpenCreateProject,
+  onUpdated,
 }: ProjectListProps) {
   const { currentUser } = useUser();
+  const isAdmin = Boolean(currentUser?.is_admin);
+
+  // プロジェクト名編集用State（Admin専用）
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  // プロジェクト名の編集開始
+  const startEditProject = (e: React.MouseEvent, proj: ExtendedProject) => {
+    e.stopPropagation();
+    if (!isAdmin) return;
+    setEditingProjectId(proj.id);
+    setEditName(proj.name);
+    setEditError("");
+  };
+
+  // プロジェクト名の編集キャンセル
+  const cancelEditProject = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingProjectId(null);
+    setEditName("");
+    setEditError("");
+  };
+
+  // プロジェクト名の保存実行
+  const saveProjectName = async (e: React.FormEvent, projectId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAdmin || !currentUser) return;
+    if (!editName.trim()) {
+      setEditError("プロジェクト名を入力してください");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setEditError("");
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editName.trim(),
+          actorId: currentUser.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "プロジェクト名の変更に失敗しました");
+      }
+
+      setEditingProjectId(null);
+      setEditName("");
+      onUpdated?.();
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
@@ -79,31 +142,93 @@ export default function ProjectList({
           const completed = total - active;
           const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
           const isSelected = selectedProjectId === proj.id;
+          const isEditingThis = editingProjectId === proj.id;
 
           return (
             <div
               key={proj.id}
-              onClick={() => onSelectProject(proj.id)}
+              onClick={() => {
+                if (!isEditingThis) {
+                  onSelectProject(proj.id);
+                }
+              }}
               className={`p-3 rounded-xl border cursor-pointer transition-all ${
                 isSelected
                   ? "bg-indigo-50/70 border-indigo-400 ring-1 ring-indigo-300 shadow-2xs"
                   : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50/70"
               }`}
             >
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shadow-2xs"
-                    style={{ backgroundColor: proj.color || "#4f46e5" }}
-                  />
-                  <span className="font-bold text-xs text-slate-800">
-                    [{proj.key}] {proj.name}
+              {isEditingThis ? (
+                <form
+                  onSubmit={(e) => saveProjectName(e, proj.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mb-2 space-y-1.5"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shadow-2xs shrink-0"
+                      style={{ backgroundColor: proj.color || "#4f46e5" }}
+                    />
+                    <span className="font-mono font-bold text-xs text-slate-600 shrink-0">
+                      [{proj.key}]
+                    </span>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      placeholder="プロジェクト名を入力"
+                      autoFocus
+                      className="flex-1 min-w-0 bg-white border border-indigo-300 rounded-md px-2 py-1 text-xs font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      title="プロジェクト名を保存"
+                      className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                    >
+                      <Check className="w-3 h-3" />
+                      <span>保存</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditProject}
+                      title="キャンセル"
+                      className="p-1 rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {editError && (
+                    <p className="text-[11px] text-rose-600 font-medium pl-4">{editError}</p>
+                  )}
+                </form>
+              ) : (
+                <div className="flex items-center justify-between mb-1.5 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shadow-2xs shrink-0"
+                      style={{ backgroundColor: proj.color || "#4f46e5" }}
+                    />
+                    <span className="font-bold text-xs text-slate-800 truncate">
+                      [{proj.key}] {proj.name}
+                    </span>
+                    {/* 管理者（Admin権限）のみプロジェクト名変更ボタンを表示 */}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => startEditProject(e, proj)}
+                        title="プロジェクト名を変更 (Admin専用)"
+                        className="p-1 rounded-md text-slate-400 hover:text-indigo-700 hover:bg-indigo-100/70 transition-colors cursor-pointer shrink-0"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <span className="text-[11px] font-bold text-indigo-600 shrink-0">
+                    {progressPercent}%
                   </span>
                 </div>
-                <span className="text-[11px] font-bold text-indigo-600">
-                  {progressPercent}%
-                </span>
-              </div>
+              )}
 
               {/* プログレスバー（インディゴ〜バイオレット〜ローズのグラデーション） */}
               <div className="w-full bg-slate-200/80 rounded-full h-1.5 mb-2 overflow-hidden">

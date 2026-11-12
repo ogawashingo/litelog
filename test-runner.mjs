@@ -488,6 +488,50 @@ async function runTests() {
   db.prepare("UPDATE users SET password = ? WHERE id = ?").run(originalSatoPw, satoBefore.id);
   console.log(`✓ 一般ユーザー(sato)のパスワード照合・変更・復元テスト成功`);
 
+  // 17. 管理者（Admin権限）専用のプロジェクト名変更テスト
+  const targetProject = db.prepare("SELECT * FROM projects ORDER BY id ASC LIMIT 1").get();
+  if (!targetProject) throw new Error("テスト対象のプロジェクトが存在しません");
+  const originalProjectName = targetProject.name;
+
+  // 管理者権限(yamada: is_admin=1)を確認してプロジェクト名を変更
+  const adminActor = db.prepare("SELECT id, is_admin FROM users WHERE login_id = 'yamada'").get();
+  if (!adminActor || adminActor.is_admin !== 1) {
+    throw new Error("管理者(yamada)の権限確認に失敗しました");
+  }
+  const renamedProjectName = "名称変更テストプロジェクト";
+  db.prepare("UPDATE projects SET name = ? WHERE id = ?").run(renamedProjectName, targetProject.id);
+  const projectAfterRename = db.prepare("SELECT name FROM projects WHERE id = ?").get(targetProject.id);
+  if (projectAfterRename.name !== renamedProjectName) {
+    throw new Error("プロジェクト名の変更テストに失敗しました");
+  }
+  // 元のプロジェクト名へ復元
+  db.prepare("UPDATE projects SET name = ? WHERE id = ?").run(originalProjectName, targetProject.id);
+  console.log(`✓ 管理者(Admin)専用のプロジェクト名変更・復元テスト成功: "${originalProjectName}" -> "${renamedProjectName}" -> "${originalProjectName}"`);
+
+  // 18. ダッシュボード課題一覧の完了済み(closed)デフォルト非表示フィルタリング検証
+  const allIssuesForFilter = db.prepare("SELECT * FROM issues").all();
+  const filterDashboardIssues = (list, selectedStatus = "all", showClosed = false) => {
+    const isShowingClosed = selectedStatus === "closed" || showClosed;
+    return list.filter((issue) => {
+      if (selectedStatus !== "all" && issue.status !== selectedStatus) return false;
+      if (!isShowingClosed && issue.status === "closed") return false;
+      return true;
+    });
+  };
+  const defaultFiltered = filterDashboardIssues(allIssuesForFilter, "all", false);
+  if (defaultFiltered.some((i) => i.status === "closed")) {
+    throw new Error("デフォルト状態で完了済み(closed)の課題が表示されています");
+  }
+  const withClosedEnabled = filterDashboardIssues(allIssuesForFilter, "all", true);
+  const closedOnlySelected = filterDashboardIssues(allIssuesForFilter, "closed", false);
+  if (withClosedEnabled.length !== allIssuesForFilter.length) {
+    throw new Error("「完了を含む」ON時の件数が全課題数と一致しません");
+  }
+  if (!closedOnlySelected.every((i) => i.status === "closed")) {
+    throw new Error("「完了」ステータス選択時に完了以外の課題が含まれています");
+  }
+  console.log(`✓ ダッシュボード完了済み課題デフォルト非表示検証成功: 全${allIssuesForFilter.length}件 -> デフォルト表示${defaultFiltered.length}件 (完了${closedOnlySelected.length}件を非表示)`);
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

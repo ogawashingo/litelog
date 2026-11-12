@@ -85,9 +85,6 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-xl font-extrabold tracking-tight">Personal Backlog</h1>
-          <p className="text-xs text-indigo-200 mt-1">
-            チーム＆個人タスク管理 Webログイン
-          </p>
         </div>
 
         {/* ログインフォーム */}

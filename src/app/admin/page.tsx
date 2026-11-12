@@ -18,6 +18,8 @@ import {
   Calendar,
   Sliders,
   Plus,
+  Edit2,
+  X,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -53,6 +55,12 @@ export default function AdminPage() {
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+
+  // プロジェクト名変更用State（Admin専用）
+  const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [isUpdatingProject, setIsUpdatingProject] = useState(false);
+  const [projectErrorMsg, setProjectErrorMsg] = useState("");
 
   // 編集中の時刻設定ドラフトState
   const [draftSettings, setDraftSettings] = useState<SystemSettings>(settings);
@@ -90,6 +98,58 @@ export default function AdminPage() {
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // プロジェクト名変更の開始（管理者のみ）
+  const handleStartEditProject = (proj: Project) => {
+    if (!currentUser?.is_admin) {
+      alert("プロジェクト名の変更は管理者（Admin権限）のみ実行できます。");
+      return;
+    }
+    setEditingProjectId(proj.id);
+    setEditProjectName(proj.name);
+    setProjectErrorMsg("");
+  };
+
+  // プロジェクト名変更の保存（管理者のみ）
+  const handleSaveProjectName = async (e: React.FormEvent, projectId: number) => {
+    e.preventDefault();
+    if (!currentUser?.is_admin) {
+      setProjectErrorMsg("プロジェクト名の変更は管理者（Admin権限）のみ実行できます");
+      return;
+    }
+    if (!editProjectName.trim()) {
+      setProjectErrorMsg("プロジェクト名を入力してください");
+      return;
+    }
+
+    try {
+      setIsUpdatingProject(true);
+      setProjectErrorMsg("");
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editProjectName.trim(),
+          actorId: currentUser.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "プロジェクト名の変更に失敗しました");
+      }
+
+      setEditingProjectId(null);
+      setEditProjectName("");
+      await fetchProjects();
+      setSaveMessage(`プロジェクト名を「${editProjectName.trim()}」に変更しました！`);
+      setTimeout(() => setSaveMessage(null), 4000);
+    } catch (err: unknown) {
+      setProjectErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setIsUpdatingProject(false);
+    }
+  };
 
   // 設定の保存処理
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -722,43 +782,125 @@ export default function AdminPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsCreateProjectOpen(true)}
-                  className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline"
+                  onClick={() => {
+                    if (!currentUser?.is_admin) {
+                      alert("新規プロジェクトの作成は管理者（Admin権限）のみ実行できます。");
+                      return;
+                    }
+                    setIsCreateProjectOpen(true);
+                  }}
+                  className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>新規作成</span>
                 </button>
               </div>
               <p className="text-xs text-slate-500">
-                登録プロジェクトの確認・追加と、全データ（課題・メンバー・時刻設定含む）のJSONバックアップ・復元を行えます。
+                登録プロジェクトの確認・名称変更（Admin専用）・追加と、全データのJSONバックアップ・復元を行えます。
               </p>
+              {projectErrorMsg && (
+                <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
+                  {projectErrorMsg}
+                </div>
+              )}
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                {projects.map((p) => (
-                  <div
-                    key={p.id}
-                    className="px-3 py-2 flex items-center justify-between text-xs bg-white"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        style={{ backgroundColor: p.color || "#4f46e5" }}
-                        className="w-3 h-3 rounded-xs shrink-0"
-                      />
-                      <span className="font-mono font-bold text-slate-600">[{p.key}]</span>
-                      <span className="font-semibold text-slate-800">{p.name}</span>
+                {projects.map((p) => {
+                  const isEditingThis = editingProjectId === p.id;
+                  return (
+                    <div
+                      key={p.id}
+                      className="px-3 py-2 flex items-center justify-between gap-2 text-xs bg-white"
+                    >
+                      {isEditingThis ? (
+                        <form
+                          onSubmit={(e) => handleSaveProjectName(e, p.id)}
+                          className="flex items-center gap-1.5 w-full"
+                        >
+                          <span
+                            style={{ backgroundColor: p.color || "#4f46e5" }}
+                            className="w-3 h-3 rounded-xs shrink-0"
+                          />
+                          <span className="font-mono font-bold text-slate-600 shrink-0">
+                            [{p.key}]
+                          </span>
+                          <input
+                            type="text"
+                            value={editProjectName}
+                            onChange={(e) => setEditProjectName(e.target.value)}
+                            placeholder="新しいプロジェクト名"
+                            autoFocus
+                            className="flex-1 min-w-0 bg-white border border-indigo-300 rounded px-2 py-1 text-xs font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isUpdatingProject}
+                            className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                          >
+                            <Check className="w-3 h-3" />
+                            <span>保存</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingProjectId(null);
+                              setEditProjectName("");
+                              setProjectErrorMsg("");
+                            }}
+                            className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
+                            title="キャンセル"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              style={{ backgroundColor: p.color || "#4f46e5" }}
+                              className="w-3 h-3 rounded-xs shrink-0"
+                            />
+                            <span className="font-mono font-bold text-slate-600 shrink-0">
+                              [{p.key}]
+                            </span>
+                            <span className="font-semibold text-slate-800 truncate">
+                              {p.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[10px] text-slate-400">
+                              {formatTimestamp(p.created_at, draftSettings, false)}
+                            </span>
+                            {Boolean(currentUser?.is_admin) && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditProject(p)}
+                                title="プロジェクト名を変更 (Admin専用)"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors cursor-pointer"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>名称変更</span>
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <span className="text-[10px] text-slate-400">
-                      {formatTimestamp(p.created_at, draftSettings, false)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setIsCreateProjectOpen(true)}
-                className="py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                onClick={() => {
+                  if (!currentUser?.is_admin) {
+                    alert("新規プロジェクトの作成は管理者（Admin権限）のみ実行できます。");
+                    return;
+                  }
+                  setIsCreateProjectOpen(true);
+                }}
+                className="py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>プロジェクト追加</span>
@@ -772,7 +914,7 @@ export default function AdminPage() {
                   }
                   setIsBackupOpen(true);
                 }}
-                className="py-2 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+                className="py-2 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Database className="w-4 h-4 text-indigo-700" />
                 <span>バックアップ・復元</span>
