@@ -1,0 +1,17 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: personal-backlog
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - BACKLOG_DB_PATH=/app/data/backlog.db
+    volumes:
+      # SQLite データベースファイルをホスト側と永続化同期
+      - ./data:/app/data

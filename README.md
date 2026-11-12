@@ -75,6 +75,31 @@ npm start
 npm test
 ```
 
+### 4. Docker / Docker Compose での起動
+
+#### Docker Compose を使用する場合（推奨）
+```bash
+# コンテナのビルドおよびバックグラウンド起動
+docker compose up -d --build
+
+# ログの確認
+docker compose logs -f
+
+# コンテナの停止
+docker compose down
+```
+
+#### Docker CLI 単体で実行する場合
+```bash
+# イメージのビルド
+docker build -t personal-backlog .
+
+# コンテナ起動（ホスト側の ./data をマウントして SQLite データを永続化）
+docker run -d -p 3000:3000 -v "$(pwd)/data:/app/data" --name personal-backlog personal-backlog
+```
+起動後、ブラウザで [http://localhost:3000](http://localhost:3000) にアクセスします。
+※ データはホスト側の `./data/backlog.db` に永続化されます。
+
 ---
 
 ## 📂 技術スタック

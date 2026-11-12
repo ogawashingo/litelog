@@ -1,7 +1,9 @@
-// Next.js 設定（セキュリティレスポンスヘッダー定義）
+// Next.js 設定（セキュリティレスポンスヘッダー定義・Docker standaloneビルド対応）
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Docker 用にスタンドアロン出力を有効化
+  output: "standalone",
   async headers() {
     return [
       {

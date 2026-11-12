@@ -1,0 +1,32 @@
+# 依存関係
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ビルド成果物・キャッシュ
+.next
+out
+build
+dist
+.swc
+
+# Git・環境設定
+.git
+.gitignore
+.env*.local
+
+# テスト・開発用一時ファイル
+coverage
+test-runner.mjs
+*.tsbuildinfo
+
+# データベースファイル（コンテナ外からボリュームマウントするためイメージには含めない）
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# OS固有ファイル
+.DS_Store
+Thumbs.db
