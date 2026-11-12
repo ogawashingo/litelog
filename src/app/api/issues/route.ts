@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       issueType = "task",
       status = "open",
       priority = "medium",
+      startDate = null,
       dueDate = null,
     } = body;
 
@@ -102,8 +103,8 @@ export async function POST(request: Request) {
     const issueKey = `${project.key}-${nextNum}`;
 
     const insert = db.prepare(`
-      INSERT INTO issues (project_id, issue_key, issue_number, title, description, issue_type, status, priority, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO issues (project_id, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = insert.run(
@@ -115,6 +116,7 @@ export async function POST(request: Request) {
       issueType,
       status,
       priority,
+      startDate || null,
       dueDate || null
     );
 

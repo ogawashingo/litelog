@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -14,6 +15,7 @@ import {
   Eye,
   EyeOff,
   FolderGit2,
+  ChartGantt,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, PriorityBadge, ISSUE_STATUS_CONFIG } from "./IssueBadge";
@@ -251,6 +253,18 @@ export default function BoardView({
                   ))}
                 </select>
               </div>
+            )}
+
+            {/* ガントチャートへのリンク */}
+            {currentProject && (
+              <Link
+                href={`/gantt/${encodeURIComponent(currentProject.key)}`}
+                className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md font-medium border border-gray-300 transition-colors"
+                title="ガントチャートで確認"
+              >
+                <ChartGantt className="w-3.5 h-3.5 text-gray-500" />
+                <span>ガントチャート</span>
+              </Link>
             )}
           </div>
 

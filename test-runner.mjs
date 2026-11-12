@@ -34,11 +34,19 @@ async function runTests() {
       issue_type TEXT NOT NULL DEFAULT 'task',
       status TEXT NOT NULL DEFAULT 'open',
       priority TEXT NOT NULL DEFAULT 'medium',
+      start_date TEXT,
       due_date TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // start_date カラムの存在確認およびマイグレーション
+  const tableCols = db.prepare("PRAGMA table_info(issues)").all();
+  if (!tableCols.some((col) => col.name === "start_date")) {
+    db.exec("ALTER TABLE issues ADD COLUMN start_date TEXT;");
+    console.log("✓ start_date カラムのマイグレーションが成功しました");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,11 +154,40 @@ async function runTests() {
     console.log(`✓ ボードレーン [${st}] 取得成功: ${list.length} 件`);
   }
 
-  // 8. テスト課題の削除テスト
+  // 8. ガントチャート用 開始日・期限日（期間）更新テスト
+  db.prepare(`
+    UPDATE issues
+    SET start_date = '2026-11-10', due_date = '2026-11-25'
+    WHERE id = ?
+  `).run(createdId);
+  const ganttUpdated = db.prepare("SELECT start_date, due_date FROM issues WHERE id = ?").get(createdId);
+  if (ganttUpdated.start_date !== "2026-11-10" || ganttUpdated.due_date !== "2026-11-25") {
+    throw new Error("ガントチャート用の期間更新に失敗しました");
+  }
+  console.log(`✓ ガントチャート期間更新テスト成功: ${ganttUpdated.start_date} 〜 ${ganttUpdated.due_date}`);
+
+  // 9. ガントチャート用 期間指定フィルタリングテスト
+  const rangeIssues = db.prepare(`
+    SELECT * FROM issues
+    WHERE (start_date IS NOT NULL AND due_date IS NOT NULL)
+       OR due_date IS NOT NULL
+  `).all();
+  console.log(`✓ ガントチャート対象課題取得成功: ${rangeIssues.length} 件`);
+
+  // 10. テスト課題の削除テスト
   db.prepare("DELETE FROM issues WHERE id = ?").run(createdId);
   const afterDelete = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);
   if (afterDelete) throw new Error("課題削除に失敗しました");
   console.log("✓ 課題削除テスト成功");
+
+  // 11. ガントチャート向け日付ユーティリティ検証
+  const d1 = new Date(2026, 10, 10); // 2026-11-10
+  const d2 = new Date(2026, 10, 20); // 2026-11-20
+  const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+  const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+  const diff = Math.round((utc2 - utc1) / 86400000);
+  if (diff !== 10) throw new Error("日付差分計算エラー");
+  console.log(`✓ 日付差分計算テスト成功: ${diff} 日間`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

@@ -56,8 +56,8 @@ export async function POST(request: Request) {
       }
 
       const insertIssue = db.prepare(`
-        INSERT INTO issues (id, project_id, issue_key, issue_number, title, description, issue_type, status, priority, due_date, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO issues (id, project_id, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const i of issues) {
         insertIssue.run(
@@ -70,6 +70,7 @@ export async function POST(request: Request) {
           i.issue_type || "task",
           i.status || "open",
           i.priority || "medium",
+          i.start_date || null,
           i.due_date || null,
           i.created_at || new Date().toISOString(),
           i.updated_at || new Date().toISOString()

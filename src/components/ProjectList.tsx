@@ -3,7 +3,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban } from "lucide-react";
+import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt } from "lucide-react";
 import { Project } from "@/types";
 
 interface ExtendedProject extends Project {
@@ -108,6 +108,15 @@ export default function ProjectList({
                   >
                     <Kanban className="w-3 h-3" />
                     <span>ボード</span>
+                  </Link>
+                  <Link
+                    href={`/gantt/${encodeURIComponent(proj.key)}`}
+                    onClick={(e) => e.stopPropagation()}
+                    title="このプロジェクトのガントチャートを開く"
+                    className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded font-semibold transition-colors"
+                  >
+                    <ChartGantt className="w-3 h-3" />
+                    <span>ガント</span>
                   </Link>
                 </div>
               </div>

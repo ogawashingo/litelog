@@ -30,6 +30,7 @@ export default function CreateIssueModal({
   const [issueType, setIssueType] = useState<IssueType>("task");
   const [status, setStatus] = useState<IssueStatus>(defaultStatus);
   const [priority, setPriority] = useState<IssuePriority>("medium");
+  const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -45,6 +46,7 @@ export default function CreateIssueModal({
       setStatus(defaultStatus);
       setTitle("");
       setDescription("");
+      setStartDate("");
       setDueDate("");
       setPriority("medium");
       setIssueType("task");
@@ -75,6 +77,7 @@ export default function CreateIssueModal({
           issueType,
           status,
           priority,
+          startDate: startDate || null,
           dueDate: dueDate || null,
         }),
       });
@@ -87,6 +90,7 @@ export default function CreateIssueModal({
       // 成功時
       setTitle("");
       setDescription("");
+      setStartDate("");
       setDueDate("");
       onCreated();
       onClose();
@@ -206,8 +210,8 @@ export default function CreateIssueModal({
             />
           </div>
 
-          {/* 属性設定行（状態、優先度、期限日） */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* 属性設定行（状態、優先度、開始日、期限日） */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {/* 状態 */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">状態</label>
@@ -235,6 +239,22 @@ export default function CreateIssueModal({
                 <option value="medium">中</option>
                 <option value="low">低</option>
               </select>
+            </div>
+
+            {/* 開始日 */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                  開始日
+                </span>
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              />
             </div>
 
             {/* 期限日 */}

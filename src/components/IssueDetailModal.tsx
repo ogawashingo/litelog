@@ -32,6 +32,7 @@ export default function IssueDetailModal({
   const [editStatus, setEditStatus] = useState<IssueStatus>("open");
   const [editPriority, setEditPriority] = useState<IssuePriority>("medium");
   const [editType, setEditType] = useState<IssueType>("task");
+  const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -44,6 +45,7 @@ export default function IssueDetailModal({
     setEditStatus(issue.status);
     setEditPriority(issue.priority);
     setEditType(issue.issue_type);
+    setEditStartDate(issue.start_date || "");
     setEditDueDate(issue.due_date || "");
     setIsEditing(false);
 
@@ -75,6 +77,7 @@ export default function IssueDetailModal({
           status: editStatus,
           priority: editPriority,
           issueType: editType,
+          startDate: editStartDate || null,
           dueDate: editDueDate || null,
         }),
       });
@@ -215,7 +218,7 @@ export default function IssueDetailModal({
                 />
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">種別</label>
                   <select
@@ -255,6 +258,16 @@ export default function IssueDetailModal({
                     <option value="medium">中</option>
                     <option value="low">低</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">開始日</label>
+                  <input
+                    type="date"
+                    value={editStartDate}
+                    onChange={(e) => setEditStartDate(e.target.value)}
+                    className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800"
+                  />
                 </div>
 
                 <div>
@@ -305,8 +318,8 @@ export default function IssueDetailModal({
                 </h2>
               </div>
 
-              {/* 属性グリッド（状態、優先度、期限日、更新日） */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+              {/* 属性グリッド（状態、優先度、開始日、期限日、登録日時） */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
                 {/* 状態変更セレクター */}
                 <div>
                   <span className="text-gray-500 block mb-1 font-medium">状態</span>
@@ -325,6 +338,14 @@ export default function IssueDetailModal({
                 <div>
                   <span className="text-gray-500 block mb-1 font-medium">優先度</span>
                   <PriorityBadge priority={issue.priority} />
+                </div>
+
+                <div>
+                  <span className="text-gray-500 block mb-1 font-medium">開始日</span>
+                  <div className="flex items-center gap-1 font-medium text-gray-800">
+                    <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                    <span>{issue.start_date || "指定なし"}</span>
+                  </div>
                 </div>
 
                 <div>

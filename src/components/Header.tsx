@@ -4,7 +4,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Database, CheckCircle2, FolderGit2, Kanban, LayoutDashboard } from "lucide-react";
+import { Plus, Database, CheckCircle2, FolderGit2, Kanban, LayoutDashboard, ChartGantt } from "lucide-react";
 import { Project } from "@/types";
 
 interface HeaderProps {
@@ -24,7 +24,8 @@ export default function Header({
 }: HeaderProps) {
   const pathname = usePathname();
   const isBoard = pathname?.startsWith("/board");
-  const isDashboard = pathname === "/" || !isBoard;
+  const isGantt = pathname?.startsWith("/gantt");
+  const isDashboard = pathname === "/" || (!isBoard && !isGantt);
 
   return (
     <header className="bg-[#2ca078] text-white shadow-md sticky top-0 z-30">
@@ -74,6 +75,19 @@ export default function Header({
                 <span>ボード</span>
               </Link>
 
+              {/* ガントチャートタブ */}
+              <Link
+                href="/gantt"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  isGantt
+                    ? "bg-white/20 text-white font-semibold"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <ChartGantt className="w-4 h-4" />
+                <span>ガントチャート</span>
+              </Link>
+
               {/* プロジェクト切り替えセレクトボックス */}
               <div className="relative flex items-center ml-2">
                 <FolderGit2 className="w-4 h-4 text-white/70 absolute left-2.5 pointer-events-none" />
@@ -83,7 +97,7 @@ export default function Header({
                   className="bg-emerald-800/60 text-white text-sm rounded-md pl-8 pr-4 py-1.5 border border-white/20 focus:outline-hidden focus:ring-2 focus:ring-white/40 cursor-pointer"
                 >
                   <option value="" className="text-gray-900 bg-white">
-                    {isBoard ? "すべてのプロジェクト" : "すべての課題"}
+                    {isBoard || isGantt ? "すべてのプロジェクト" : "すべての課題"}
                   </option>
                   {projects.map((proj) => (
                     <option key={proj.id} value={proj.id} className="text-gray-900 bg-white">

@@ -29,6 +29,7 @@ export interface Issue {
   issue_type: IssueType;  // 種別
   status: IssueStatus;    // 状態
   priority: IssuePriority;// 優先度
+  start_date: string | null; // 開始日 (YYYY-MM-DD)
   due_date: string | null;// 期限日 (YYYY-MM-DD)
   created_at: string;
   updated_at: string;

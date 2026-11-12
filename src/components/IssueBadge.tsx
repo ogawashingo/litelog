@@ -90,15 +90,24 @@ export const ISSUE_PRIORITY_CONFIG: Record<
 };
 
 // 種別バッジ
-export function TypeBadge({ type }: { type: IssueType }) {
+export function TypeBadge({
+  type,
+  showLabel = true,
+}: {
+  type: IssueType;
+  showLabel?: boolean;
+}) {
   const config = ISSUE_TYPE_CONFIG[type] || ISSUE_TYPE_CONFIG.task;
   const Icon = config.icon;
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${config.bg} ${config.text} shadow-xs`}
+      className={`inline-flex items-center gap-1 ${
+        showLabel ? "px-2 py-0.5" : "p-1"
+      } rounded text-xs font-medium ${config.bg} ${config.text} shadow-xs`}
+      title={config.label}
     >
       <Icon className="w-3 h-3" />
-      {config.label}
+      {showLabel && <span>{config.label}</span>}
     </span>
   );
 }

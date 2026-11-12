@@ -51,11 +51,23 @@ function initDb(db: DatabaseSync) {
       issue_type TEXT NOT NULL DEFAULT 'task',
       status TEXT NOT NULL DEFAULT 'open',
       priority TEXT NOT NULL DEFAULT 'medium',
+      start_date TEXT,
       due_date TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // 既存テーブルへのカラム追加マイグレーション（start_date が存在しない場合に追加）
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(issues)").all() as { name: string }[];
+    const hasStartDate = tableInfo.some((col) => col.name === "start_date");
+    if (!hasStartDate) {
+      db.exec("ALTER TABLE issues ADD COLUMN start_date TEXT;");
+    }
+  } catch (migErr) {
+    console.error("issues テーブルの start_date カラムマイグレーション確認エラー:", migErr);
+  }
 
   // コメントテーブル
   db.exec(`
@@ -91,6 +103,7 @@ function initDb(db: DatabaseSync) {
 
     // サンプル課題作成
     const today = new Date().toISOString().split("T")[0];
+    const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString().split("T")[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
     const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
@@ -102,6 +115,7 @@ function initDb(db: DatabaseSync) {
         type: "task",
         status: "open",
         priority: "high",
+        start: threeDaysAgo,
         due: today,
       },
       {
@@ -111,6 +125,7 @@ function initDb(db: DatabaseSync) {
         type: "request",
         status: "in_progress",
         priority: "medium",
+        start: today,
         due: tomorrow,
       },
       {
@@ -120,6 +135,7 @@ function initDb(db: DatabaseSync) {
         type: "other",
         status: "open",
         priority: "low",
+        start: today,
         due: nextWeek,
       },
       {
@@ -129,13 +145,14 @@ function initDb(db: DatabaseSync) {
         type: "task",
         status: "closed",
         priority: "medium",
+        start: threeDaysAgo,
         due: today,
       },
     ];
 
     const insertIssue = db.prepare(`
-      INSERT INTO issues (project_id, issue_key, issue_number, title, description, issue_type, status, priority, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO issues (project_id, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertActivity = db.prepare(`
@@ -154,6 +171,7 @@ function initDb(db: DatabaseSync) {
         item.type,
         item.status,
         item.priority,
+        item.start,
         item.due
       );
       const issueId = res.lastInsertRowid;

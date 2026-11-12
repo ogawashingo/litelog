@@ -93,6 +93,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updates.push("priority = ?");
       values.push(body.priority);
     }
+    if (body.startDate !== undefined) {
+      updates.push("start_date = ?");
+      values.push(body.startDate || null);
+    }
     if (body.dueDate !== undefined) {
       updates.push("due_date = ?");
       values.push(body.dueDate || null);
