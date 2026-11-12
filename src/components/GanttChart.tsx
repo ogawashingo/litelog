@@ -55,6 +55,11 @@ const SCALE_CELL_WIDTH: Record<ViewScale, number> = {
   months: 5,
 };
 
+// 左ペイン（課題一覧テーブル）の幅設定定数（px）
+const DEFAULT_LEFT_PANE_WIDTH = 540;
+const MIN_LEFT_PANE_WIDTH = 340;
+const MAX_LEFT_PANE_WIDTH = 900;
+
 // ステータスに応じたバーの配色設定（緑を排除したオリジナルカラー）
 const STATUS_BAR_STYLES: Record<
   IssueStatus,
@@ -190,8 +195,71 @@ export default function GanttChart({
     [pathname, span, scale, startDate, withParentRelation]
   );
 
-  // 左ペイン（課題一覧テーブル）の開閉
+  // 左ペイン（課題一覧テーブル）の開閉と横幅状態（ドラッグでリサイズ可能）
   const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
+  const [leftPaneWidth, setLeftPaneWidth] = useState<number>(DEFAULT_LEFT_PANE_WIDTH);
+  const [isResizingLeftPane, setIsResizingLeftPane] = useState(false);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // 初回マウント時に保存された左ペイン幅を復元
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("personal-backlog-gantt-left-pane-width");
+      if (saved) {
+        const parsed = Number(saved);
+        if (parsed >= MIN_LEFT_PANE_WIDTH && parsed <= MAX_LEFT_PANE_WIDTH) {
+          setLeftPaneWidth(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // 左ペイン幅リサイズ用マウスイベント
+  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingLeftPane(true);
+  };
+
+  const handleResetSplitter = () => {
+    setLeftPaneWidth(DEFAULT_LEFT_PANE_WIDTH);
+    try {
+      localStorage.setItem("personal-backlog-gantt-left-pane-width", String(DEFAULT_LEFT_PANE_WIDTH));
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (!isResizingLeftPane) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!chartContainerRef.current) return;
+      const rect = chartContainerRef.current.getBoundingClientRect();
+      const newWidth = Math.min(
+        Math.max(e.clientX - rect.left, MIN_LEFT_PANE_WIDTH),
+        MAX_LEFT_PANE_WIDTH
+      );
+      setLeftPaneWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingLeftPane(false);
+      try {
+        localStorage.setItem("personal-backlog-gantt-left-pane-width", String(leftPaneWidth));
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizingLeftPane, leftPaneWidth]);
 
   // 折りたたまれている親課題IDのSet
   const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set());
@@ -853,22 +921,41 @@ export default function GanttChart({
                 </>
               )}
             </button>
+
+            {/* 一覧幅が変更されている場合の幅リセットボタン */}
+            {isLeftPaneOpen && leftPaneWidth !== DEFAULT_LEFT_PANE_WIDTH && (
+              <button
+                onClick={handleResetSplitter}
+                className="text-[11px] text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded transition-colors cursor-pointer"
+                title="一覧テーブルの幅を標準サイズに戻す"
+              >
+                幅リセット
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* ガントチャート本体エリア（左右分割レイアウト） */}
-      <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden flex">
+      <div
+        ref={chartContainerRef}
+        className={`bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden flex relative ${
+          isResizingLeftPane ? "select-none cursor-col-resize" : ""
+        }`}
+      >
         {/* ================= 左ペイン：課題一覧テーブル ================= */}
         {isLeftPaneOpen && (
-          <div className="w-[380px] md:w-[450px] shrink-0 border-r border-gray-200 flex flex-col bg-white select-none">
+          <div
+            style={{ width: `${leftPaneWidth}px` }}
+            className="shrink-0 flex flex-col bg-white select-none"
+          >
             {/* テーブルヘッダー（高さ: 52px = 右側の2段ヘッダーと正確に一致） */}
             <div className="h-[52px] bg-gray-50 border-b border-gray-200 flex items-center px-3 text-xs font-bold text-gray-600">
-              <div className="w-[105px] shrink-0">課題キー</div>
+              <div className="w-[100px] shrink-0">課題キー</div>
               <div className="flex-1 min-w-0 pr-2">件名</div>
               <div className="w-[34px] shrink-0 text-center">担当</div>
-              <div className="w-[70px] shrink-0 text-center">状態</div>
-              <div className="w-[62px] shrink-0 text-center">期限日</div>
+              <div className="w-[66px] shrink-0 text-center">状態</div>
+              <div className="w-[58px] shrink-0 text-center">期限日</div>
             </div>
 
             {/* 課題一覧ボディ（タイムラインと連動して縦スクロール） */}
@@ -901,7 +988,7 @@ export default function GanttChart({
                       } ${isHovered ? "bg-indigo-50/70" : "hover:bg-slate-50/80"}`}
                     >
                       {/* 課題キー ＆ 展開トグル/ツリーアイコン ＆ 種別アイコン */}
-                      <div className="w-[105px] shrink-0 flex items-center gap-1">
+                      <div className="w-[100px] shrink-0 flex items-center gap-1">
                         {withParentRelation && depth > 0 && (
                           <CornerDownRight className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
                         )}
@@ -989,7 +1076,7 @@ export default function GanttChart({
                       </div>
 
                       {/* 状態変更セレクター */}
-                      <div className="w-[70px] shrink-0 text-center">
+                      <div className="w-[66px] shrink-0 text-center">
                         <select
                           value={issue.status}
                           onChange={(e) =>
@@ -1005,7 +1092,7 @@ export default function GanttChart({
                       </div>
 
                       {/* 期限日 */}
-                      <div className="w-[62px] shrink-0 text-center font-medium text-[11px]">
+                      <div className="w-[58px] shrink-0 text-center font-medium text-[11px]">
                         {issue.due_date ? (
                           <span
                             className={
@@ -1028,6 +1115,22 @@ export default function GanttChart({
                 })
               )}
             </div>
+          </div>
+        )}
+
+        {/* 左ペインと右ペインの境界リサイザー（ドラッグで件名表示幅を自在に伸縮） */}
+        {isLeftPaneOpen && (
+          <div
+            onMouseDown={handleSplitterMouseDown}
+            onDoubleClick={handleResetSplitter}
+            className={`w-1.5 hover:w-2 shrink-0 cursor-col-resize select-none relative z-30 transition-all flex items-center justify-center border-l border-r border-slate-200 ${
+              isResizingLeftPane
+                ? "bg-indigo-600 border-indigo-600"
+                : "bg-slate-100 hover:bg-indigo-400 hover:border-indigo-400"
+            }`}
+            title="左右にドラッグして一覧テーブルの幅を変更（ダブルクリックで既定幅にリセット）"
+          >
+            <div className="w-0.5 h-6 bg-slate-400 rounded-full pointer-events-none" />
           </div>
         )}
 
@@ -1271,88 +1374,122 @@ export default function GanttChart({
                         {isBarVisible ? (
                           isSummaryBar ? (
                             // 親課題用のサマリーバー（ブラケット風）
-                            <div
-                              style={{
-                                left: `${barLeft + 1}px`,
-                                width: `${Math.max(16, barWidth)}px`,
-                                height: "20px",
-                              }}
-                              onClick={() => {
-                                setDetailIssue(issue);
-                                setIsDetailOpen(true);
-                              }}
-                              className="absolute flex flex-col justify-start cursor-pointer group/bar"
-                              title={`[親課題: ${issue.issue_key}] ${issue.title}\n全体期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\n子課題進捗: ${completedChildrenCount}/${childrenIssues.length} (${progressPercent}%)`}
-                            >
-                              {/* 親バー本体 */}
-                              <div className="w-full h-3.5 bg-indigo-950 rounded-t-sm relative overflow-hidden flex items-center px-1.5 shadow-xs">
-                                {/* 進捗ゲージ */}
-                                <div
-                                  style={{ width: `${progressPercent}%` }}
-                                  className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-                                />
-                                <span className="relative z-10 text-[9px] font-bold text-white truncate">
-                                  {issue.issue_key} {issue.title} ({progressPercent}%)
-                                </span>
-                              </div>
-                              {/* 両端の下向き三角形ブラケット装飾 */}
-                              <div className="flex justify-between w-full">
-                                <div className="w-0 h-0 border-t-[6px] border-t-indigo-950 border-r-[6px] border-r-transparent" />
-                                <div className="w-0 h-0 border-t-[6px] border-t-indigo-950 border-l-[6px] border-l-transparent" />
-                              </div>
-                            </div>
-                          ) : (
-                            // 通常課題／子課題用のドラッグ＆リサイズ可能バー
-                            <div
-                              style={{
-                                left: `${barLeft + 1}px`,
-                                width: `${Math.max(14, barWidth)}px`,
-                                height: "24px",
-                              }}
-                              onMouseDown={(e) => handleBarMouseDown(e, issue, "move")}
-                              onDoubleClick={() => {
-                                setDetailIssue(issue);
-                                setIsDetailOpen(true);
-                              }}
-                              className={`absolute flex items-center px-1.5 rounded-md shadow-xs cursor-move select-none border transition-all ${
-                                styleCfg.bg
-                              } ${styleCfg.border} ${styleCfg.text} ${
-                                isOverdue
-                                  ? "ring-2 ring-rose-500 ring-offset-1 border-rose-600"
-                                  : ""
-                              } ${
-                                isDraggingThis
-                                  ? "opacity-80 scale-[1.02] shadow-md ring-2 ring-indigo-400 z-20"
-                                  : "hover:brightness-105"
-                              }`}
-                              title={`[${issue.issue_key}] ${issue.title}\n期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\nドラッグして日付移動、左右端でリサイズ`}
-                            >
-                              {/* 左端リサイズハンドル */}
+                            <>
                               <div
-                                onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-start")}
-                                className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-l-md transition-colors"
-                                title="開始日を変更"
-                              />
-
-                              {/* バー内テキスト（幅が狭いときは隠れる） */}
-                              {barWidth >= 40 && (
-                                <div className="flex-1 min-w-0 flex items-center gap-1 px-1 truncate pointer-events-none">
-                                  <span className="text-[10px] font-bold opacity-90 shrink-0">
-                                    {issue.issue_key}
-                                  </span>
-                                  <span className="text-[11px] font-medium truncate">
-                                    {issue.title}
+                                style={{
+                                  left: `${barLeft + 1}px`,
+                                  width: `${Math.max(16, barWidth)}px`,
+                                  height: "20px",
+                                }}
+                                onClick={() => {
+                                  setDetailIssue(issue);
+                                  setIsDetailOpen(true);
+                                }}
+                                className="absolute flex flex-col justify-start cursor-pointer group/bar z-10"
+                                title={`[親課題: ${issue.issue_key}] ${issue.title}\n全体期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\n子課題進捗: ${completedChildrenCount}/${childrenIssues.length} (${progressPercent}%)`}
+                              >
+                                {/* 親バー本体 */}
+                                <div className="w-full h-3.5 bg-indigo-950 rounded-t-sm relative overflow-hidden flex items-center px-1.5 shadow-xs">
+                                  {/* 進捗ゲージ */}
+                                  <div
+                                    style={{ width: `${progressPercent}%` }}
+                                    className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
+                                  />
+                                  <span className="relative z-10 text-[9px] font-bold text-white truncate">
+                                    {issue.issue_key} {issue.title} ({progressPercent}%)
                                   </span>
                                 </div>
+                                {/* 両端の下向き三角形ブラケット装飾 */}
+                                <div className="flex justify-between w-full">
+                                  <div className="w-0 h-0 border-t-[6px] border-t-indigo-950 border-r-[6px] border-r-transparent" />
+                                  <div className="w-0 h-0 border-t-[6px] border-t-indigo-950 border-l-[6px] border-l-transparent" />
+                                </div>
+                              </div>
+                              {/* 親バー幅が狭い場合、右外側に件名をインライン表示して全体を確認可能に */}
+                              {barWidth < 180 && (
+                                <div
+                                  style={{
+                                    left: `${barLeft + Math.max(16, barWidth) + 8}px`,
+                                    maxWidth: "380px",
+                                  }}
+                                  className="absolute pointer-events-none flex items-center gap-1.5 text-[11px] text-slate-800 font-bold select-none whitespace-nowrap z-0"
+                                >
+                                  <span className="font-mono text-[10px] text-indigo-700">
+                                    {issue.issue_key}
+                                  </span>
+                                  <span className="truncate">{issue.title}</span>
+                                </div>
                               )}
-
-                              {/* 右端リサイズハンドル */}
+                            </>
+                          ) : (
+                            // 通常課題／子課題用のドラッグ＆リサイズ可能バー
+                            <>
                               <div
-                                onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-end")}
-                                className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-r-md transition-colors"
-                                title="期限日を変更"
-                              />
-                            </div>
+                                style={{
+                                  left: `${barLeft + 1}px`,
+                                  width: `${Math.max(14, barWidth)}px`,
+                                  height: "24px",
+                                }}
+                                onMouseDown={(e) => handleBarMouseDown(e, issue, "move")}
+                                onDoubleClick={() => {
+                                  setDetailIssue(issue);
+                                  setIsDetailOpen(true);
+                                }}
+                                className={`absolute flex items-center px-1.5 rounded-md shadow-xs cursor-move select-none border transition-all z-10 ${
+                                  styleCfg.bg
+                                } ${styleCfg.border} ${styleCfg.text} ${
+                                  isOverdue
+                                    ? "ring-2 ring-rose-500 ring-offset-1 border-rose-600"
+                                    : ""
+                                } ${
+                                  isDraggingThis
+                                    ? "opacity-80 scale-[1.02] shadow-md ring-2 ring-indigo-400 z-20"
+                                    : "hover:brightness-105"
+                                }`}
+                                title={`[${issue.issue_key}] ${issue.title}\n期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\nドラッグして日付移動、左右端でリサイズ`}
+                              >
+                                {/* 左端リサイズハンドル */}
+                                <div
+                                  onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-start")}
+                                  className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-l-md transition-colors"
+                                  title="開始日を変更"
+                                />
+
+                                {/* バー内テキスト（幅が狭いときは隠れる） */}
+                                {barWidth >= 40 && (
+                                  <div className="flex-1 min-w-0 flex items-center gap-1 px-1 truncate pointer-events-none">
+                                    <span className="text-[10px] font-bold opacity-90 shrink-0">
+                                      {issue.issue_key}
+                                    </span>
+                                    <span className="text-[11px] font-medium truncate">
+                                      {issue.title}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* 右端リサイズハンドル */}
+                                <div
+                                  onMouseDown={(e) => handleBarMouseDown(e, issue, "resize-end")}
+                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/40 rounded-r-md transition-colors"
+                                  title="期限日を変更"
+                                />
+                              </div>
+                              {/* バー幅が狭い場合、右外側に件名をインライン表示して視認性を確保 */}
+                              {barWidth < 160 && (
+                                <div
+                                  style={{
+                                    left: `${barLeft + Math.max(14, barWidth) + 8}px`,
+                                    maxWidth: "380px",
+                                  }}
+                                  className="absolute pointer-events-none flex items-center gap-1.5 text-[11px] text-slate-700 font-medium select-none whitespace-nowrap z-0"
+                                >
+                                  <span className="font-semibold text-slate-400 font-mono text-[10px]">
+                                    {issue.issue_key}
+                                  </span>
+                                  <span className="truncate">{issue.title}</span>
+                                </div>
+                              )}
+                            </>
                           )
                         ) : (
                           // 日付未設定の場合
