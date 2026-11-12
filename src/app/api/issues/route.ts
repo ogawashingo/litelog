@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
+const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
+const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
+const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+
 // 課題一覧取得
 export async function GET(request: Request) {
   try {
@@ -105,6 +109,15 @@ export async function POST(request: Request) {
 
     if (!projectId || !title || !String(title).trim()) {
       return NextResponse.json({ error: "プロジェクトと課題名は必須です" }, { status: 400 });
+    }
+    if (!VALID_ISSUE_TYPES.has(String(issueType))) {
+      return NextResponse.json({ error: "無効な課題種別です" }, { status: 400 });
+    }
+    if (!VALID_STATUSES.has(String(status))) {
+      return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
+    }
+    if (!VALID_PRIORITIES.has(String(priority))) {
+      return NextResponse.json({ error: "無効な優先度です" }, { status: 400 });
     }
 
     // 対象プロジェクトの存在確認

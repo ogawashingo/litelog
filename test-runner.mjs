@@ -32,17 +32,13 @@ function verifyPassword(plain, stored) {
   return String(plain) === String(stored);
 }
 
-async function runTests() {
-  console.log("=== Personal Backlog データベース初期化＆動作検証開始 ===");
-  const dbDir = path.join(process.cwd(), "data");
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
-  }
-  const dbPath = path.join(dbDir, "backlog.db");
-  const db = new DatabaseSync(dbPath);
-
-  // テーブル定義
+function setupSchemaAndSeed(db, isProdDb = false) {
+  // テーブル定義・WAL・外部キー有効化
   db.exec("PRAGMA foreign_keys = ON;");
+  if (isProdDb) {
+    db.exec("PRAGMA journal_mode = WAL;");
+    db.exec("PRAGMA busy_timeout = 5000;");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -205,18 +201,48 @@ async function runTests() {
     WHERE action_type = 'commented'
       AND content LIKE '%にコメントを追加しました%';
   `);
+  // user_id が未設定（NULL）のアクティビティ・コメントを課題の担当者・作成者または初期メンバーで補完
+  db.exec(`
+    UPDATE activities
+    SET user_id = COALESCE(
+      (
+        SELECT COALESCE(i.assignee_id, i.created_by)
+        FROM issues i
+        WHERE i.id = activities.issue_id
+      ),
+      (
+        SELECT id FROM users ORDER BY is_admin DESC, id ASC LIMIT 1
+      )
+    )
+    WHERE user_id IS NULL
+      AND EXISTS (SELECT 1 FROM users);
 
-  // 初期メンバー作成
+    UPDATE comments
+    SET user_id = COALESCE(
+      (
+        SELECT COALESCE(i.assignee_id, i.created_by)
+        FROM issues i
+        WHERE i.id = comments.issue_id
+      ),
+      (
+        SELECT id FROM users ORDER BY is_admin DESC, id ASC LIMIT 1
+      )
+    )
+    WHERE user_id IS NULL
+      AND EXISTS (SELECT 1 FROM users);
+  `);
+
+  // 初期メンバー作成（パスワードはscryptハッシュ化して保存）
   const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;
   if (userCount === 0) {
     const insertUser = db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, color) VALUES (?, ?, ?, ?, ?, ?)");
-    const u1 = insertUser.run("yamada", "yamada123", "山田 太郎", "管理者", 1, "#4f46e5").lastInsertRowid;
-    const u2 = insertUser.run("sato", "sato123", "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
-    insertUser.run("suzuki", "suzuki123", "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
+    const u1 = insertUser.run("yamada", hashPassword("yamada123"), "山田 太郎", "管理者", 1, "#4f46e5").lastInsertRowid;
+    const u2 = insertUser.run("sato", hashPassword("sato123"), "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
+    insertUser.run("suzuki", hashPassword("suzuki123"), "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
     db.prepare("UPDATE issues SET assignee_id = ?, created_by = ? WHERE assignee_id IS NULL").run(u1, u1);
     db.prepare("UPDATE comments SET user_id = ? WHERE user_id IS NULL").run(u2);
     db.prepare("UPDATE activities SET user_id = ? WHERE user_id IS NULL").run(u1);
-    console.log("✓ 初期メンバーを作成し既存課題へ紐付けました");
+    if (!isProdDb) console.log("✓ 初期メンバーを作成し既存課題へ紐付けました");
   }
 
   // 初期プロジェクト作成
@@ -226,7 +252,7 @@ async function runTests() {
       INSERT INTO projects (key, name, color)
       VALUES ('MYPRJ', '個人メインプロジェクト', '#4f46e5')
     `).run();
-    console.log("✓ 初期プロジェクト「MYPRJ」を作成しました");
+    if (!isProdDb) console.log("✓ 初期プロジェクト「MYPRJ」を作成しました");
   }
 
   // 初期課題作成
@@ -249,8 +275,35 @@ async function runTests() {
         VALUES (?, 'created', ?)
       `).run(res.lastInsertRowid, `課題 [MYPRJ-${item.num}] 「${item.title}」を追加しました`);
     }
-    console.log("✓ 初期サンプル課題およびアクティビティを作成しました");
+    if (!isProdDb) console.log("✓ 初期サンプル課題およびアクティビティを作成しました");
   }
+
+  // インデックス作成
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_issues_project_status_updated ON issues(project_id, status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
+    CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_activities_issue_id ON activities(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
+  `);
+}
+
+async function runTests() {
+  console.log("=== Personal Backlog データベース初期化＆動作検証開始（テスト用分離DB） ===");
+  // 本番DBのスキーマ・インデックス・パスワードハッシュ化の整合性のみ安全に同期（テストデータの書き込みは行わない）
+  const dbDir = path.join(process.cwd(), "data");
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+  const prodDbPath = path.join(dbDir, "backlog.db");
+  const prodDb = new DatabaseSync(prodDbPath);
+  setupSchemaAndSeed(prodDb, true);
+  prodDb.close();
+
+  // CRUD・破壊的検証は完全に分離されたインメモリDBで実行（本番データを一切汚さない）
+  const db = new DatabaseSync(":memory:");
+  setupSchemaAndSeed(db, false);
 
   // 1. プロジェクト確認
   const projects = db.prepare("SELECT * FROM projects").all();
@@ -489,6 +542,8 @@ async function runTests() {
     SELECT 
       a.id,
       a.issue_id,
+      COALESCE(a.user_id, i.assignee_id, i.created_by, du.id) AS user_id,
+      COALESCE(u.name, iu.name, cu.name, du.name) AS user_name,
       a.action_type,
       a.content,
       i.issue_key,
@@ -498,13 +553,20 @@ async function runTests() {
     FROM activities a
     LEFT JOIN issues i ON a.issue_id = i.id
     LEFT JOIN projects p ON i.project_id = p.id
+    LEFT JOIN users u ON a.user_id = u.id
+    LEFT JOIN users iu ON i.assignee_id = iu.id
+    LEFT JOIN users cu ON i.created_by = cu.id
+    LEFT JOIN users du ON du.id = (SELECT id FROM users ORDER BY is_admin DESC, id ASC LIMIT 1)
     ORDER BY a.created_at DESC, a.id DESC
-    LIMIT 10
+    LIMIT 50
   `).all();
   if (joinedActivities.length === 0) {
     throw new Error("結合アクティビティが取得できませんでした");
   }
-  console.log(`✓ 「最近の更新」日付グルーピング見出し("${dateGroupLabel}")＆課題結合クエリ検証成功 (${joinedActivities.length}件)`);
+  if (joinedActivities.some((act) => !act.user_name)) {
+    throw new Error("「最近の更新」に操作者名(user_name)が未設定の履歴が存在します");
+  }
+  console.log(`✓ 「最近の更新」日付グルーピング見出し("${dateGroupLabel}")＆操作者名・課題結合クエリ検証成功 (${joinedActivities.length}件)`);
 
   // 16. 一般ユーザーのパスワードハッシュ変更および現在のパスワード照合テスト
   const satoBefore = db.prepare("SELECT id, login_id, password FROM users WHERE login_id = 'sato'").get();

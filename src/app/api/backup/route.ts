@@ -35,7 +35,7 @@ export async function GET() {
     const comments = db.prepare("SELECT * FROM comments").all();
     const activities = db.prepare("SELECT * FROM activities").all();
     const settings = db
-      .prepare("SELECT key, value, updated_at FROM settings WHERE key != 'session_secret'")
+      .prepare("SELECT key, value, updated_at FROM settings WHERE key NOT IN ('session_secret', 'schema_migration_version')")
       .all();
 
     const backupData = {

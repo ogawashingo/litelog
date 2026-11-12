@@ -47,11 +47,19 @@ export default function AdminPage() {
   const {
     users,
     currentUser,
+    isAuthReady,
     openUserManageModal,
     settings,
     updateSettings,
     refreshUsers,
   } = useUser();
+
+  // 一般ユーザーがURL直打ちで /admin にアクセスした場合はダッシュボードへリダイレクト
+  useEffect(() => {
+    if (isAuthReady && currentUser && !currentUser.is_admin) {
+      router.replace("/");
+    }
+  }, [isAuthReady, currentUser, router]);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);

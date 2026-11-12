@@ -6,19 +6,15 @@ import Link from "next/link";
 import {
   Plus,
   Search,
-  Filter,
   Calendar,
   AlertCircle,
   Clock,
-  CheckCircle2,
-  Columns3,
   Eye,
   EyeOff,
-  FolderGit2,
   ChartGantt,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
-import { TypeBadge, PriorityBadge, ISSUE_STATUS_CONFIG } from "./IssueBadge";
+import { TypeBadge, PriorityBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
 import { useUser } from "./UserContext";

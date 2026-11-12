@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
+const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
+const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
+const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -89,6 +93,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       status: string;
       priority: string;
       assignee_id: number | null;
+      created_by: number | null;
       start_date: string | null;
       due_date: string | null;
     } | undefined;
@@ -100,7 +105,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
     const activityLogs: { type: string; msg: string }[] = [];
-    const actorId = sessionUser.id;
+    const actorId =
+      sessionUser.id ||
+      (body.actorId ? Number(body.actorId) : null) ||
+      currentIssue.assignee_id ||
+      currentIssue.created_by ||
+      null;
 
     if (body.title !== undefined) {
       if (!String(body.title).trim()) {
@@ -114,10 +124,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       values.push(String(body.description).trim());
     }
     if (body.issueType !== undefined) {
+      if (!VALID_ISSUE_TYPES.has(String(body.issueType))) {
+        return NextResponse.json({ error: "無効な課題種別です" }, { status: 400 });
+      }
       updates.push("issue_type = ?");
       values.push(body.issueType);
     }
     if (body.status !== undefined) {
+      if (!VALID_STATUSES.has(String(body.status))) {
+        return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
+      }
       updates.push("status = ?");
       values.push(body.status);
 
@@ -137,6 +153,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
     if (body.priority !== undefined) {
+      if (!VALID_PRIORITIES.has(String(body.priority))) {
+        return NextResponse.json({ error: "無効な優先度です" }, { status: 400 });
+      }
       updates.push("priority = ?");
       values.push(body.priority);
       if (currentIssue.priority !== body.priority) {

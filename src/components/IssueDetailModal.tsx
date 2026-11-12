@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, UserCheck } from "lucide-react";
+import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";

@@ -1,16 +1,18 @@
 // かんばんボード トップページ (/board)
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import BoardView from "@/components/BoardView";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
+import { useUser } from "@/components/UserContext";
 import { Project, Issue, IssueStatus } from "@/types";
 
 export default function BoardIndexPage() {
   const router = useRouter();
+  const { currentUser } = useUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,7 +21,7 @@ export default function BoardIndexPage() {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
 
   // データ初期化
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       const [projRes, issueRes] = await Promise.all([
@@ -47,11 +49,11 @@ export default function BoardIndexPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // ステータス更新処理
   const handleUpdateStatus = async (issueId: number, newStatus: IssueStatus) => {
@@ -62,7 +64,7 @@ export default function BoardIndexPage() {
       await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
       });
       const issueRes = await fetch("/api/issues");
       if (issueRes.ok) {

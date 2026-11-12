@@ -4,13 +4,13 @@ import path from "node:path";
 import fs from "node:fs";
 import { hashPassword, isPasswordHashed } from "@/lib/auth";
 
-// データベースファイルの保存先パス（プロジェクトルートの data ディレクトリ）
+// データベースファイルの保存先パス（環境変数 BACKLOG_DB_PATH で切り替え可能）
 const DB_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DB_DIR, "backlog.db");
+const DB_PATH = process.env.BACKLOG_DB_PATH || path.join(DB_DIR, "backlog.db");
 
-// ディレクトリが存在しない場合は作成
-if (!fs.existsSync(DB_DIR)) {
-  fs.mkdirSync(DB_DIR, { recursive: true });
+// ディレクトリが存在しない場合は作成（インメモリDB以外）
+if (DB_PATH !== ":memory:" && !fs.existsSync(path.dirname(DB_PATH))) {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 }
 
 let dbInstance: DatabaseSync | null = null;
@@ -116,16 +116,6 @@ function initDb(db: DatabaseSync) {
     );
   `);
 
-  // 旧緑系テーマカラーが登録されているユーザー・プロジェクトをインディゴ(#4f46e5)へ移行
-  try {
-    db.exec(`
-      UPDATE users SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
-      UPDATE projects SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
-    `);
-  } catch (colorMigErr) {
-    console.error("テーマカラーマイグレーション確認エラー:", colorMigErr);
-  }
-
   // 課題（タスク）テーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS issues (
@@ -210,34 +200,11 @@ function initDb(db: DatabaseSync) {
     if (!activityCols.some((col) => col.name === "user_id")) {
       db.exec("ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
     }
-    // 既存の「〜にコメントを追加しました」というアクティビティ文言を実際のコメント内容へマイグレーション
-    db.exec(`
-      UPDATE activities
-      SET content = COALESCE(
-        (
-          SELECT c.content
-          FROM comments c
-          WHERE c.issue_id = activities.issue_id
-            AND c.created_at = activities.created_at
-          LIMIT 1
-        ),
-        (
-          SELECT c.content
-          FROM comments c
-          WHERE c.issue_id = activities.issue_id
-          ORDER BY ABS(strftime('%s', c.created_at) - strftime('%s', activities.created_at)) ASC
-          LIMIT 1
-        ),
-        content
-      )
-      WHERE action_type = 'commented'
-        AND content LIKE '%にコメントを追加しました%';
-    `);
   } catch (migErr) {
     console.error("activities テーブルのカラムマイグレーション確認エラー:", migErr);
   }
 
-  // システム設定（時刻・タイムゾーン等）テーブル
+  // システム設定（時刻・タイムゾーン・マイグレーションバージョン管理等）テーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -255,6 +222,86 @@ function initDb(db: DatabaseSync) {
   insertSetting.run("hour12", "false");
   insertSetting.run("activityTimeStyle", "both");
   insertSetting.run("timeOffsetMinutes", "0");
+
+  // 検索・結合高速化のためのインデックス作成
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_issues_project_status_updated ON issues(project_id, status, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
+    CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_activities_issue_id ON activities(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
+  `);
+
+  // 一度限りのデータマイグレーション（テーマカラー移行・アクティビティ文言移行・操作者ID補完）
+  const migVersionRow = db
+    .prepare("SELECT value FROM settings WHERE key = 'schema_migration_version'")
+    .get() as { value: string } | undefined;
+  if (migVersionRow?.value !== "5") {
+    try {
+      db.exec(`
+        UPDATE users SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
+        UPDATE projects SET color = '#4f46e5' WHERE color LIKE '#2c%' OR color LIKE '#16%' OR color LIKE '#14%' OR color LIKE '#06%';
+      `);
+      db.exec(`
+        UPDATE activities
+        SET content = COALESCE(
+          (
+            SELECT c.content
+            FROM comments c
+            WHERE c.issue_id = activities.issue_id
+              AND c.created_at = activities.created_at
+            LIMIT 1
+          ),
+          (
+            SELECT c.content
+            FROM comments c
+            WHERE c.issue_id = activities.issue_id
+            ORDER BY ABS(strftime('%s', c.created_at) - strftime('%s', activities.created_at)) ASC
+            LIMIT 1
+          ),
+          content
+        )
+        WHERE action_type = 'commented'
+          AND content LIKE '%にコメントを追加しました%';
+
+        UPDATE activities
+        SET user_id = COALESCE(
+          (
+            SELECT COALESCE(i.assignee_id, i.created_by)
+            FROM issues i
+            WHERE i.id = activities.issue_id
+          ),
+          (
+            SELECT id FROM users ORDER BY is_admin DESC, id ASC LIMIT 1
+          )
+        )
+        WHERE user_id IS NULL
+          AND EXISTS (SELECT 1 FROM users);
+
+        UPDATE comments
+        SET user_id = COALESCE(
+          (
+            SELECT COALESCE(i.assignee_id, i.created_by)
+            FROM issues i
+            WHERE i.id = comments.issue_id
+          ),
+          (
+            SELECT id FROM users ORDER BY is_admin DESC, id ASC LIMIT 1
+          )
+        )
+        WHERE user_id IS NULL
+          AND EXISTS (SELECT 1 FROM users);
+      `);
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_migration_version', '5', CURRENT_TIMESTAMP)
+        ON CONFLICT(key) DO UPDATE SET value = '5', updated_at = CURRENT_TIMESTAMP
+      `).run();
+    } catch (onceMigErr) {
+      console.error("初回データマイグレーションエラー:", onceMigErr);
+    }
+  }
 
 
   // 初回ユーザー（メンバーが0件の場合に初期メンバーを投入・パスワードはハッシュ化して保存）
