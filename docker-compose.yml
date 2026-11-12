@@ -12,6 +12,8 @@ services:
       - PORT=3000
       - HOSTNAME=0.0.0.0
       - BACKLOG_DB_PATH=/app/data/backlog.db
+      # HTTPSリバースプロキシ配下で動かす場合は "true" に設定（HTTPアクセスの場合は "false"）
+      - SESSION_COOKIE_SECURE=false
     volumes:
       # SQLite データベースファイルをホスト側と永続化同期
       - ./data:/app/data

@@ -181,11 +181,13 @@ export async function getSessionUser(): Promise<SessionUser | null> {
  * セッションCookie用の共通オプションを生成します
  */
 export function getSessionCookieOptions(maxAge = SESSION_MAX_AGE_SEC) {
+  // 明示的に SESSION_COOKIE_SECURE=true が指定された場合のみ Secure 属性を付与（ローカルLAN・HTTPアクセスでのセッション切断を防止）
+  const isSecure = process.env.SESSION_COOKIE_SECURE === "true";
   return {
     path: "/",
     httpOnly: true,
     maxAge,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
   };
 }
