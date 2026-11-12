@@ -1,6 +1,7 @@
 // システム設定（時刻・タイムゾーン・表示フォーマット等）取得・更新API
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 import { SystemSettings, DateTimeFormatType, ActivityTimeStyle } from "@/types";
 import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/dateUtils";
 
@@ -14,10 +15,12 @@ const VALID_FORMATS: DateTimeFormatType[] = [
 
 const VALID_ACTIVITY_STYLES: ActivityTimeStyle[] = ["both", "absolute", "relative"];
 
-// DBから現在のシステム設定を構築して返すヘルパー
+// DBから現在のシステム設定を構築して返すヘルパー（内部シークレットは除外）
 function loadSettingsFromDb(): SystemSettings {
   const db = getDb();
-  const rows = db.prepare("SELECT key, value FROM settings").all() as {
+  const rows = db
+    .prepare("SELECT key, value FROM settings WHERE key != 'session_secret'")
+    .all() as {
     key: string;
     value: string;
   }[];
@@ -57,9 +60,20 @@ export async function GET() {
   }
 }
 
-// システム設定の更新
+// システム設定の更新（Admin管理者のみ実行可能）
 export async function PUT(request: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+    if (sessionUser.is_admin !== 1) {
+      return NextResponse.json(
+        { error: "システム設定の変更は管理者（Admin権限）のみ実行できます" },
+        { status: 403 }
+      );
+    }
+
     const db = getDb();
     const body = await request.json();
 

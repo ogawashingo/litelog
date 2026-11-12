@@ -1,17 +1,42 @@
-// データバックアップ・インポートAPI
+// データバックアップ・インポートAPI（管理者専用・パスワード保護対応）
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSessionUser, hashPassword } from "@/lib/auth";
 
-// 全データのエクスポート
+const PUBLIC_SETTING_KEYS = new Set([
+  "timezone",
+  "datetimeFormat",
+  "hour12",
+  "activityTimeStyle",
+  "timeOffsetMinutes",
+]);
+
+// 全データのエクスポート（Admin管理者のみ・パスワードや内部シークレットは除外）
 export async function GET() {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+    if (sessionUser.is_admin !== 1) {
+      return NextResponse.json(
+        { error: "データのバックアップ（エクスポート）は管理者（Admin権限）のみ実行できます" },
+        { status: 403 }
+      );
+    }
+
     const db = getDb();
-    const users = db.prepare("SELECT * FROM users").all();
+    // セキュリティ保護のため password カラムはエクスポートに含めない
+    const users = db
+      .prepare("SELECT id, login_id, name, role, is_admin, color, created_at FROM users")
+      .all();
     const projects = db.prepare("SELECT * FROM projects").all();
     const issues = db.prepare("SELECT * FROM issues").all();
     const comments = db.prepare("SELECT * FROM comments").all();
     const activities = db.prepare("SELECT * FROM activities").all();
-    const settings = db.prepare("SELECT * FROM settings").all();
+    const settings = db
+      .prepare("SELECT key, value, updated_at FROM settings WHERE key != 'session_secret'")
+      .all();
 
     const backupData = {
       version: 3,
@@ -31,15 +56,41 @@ export async function GET() {
   }
 }
 
-// バックアップデータのインポート
+// バックアップデータのインポート（Admin管理者のみ実行可能）
 export async function POST(request: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+    if (sessionUser.is_admin !== 1) {
+      return NextResponse.json(
+        { error: "データの復元（インポート）は管理者（Admin権限）のみ実行できます" },
+        { status: 403 }
+      );
+    }
+
     const db = getDb();
     const body = await request.json();
     const { users, projects, issues, comments, activities, settings } = body;
 
     if (!Array.isArray(projects) || !Array.isArray(issues)) {
       return NextResponse.json({ error: "有効なバックアップデータ形式ではありません" }, { status: 400 });
+    }
+
+    // 既存ユーザーのパスワードハッシュを退避（バックアップJSONにpasswordが含まれない場合の復元用）
+    const existingPwById = new Map<number, string>();
+    const existingPwByLoginId = new Map<string, string>();
+    const existingUsers = db
+      .prepare("SELECT id, login_id, password FROM users")
+      .all() as { id: number; login_id: string; password: string }[];
+    for (const eu of existingUsers) {
+      if (eu.password) {
+        existingPwById.set(eu.id, eu.password);
+        if (eu.login_id) {
+          existingPwByLoginId.set(eu.login_id.toLowerCase(), eu.password);
+        }
+      }
     }
 
     // トランザクション内で実行
@@ -73,10 +124,20 @@ export async function POST(request: Request) {
             : String(u.name || "").startsWith("鈴木")
             ? "suzuki"
             : `user${u.id}`;
+          const loginIdStr = String(u.login_id || fallbackLoginId).trim().toLowerCase();
+
+          // バックアップ内のパスワード、または退避した既存パスワードハッシュ、または初期パスワードをハッシュ化して設定
+          const rawOrExistingPw =
+            (u.password && String(u.password).trim()) ||
+            existingPwById.get(Number(u.id)) ||
+            existingPwByLoginId.get(loginIdStr) ||
+            `${fallbackLoginId}123`;
+          const hashedPw = hashPassword(rawOrExistingPw);
+
           insertUser.run(
             u.id,
-            u.login_id || fallbackLoginId,
-            u.password || `${fallbackLoginId}123`,
+            loginIdStr,
+            hashedPw,
             u.name,
             u.role || (isAdminVal ? "管理者" : "メンバー"),
             isAdminVal,
@@ -164,7 +225,12 @@ export async function POST(request: Request) {
             updated_at = CURRENT_TIMESTAMP
         `);
         for (const s of settings) {
-          if (s && typeof s.key === "string" && s.value !== undefined) {
+          if (
+            s &&
+            typeof s.key === "string" &&
+            PUBLIC_SETTING_KEYS.has(s.key) &&
+            s.value !== undefined
+          ) {
             upsertSetting.run(s.key, String(s.value));
           }
         }

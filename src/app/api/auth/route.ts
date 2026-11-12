@@ -2,28 +2,23 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
+import {
+  SESSION_COOKIE_NAME,
+  createSessionToken,
+  getSessionCookieOptions,
+  getSessionUser,
+  hashPassword,
+  isPasswordHashed,
+  verifyPassword,
+} from "@/lib/auth";
 
-const SESSION_COOKIE_NAME = "backlog_session_uid";
-
-// 現在のログインセッション確認
+// 現在のログインセッション確認（HMAC署名検証付き）
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const sessionUid = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-    const db = getDb();
-
-    if (sessionUid) {
-      const user = db.prepare(`
-        SELECT id, login_id, name, role, is_admin, color, created_at
-        FROM users
-        WHERE id = ?
-      `).get(Number(sessionUid));
-
-      if (user) {
-        return NextResponse.json({ authenticated: true, user });
-      }
+    const user = await getSessionUser();
+    if (user) {
+      return NextResponse.json({ authenticated: true, user });
     }
-
     return NextResponse.json({ authenticated: false, user: null });
   } catch (error) {
     console.error("セッション確認エラー:", error);
@@ -62,10 +57,18 @@ export async function POST(request: Request) {
       created_at: string;
     } | undefined;
 
-    if (!row || row.password !== password) {
+    if (!row || !verifyPassword(String(password), row.password)) {
       return NextResponse.json(
         { error: "ログインIDまたはパスワードが正しくありません" },
         { status: 401 }
+      );
+    }
+
+    // 万一DBに旧平文パスワードが残っていた場合は、ログイン成功時にハッシュ形式へ自動移行
+    if (!isPasswordHashed(row.password)) {
+      db.prepare("UPDATE users SET password = ? WHERE id = ?").run(
+        hashPassword(String(password)),
+        row.id
       );
     }
 
@@ -79,12 +82,10 @@ export async function POST(request: Request) {
       created_at: row.created_at,
     };
 
+    // 署名付きセッショントークンを発行し、httpOnly Cookieとして保存
+    const sessionToken = createSessionToken(user.id);
     const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, String(user.id), {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7日間有効
-      sameSite: "lax",
-    });
+    cookieStore.set(SESSION_COOKIE_NAME, sessionToken, getSessionCookieOptions());
 
     return NextResponse.json({ authenticated: true, user });
   } catch (error) {
@@ -97,15 +98,20 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const db = getDb();
-    const cookieStore = await cookies();
-    const sessionUid = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-    const body = await request.json();
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
 
-    const targetUserId = body.userId ? Number(body.userId) : sessionUid ? Number(sessionUid) : null;
+    const body = await request.json();
     const { currentPassword, newPassword } = body;
 
-    if (!targetUserId) {
-      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    // 自身以外のIDが指定された場合は管理者であっても本人確認APIでは拒否（なりすまし防止）
+    if (body.userId && Number(body.userId) !== sessionUser.id) {
+      return NextResponse.json(
+        { error: "他のユーザーのパスワードはこのエンドポイントから変更できません" },
+        { status: 403 }
+      );
     }
 
     if (!currentPassword || !newPassword || !String(newPassword).trim()) {
@@ -119,7 +125,7 @@ export async function PUT(request: Request) {
       SELECT id, login_id, password, name
       FROM users
       WHERE id = ?
-    `).get(targetUserId) as {
+    `).get(sessionUser.id) as {
       id: number;
       login_id: string;
       password: string;
@@ -130,7 +136,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
     }
 
-    if (row.password !== String(currentPassword)) {
+    if (!verifyPassword(String(currentPassword), row.password)) {
       return NextResponse.json(
         { error: "現在のパスワードが正しくありません" },
         { status: 400 }
@@ -138,14 +144,24 @@ export async function PUT(request: Request) {
     }
 
     const cleanNewPassword = String(newPassword).trim();
-    if (cleanNewPassword === row.password) {
+    if (cleanNewPassword.length < 4) {
+      return NextResponse.json(
+        { error: "新しいパスワードは4文字以上で入力してください" },
+        { status: 400 }
+      );
+    }
+
+    if (verifyPassword(cleanNewPassword, row.password)) {
       return NextResponse.json(
         { error: "新しいパスワードには現在のパスワードと異なるものを指定してください" },
         { status: 400 }
       );
     }
 
-    db.prepare("UPDATE users SET password = ? WHERE id = ?").run(cleanNewPassword, row.id);
+    db.prepare("UPDATE users SET password = ? WHERE id = ?").run(
+      hashPassword(cleanNewPassword),
+      row.id
+    );
 
     return NextResponse.json({
       success: true,
@@ -161,11 +177,7 @@ export async function PUT(request: Request) {
 export async function DELETE() {
   try {
     const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, "", {
-      path: "/",
-      maxAge: 0,
-      sameSite: "lax",
-    });
+    cookieStore.set(SESSION_COOKIE_NAME, "", getSessionCookieOptions(0));
     cookieStore.delete(SESSION_COOKIE_NAME);
     return NextResponse.json({ authenticated: false, message: "ログアウトしました" });
   } catch (error) {

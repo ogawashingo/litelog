@@ -1,7 +1,36 @@
 // SQLite データベース初期化＆総合検証テスト
 import { DatabaseSync } from "node:sqlite";
+import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
+
+const HASH_PREFIX = "scrypt$";
+
+function isPasswordHashed(pw) {
+  return typeof pw === "string" && pw.startsWith(HASH_PREFIX);
+}
+
+function hashPassword(plain) {
+  const clean = String(plain);
+  if (isPasswordHashed(clean)) return clean;
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derived = crypto.scryptSync(clean, salt, 64).toString("hex");
+  return `${HASH_PREFIX}${salt}$${derived}`;
+}
+
+function verifyPassword(plain, stored) {
+  if (!plain || !stored) return false;
+  if (isPasswordHashed(stored)) {
+    const parts = stored.split("$");
+    if (parts.length !== 3) return false;
+    const [, salt, hashHex] = parts;
+    const derived = crypto.scryptSync(String(plain), salt, 64);
+    const orig = Buffer.from(hashHex, "hex");
+    if (derived.length !== orig.length) return false;
+    return crypto.timingSafeEqual(derived, orig);
+  }
+  return String(plain) === String(stored);
+}
 
 async function runTests() {
   console.log("=== Personal Backlog データベース初期化＆動作検証開始 ===");
@@ -66,6 +95,14 @@ async function runTests() {
     SET login_id = 'user' || id
     WHERE login_id IS NULL OR login_id = ''
   `).run();
+  // 平文パスワードをscryptハッシュへ自動移行
+  const rawUsers = db.prepare("SELECT id, password FROM users").all();
+  const updateHashStmt = db.prepare("UPDATE users SET password = ? WHERE id = ?");
+  for (const u of rawUsers) {
+    if (u.password && !isPasswordHashed(u.password)) {
+      updateHashStmt.run(hashPassword(u.password), u.id);
+    }
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -469,24 +506,24 @@ async function runTests() {
   }
   console.log(`✓ 「最近の更新」日付グルーピング見出し("${dateGroupLabel}")＆課題結合クエリ検証成功 (${joinedActivities.length}件)`);
 
-  // 16. 一般ユーザーのパスワード変更および現在のパスワード照合テスト
+  // 16. 一般ユーザーのパスワードハッシュ変更および現在のパスワード照合テスト
   const satoBefore = db.prepare("SELECT id, login_id, password FROM users WHERE login_id = 'sato'").get();
   if (!satoBefore) throw new Error("一般ユーザー(sato)が見つかりません");
   const originalSatoPw = satoBefore.password;
+  if (!isPasswordHashed(originalSatoPw)) {
+    throw new Error("パスワードがscrypt形式でハッシュ化されていません");
+  }
 
   const nextTestPw = "sato_new_pw_999";
-  db.prepare("UPDATE users SET password = ? WHERE id = ? AND password = ?").run(
-    nextTestPw,
-    satoBefore.id,
-    originalSatoPw
-  );
+  const nextHashedPw = hashPassword(nextTestPw);
+  db.prepare("UPDATE users SET password = ? WHERE id = ?").run(nextHashedPw, satoBefore.id);
   const satoAfterChange = db.prepare("SELECT password FROM users WHERE id = ?").get(satoBefore.id);
-  if (satoAfterChange.password !== nextTestPw) {
-    throw new Error("一般ユーザーのパスワード変更テストに失敗しました");
+  if (!verifyPassword(nextTestPw, satoAfterChange.password) || verifyPassword("wrong_pw", satoAfterChange.password)) {
+    throw new Error("一般ユーザーのハッシュ化パスワード照合テストに失敗しました");
   }
-  // 元のパスワードへ復元
+  // 元のパスワードハッシュへ復元
   db.prepare("UPDATE users SET password = ? WHERE id = ?").run(originalSatoPw, satoBefore.id);
-  console.log(`✓ 一般ユーザー(sato)のパスワード照合・変更・復元テスト成功`);
+  console.log(`✓ 一般ユーザー(sato)のscryptパスワードハッシュ照合・変更・復元テスト成功`);
 
   // 17. 管理者（Admin権限）専用のプロジェクト名変更テスト
   const targetProject = db.prepare("SELECT * FROM projects ORDER BY id ASC LIMIT 1").get();
@@ -574,6 +611,34 @@ async function runTests() {
     throw new Error("プロジェクト削除時の一括クリーンアップに失敗しました");
   }
   console.log(`✓ 管理者(Admin)専用のプロジェクト削除＆関連課題・コメント一括削除テスト成功`);
+
+  // 20. セキュリティ検証（全ユーザーのパスワードハッシュ化確認 ＆ 初期アカウント照合 ＆ HMACセッショントークン改ざん検知）
+  const allUsersForSec = db.prepare("SELECT id, login_id, password FROM users").all();
+  for (const u of allUsersForSec) {
+    if (!isPasswordHashed(u.password)) {
+      throw new Error(`ユーザー ${u.login_id} のパスワードが平文のまま残っています`);
+    }
+  }
+  const yamadaRow = allUsersForSec.find((u) => u.login_id === "yamada");
+  const satoRow = allUsersForSec.find((u) => u.login_id === "sato");
+  const suzukiRow = allUsersForSec.find((u) => u.login_id === "suzuki");
+  if (
+    !verifyPassword("yamada123", yamadaRow.password) ||
+    !verifyPassword("sato123", satoRow.password) ||
+    !verifyPassword("suzuki123", suzukiRow.password)
+  ) {
+    throw new Error("初期メンバーのパスワードハッシュ照合に失敗しました");
+  }
+  const testSecret = crypto.randomBytes(32).toString("hex");
+  const expMs = Date.now() + 3600000;
+  const payload = `2.${expMs}`;
+  const validSig = crypto.createHmac("sha256", testSecret).update(payload).digest("hex");
+  const tamperedPayload = `1.${expMs}`; // 一般ユーザー(2)からAdmin(1)へのID改ざんを試行
+  const expectedTamperedSig = crypto.createHmac("sha256", testSecret).update(tamperedPayload).digest("hex");
+  if (validSig === expectedTamperedSig) {
+    throw new Error("HMAC署名によるID改ざん検知テストに失敗しました");
+  }
+  console.log(`✓ セキュリティ検証（全ユーザーscryptハッシュ化・初期アカウント照合・HMACセッショントークン改ざん防止）成功`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

@@ -1,6 +1,7 @@
 // プロジェクト一覧取得・新規作成API
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 
 // プロジェクト一覧取得（課題件数の集計付き）
 export async function GET() {
@@ -28,19 +29,36 @@ export async function GET() {
   }
 }
 
-// プロジェクト新規作成
+// プロジェクト新規作成（Admin管理者のみ実行可能）
 export async function POST(request: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+    if (sessionUser.is_admin !== 1) {
+      return NextResponse.json(
+        { error: "新規プロジェクトの作成は管理者（Admin権限）のみ実行できます" },
+        { status: 403 }
+      );
+    }
+
     const db = getDb();
     const body = await request.json();
     const { key, name, color } = body;
 
-    if (!key || !name) {
+    if (!key || !name || !String(key).trim() || !String(name).trim()) {
       return NextResponse.json({ error: "プロジェクトキーと名称は必須です" }, { status: 400 });
     }
 
     // キーは大文字英数字に正規化
-    const normalizedKey = key.trim().toUpperCase();
+    const normalizedKey = String(key).trim().toUpperCase();
+    if (!/^[A-Z0-9_]{1,15}$/.test(normalizedKey)) {
+      return NextResponse.json(
+        { error: "プロジェクトキーは半角英数字（1〜15文字）で指定してください" },
+        { status: 400 }
+      );
+    }
 
     // 重複チェック
     const existing = db.prepare("SELECT id FROM projects WHERE key = ?").get(normalizedKey);
@@ -52,7 +70,7 @@ export async function POST(request: Request) {
       INSERT INTO projects (key, name, color)
       VALUES (?, ?, ?)
     `);
-    const result = insert.run(normalizedKey, name.trim(), color || "#4f46e5");
+    const result = insert.run(normalizedKey, String(name).trim(), color || "#4f46e5");
 
     const created = db.prepare("SELECT * FROM projects WHERE id = ?").get(result.lastInsertRowid);
     return NextResponse.json(created, { status: 201 });

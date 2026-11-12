@@ -1,6 +1,7 @@
 // 課題一覧取得および新規課題作成API
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 
 // 課題一覧取得
 export async function GET(request: Request) {
@@ -79,16 +80,20 @@ export async function GET(request: Request) {
   }
 }
 
-// 課題の新規作成
+// 課題の新規作成（要ログインセッション）
 export async function POST(request: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+
     const db = getDb();
     const body = await request.json();
     const {
       projectId,
       parentId = null,
       assigneeId = null,
-      actorId = null,
       title,
       description = "",
       issueType = "task",
@@ -98,7 +103,7 @@ export async function POST(request: Request) {
       dueDate = null,
     } = body;
 
-    if (!projectId || !title) {
+    if (!projectId || !title || !String(title).trim()) {
       return NextResponse.json({ error: "プロジェクトと課題名は必須です" }, { status: 400 });
     }
 
@@ -113,48 +118,59 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "指定されたプロジェクトが見つかりません" }, { status: 404 });
     }
 
-    // そのプロジェクト内での最大番号を取得してインクリメント
-    const maxNumRow = db.prepare(`
-      SELECT COALESCE(MAX(issue_number), 0) AS max_num
-      FROM issues
-      WHERE project_id = ?
-    `).get(projectId) as { max_num: number };
-
-    const nextNum = maxNumRow.max_num + 1;
-    const issueKey = `${project.key}-${nextNum}`;
-
-    const insert = db.prepare(`
-      INSERT INTO issues (project_id, parent_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
     const resolvedAssigneeId = assigneeId ? Number(assigneeId) : null;
-    const resolvedActorId = actorId ? Number(actorId) : null;
+    // 操作者はサーバー側セッションユーザーを信頼源とする
+    const resolvedActorId = sessionUser.id;
 
-    const result = insert.run(
-      projectId,
-      parentId || null,
-      resolvedAssigneeId,
-      resolvedActorId,
-      issueKey,
-      nextNum,
-      title.trim(),
-      description.trim(),
-      issueType,
-      status,
-      priority,
-      startDate || null,
-      dueDate || null
-    );
+    let issueId: number | bigint = 0;
 
-    const issueId = result.lastInsertRowid;
+    // 採番・課題登録・アクティビティ記録をトランザクションで一括実行
+    db.exec("BEGIN;");
+    try {
+      const maxNumRow = db.prepare(`
+        SELECT COALESCE(MAX(issue_number), 0) AS max_num
+        FROM issues
+        WHERE project_id = ?
+      `).get(projectId) as { max_num: number };
 
-    // アクティビティ履歴を記録
-    const insertActivity = db.prepare(`
-      INSERT INTO activities (issue_id, user_id, action_type, content)
-      VALUES (?, ?, 'created', ?)
-    `);
-    insertActivity.run(issueId, resolvedActorId, `課題 [${issueKey}] 「${title.trim()}」を追加しました`);
+      const nextNum = maxNumRow.max_num + 1;
+      const issueKey = `${project.key}-${nextNum}`;
+
+      const insert = db.prepare(`
+        INSERT INTO issues (project_id, parent_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const result = insert.run(
+        projectId,
+        parentId || null,
+        resolvedAssigneeId,
+        resolvedActorId,
+        issueKey,
+        nextNum,
+        String(title).trim(),
+        String(description || "").trim(),
+        issueType,
+        status,
+        priority,
+        startDate || null,
+        dueDate || null
+      );
+
+      issueId = result.lastInsertRowid;
+
+      // アクティビティ履歴を記録
+      const insertActivity = db.prepare(`
+        INSERT INTO activities (issue_id, user_id, action_type, content)
+        VALUES (?, ?, 'created', ?)
+      `);
+      insertActivity.run(issueId, resolvedActorId, `課題 [${issueKey}] 「${String(title).trim()}」を追加しました`);
+
+      db.exec("COMMIT;");
+    } catch (txErr) {
+      db.exec("ROLLBACK;");
+      throw txErr;
+    }
 
     const created = db.prepare(`
       SELECT 

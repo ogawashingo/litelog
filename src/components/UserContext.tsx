@@ -116,13 +116,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // セッションCookieがない場合、localStorageの保存IDを確認
-      const savedIdStr = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-      const savedId = savedIdStr ? Number(savedIdStr) : null;
-      if (savedId && usersData.some((u) => u.id === savedId)) {
-        setCurrentUserId(savedId);
-      } else {
-        setCurrentUserId(null);
+      // サーバー側の署名付きセッションCookieが存在しない・無効な場合は未ログイン状態とする
+      setCurrentUserId(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(STORAGE_KEY);
       }
     } catch (err) {
       console.error("メンバー・認証情報の取得エラー:", err);

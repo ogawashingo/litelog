@@ -1,6 +1,7 @@
 // プロジェクト情報（プロジェクト名・テーマカラー）更新・削除API（管理者専用）
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -9,6 +10,20 @@ interface RouteParams {
 // プロジェクト名の変更・情報更新（Admin管理者のみ実行可能）
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "ログインセッションが確認できません" },
+        { status: 401 }
+      );
+    }
+    if (sessionUser.is_admin !== 1) {
+      return NextResponse.json(
+        { error: "プロジェクト名の変更は管理者（Admin権限）のみ実行できます" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const projectId = Number(id);
     if (!projectId || isNaN(projectId)) {
@@ -17,26 +32,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const db = getDb();
     const body = await request.json();
-    const { name, color, actorId } = body;
-
-    // 管理者（Admin権限）チェック
-    if (!actorId) {
-      return NextResponse.json(
-        { error: "プロジェクト名の変更には管理者（Admin）権限でのログインが必要です" },
-        { status: 403 }
-      );
-    }
-
-    const actor = db
-      .prepare("SELECT id, name, is_admin FROM users WHERE id = ?")
-      .get(Number(actorId)) as { id: number; name: string; is_admin: number } | undefined;
-
-    if (!actor || actor.is_admin !== 1) {
-      return NextResponse.json(
-        { error: "プロジェクト名の変更は管理者（Admin権限）のみ実行できます" },
-        { status: 403 }
-      );
-    }
+    const { name, color } = body;
 
     // 対象プロジェクトの存在確認
     const existing = db
@@ -94,8 +90,22 @@ export async function PUT(request: Request, context: RouteParams) {
 }
 
 // プロジェクトの削除（Admin管理者のみ実行可能・関連する課題やコメントも一括削除）
-export async function DELETE(request: Request, { params }: RouteParams) {
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "ログインセッションが確認できません" },
+        { status: 401 }
+      );
+    }
+    if (sessionUser.is_admin !== 1) {
+      return NextResponse.json(
+        { error: "プロジェクトの削除は管理者（Admin権限）のみ実行できます" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const projectId = Number(id);
     if (!projectId || isNaN(projectId)) {
@@ -103,42 +113,6 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     }
 
     const db = getDb();
-
-    // クエリパラメータまたはリクエストボディから actorId を取得
-    const { searchParams } = new URL(request.url);
-    let actorId: number | null = searchParams.get("actorId")
-      ? Number(searchParams.get("actorId"))
-      : null;
-
-    if (!actorId) {
-      try {
-        const body = await request.json();
-        if (body?.actorId) {
-          actorId = Number(body.actorId);
-        }
-      } catch {
-        // ボディが空の場合は無視
-      }
-    }
-
-    // 管理者（Admin権限）チェック
-    if (!actorId) {
-      return NextResponse.json(
-        { error: "プロジェクトの削除には管理者（Admin）権限でのログインが必要です" },
-        { status: 403 }
-      );
-    }
-
-    const actor = db
-      .prepare("SELECT id, name, is_admin FROM users WHERE id = ?")
-      .get(actorId) as { id: number; name: string; is_admin: number } | undefined;
-
-    if (!actor || actor.is_admin !== 1) {
-      return NextResponse.json(
-        { error: "プロジェクトの削除は管理者（Admin権限）のみ実行できます" },
-        { status: 403 }
-      );
-    }
 
     // 対象プロジェクトの存在確認
     const existing = db

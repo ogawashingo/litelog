@@ -1,13 +1,14 @@
 // 課題詳細取得・更新・削除API
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 // 課題詳細の取得（コメント一覧含む）
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const db = getDb();
@@ -68,14 +69,20 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 }
 
-// 課題の更新
+// 課題の更新（要ログインセッション）
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+
     const { id } = await params;
+    const issueId = Number(id);
     const db = getDb();
     const body = await request.json();
 
-    const currentIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(Number(id)) as {
+    const currentIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(issueId) as {
       id: number;
       issue_key: string;
       title: string;
@@ -93,15 +100,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
     const activityLogs: { type: string; msg: string }[] = [];
-    const actorId = body.actorId ? Number(body.actorId) : null;
+    const actorId = sessionUser.id;
 
     if (body.title !== undefined) {
+      if (!String(body.title).trim()) {
+        return NextResponse.json({ error: "課題名は空にできません" }, { status: 400 });
+      }
       updates.push("title = ?");
-      values.push(body.title.trim());
+      values.push(String(body.title).trim());
     }
     if (body.description !== undefined) {
       updates.push("description = ?");
-      values.push(body.description.trim());
+      values.push(String(body.description).trim());
     }
     if (body.issueType !== undefined) {
       updates.push("issue_type = ?");
@@ -161,8 +171,25 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
     if (body.parentId !== undefined) {
       const targetParentId = body.parentId ? Number(body.parentId) : null;
-      if (targetParentId === Number(id)) {
+      if (targetParentId === issueId) {
         return NextResponse.json({ error: "自分自身を親課題に設定することはできません" }, { status: 400 });
+      }
+      // 親子課題の循環参照チェック（A -> B -> A の防止）
+      if (targetParentId) {
+        let cursorId: number | null = targetParentId;
+        const visited = new Set<number>([issueId]);
+        const getParentStmt = db.prepare("SELECT parent_id FROM issues WHERE id = ?");
+        while (cursorId) {
+          if (visited.has(cursorId)) {
+            return NextResponse.json(
+              { error: "子孫課題を親課題に設定すること（循環参照）はできません" },
+              { status: 400 }
+            );
+          }
+          visited.add(cursorId);
+          const parentRow = getParentStmt.get(cursorId) as { parent_id: number | null } | undefined;
+          cursorId = parentRow?.parent_id ?? null;
+        }
       }
       updates.push("parent_id = ?");
       values.push(targetParentId);
@@ -191,23 +218,31 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(Number(id));
+    values.push(issueId);
 
-    const sql = `UPDATE issues SET ${updates.join(", ")} WHERE id = ?`;
-    db.prepare(sql).run(...values);
+    db.exec("BEGIN;");
+    try {
+      const sql = `UPDATE issues SET ${updates.join(", ")} WHERE id = ?`;
+      db.prepare(sql).run(...values);
 
-    // アクティビティ履歴の記録
-    const insertActivity = db.prepare(`
-      INSERT INTO activities (issue_id, user_id, action_type, content)
-      VALUES (?, ?, ?, ?)
-    `);
+      // アクティビティ履歴の記録
+      const insertActivity = db.prepare(`
+        INSERT INTO activities (issue_id, user_id, action_type, content)
+        VALUES (?, ?, ?, ?)
+      `);
 
-    for (const log of activityLogs) {
-      insertActivity.run(currentIssue.id, actorId, log.type, log.msg);
-    }
+      for (const log of activityLogs) {
+        insertActivity.run(currentIssue.id, actorId, log.type, log.msg);
+      }
 
-    if (activityLogs.length === 0 && (body.title !== undefined || body.description !== undefined)) {
-      insertActivity.run(currentIssue.id, actorId, "updated", `課題 [${currentIssue.issue_key}] を更新しました`);
+      if (activityLogs.length === 0 && (body.title !== undefined || body.description !== undefined)) {
+        insertActivity.run(currentIssue.id, actorId, "updated", `課題 [${currentIssue.issue_key}] を更新しました`);
+      }
+
+      db.exec("COMMIT;");
+    } catch (txErr) {
+      db.exec("ROLLBACK;");
+      throw txErr;
     }
 
     const updated = db.prepare(`
@@ -226,7 +261,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       LEFT JOIN users u ON i.assignee_id = u.id
       LEFT JOIN users creator ON i.created_by = creator.id
       WHERE i.id = ?
-    `).get(Number(id));
+    `).get(issueId);
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -235,15 +270,20 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 }
 
-// 課題の削除
-export async function DELETE(request: Request, { params }: RouteParams) {
+// 課題の削除（要ログインセッション）
+export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
-    const { id } = await params;
-    const db = getDb();
-    const { searchParams } = new URL(request.url);
-    const actorId = searchParams.get("actorId") ? Number(searchParams.get("actorId")) : null;
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
 
-    const currentIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(Number(id)) as {
+    const { id } = await params;
+    const issueId = Number(id);
+    const db = getDb();
+    const actorId = sessionUser.id;
+
+    const currentIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(issueId) as {
       id: number;
       issue_key: string;
       title: string;
@@ -253,13 +293,21 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
     }
 
-    db.prepare("DELETE FROM issues WHERE id = ?").run(Number(id));
+    db.exec("BEGIN;");
+    try {
+      db.prepare("DELETE FROM issues WHERE id = ?").run(issueId);
 
-    // 削除アクティビティを記録
-    db.prepare(`
-      INSERT INTO activities (user_id, action_type, content)
-      VALUES (?, 'deleted', ?)
-    `).run(actorId, `課題 [${currentIssue.issue_key}] 「${currentIssue.title}」を削除しました`);
+      // 削除アクティビティを記録
+      db.prepare(`
+        INSERT INTO activities (user_id, action_type, content)
+        VALUES (?, 'deleted', ?)
+      `).run(actorId, `課題 [${currentIssue.issue_key}] 「${currentIssue.title}」を削除しました`);
+
+      db.exec("COMMIT;");
+    } catch (txErr) {
+      db.exec("ROLLBACK;");
+      throw txErr;
+    }
 
     return NextResponse.json({ success: true, message: "課題を削除しました" });
   } catch (error) {

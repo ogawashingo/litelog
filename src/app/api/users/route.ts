@@ -1,6 +1,7 @@
 // ユーザー（チームメンバー）一覧取得および新規追加API
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { getSessionUser, hashPassword } from "@/lib/auth";
 
 // メンバー一覧の取得（担当課題数の集計付き・パスワードは除外）
 export async function GET() {
@@ -30,9 +31,20 @@ export async function GET() {
   }
 }
 
-// メンバーの新規登録
+// メンバーの新規登録（Admin管理者のみ実行可能）
 export async function POST(request: Request) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+    if (sessionUser.is_admin !== 1) {
+      return NextResponse.json(
+        { error: "メンバーの追加には管理者（Admin）権限が必要です" },
+        { status: 403 }
+      );
+    }
+
     const db = getDb();
     const body = await request.json();
     const {
@@ -63,13 +75,16 @@ export async function POST(request: Request) {
       );
     }
 
+    const rawPassword = String(password).trim() || "pass123";
+    const hashedPassword = hashPassword(rawPassword);
+
     const insert = db.prepare(`
       INSERT INTO users (login_id, password, name, role, is_admin, color)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
     const result = insert.run(
       cleanLoginId,
-      String(password).trim() || "pass123",
+      hashedPassword,
       name.trim(),
       (role || (isAdmin ? "管理者" : "メンバー")).trim(),
       isAdmin ? 1 : 0,

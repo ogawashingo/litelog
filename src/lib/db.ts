@@ -2,6 +2,7 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
+import { hashPassword, isPasswordHashed } from "@/lib/auth";
 
 // データベースファイルの保存先パス（プロジェクトルートの data ディレクトリ）
 const DB_DIR = path.join(process.cwd(), "data");
@@ -25,8 +26,10 @@ export function getDb(): DatabaseSync {
 
 // テーブル作成および初期データの投入
 function initDb(db: DatabaseSync) {
-  // 外部キー制約の有効化
+  // 外部キー制約・WALモード・ビジータイムアウトの有効化
   db.exec("PRAGMA foreign_keys = ON;");
+  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA busy_timeout = 5000;");
 
   // ユーザー（チームメンバー）テーブル
   db.exec(`
@@ -55,32 +58,30 @@ function initDb(db: DatabaseSync) {
       db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT 'pass123';");
     }
 
-    // 山田さん（Admin権限 / login_id: yamada）
+    // 山田さん（初期メンバーでlogin_id未設定の場合のみ補完）
     db.prepare(`
       UPDATE users
       SET is_admin = 1,
           role = CASE WHEN role = 'プロジェクトリーダー' OR role = 'メンバー' THEN '管理者' ELSE role END,
-          login_id = COALESCE(NULLIF(login_id, ''), 'yamada'),
+          login_id = 'yamada',
           password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'yamada123' ELSE password END
-      WHERE name LIKE '山田%'
+      WHERE name LIKE '山田%' AND (login_id IS NULL OR login_id = '' OR login_id = 'yamada')
     `).run();
 
-    // 佐藤さん（一般ユーザー権限 / login_id: sato）
+    // 佐藤さん（初期メンバーでlogin_id未設定の場合のみ補完）
     db.prepare(`
       UPDATE users
-      SET is_admin = 0,
-          login_id = COALESCE(NULLIF(login_id, ''), 'sato'),
+      SET login_id = 'sato',
           password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'sato123' ELSE password END
-      WHERE name LIKE '佐藤%'
+      WHERE name LIKE '佐藤%' AND (login_id IS NULL OR login_id = '' OR login_id = 'sato')
     `).run();
 
-    // 鈴木さん（一般ユーザー権限 / login_id: suzuki）
+    // 鈴木さん（初期メンバーでlogin_id未設定の場合のみ補完）
     db.prepare(`
       UPDATE users
-      SET is_admin = 0,
-          login_id = COALESCE(NULLIF(login_id, ''), 'suzuki'),
+      SET login_id = 'suzuki',
           password = CASE WHEN password IS NULL OR password = '' OR password = 'pass123' THEN 'suzuki123' ELSE password END
-      WHERE name LIKE '鈴木%'
+      WHERE name LIKE '鈴木%' AND (login_id IS NULL OR login_id = '' OR login_id = 'suzuki')
     `).run();
 
     // その他login_idが未設定のユーザーにユニークなlogin_idを補完
@@ -89,6 +90,17 @@ function initDb(db: DatabaseSync) {
       SET login_id = 'user' || id
       WHERE login_id IS NULL OR login_id = ''
     `).run();
+
+    // 平文パスワードが保存されている場合は自動的にソルト付きscryptハッシュへ移行
+    const existingUsers = db
+      .prepare("SELECT id, password FROM users")
+      .all() as { id: number; password: string }[];
+    const updatePwStmt = db.prepare("UPDATE users SET password = ? WHERE id = ?");
+    for (const u of existingUsers) {
+      if (u.password && !isPasswordHashed(u.password)) {
+        updatePwStmt.run(hashPassword(u.password), u.id);
+      }
+    }
   } catch (migErr) {
     console.error("users テーブルのマイグレーション確認エラー:", migErr);
   }
@@ -245,15 +257,15 @@ function initDb(db: DatabaseSync) {
   insertSetting.run("timeOffsetMinutes", "0");
 
 
-  // 初回ユーザー（メンバーが0件の場合に初期メンバーを投入）
+  // 初回ユーザー（メンバーが0件の場合に初期メンバーを投入・パスワードはハッシュ化して保存）
   const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
   if (userCount.count === 0) {
     const insertUser = db.prepare(`
       INSERT INTO users (login_id, password, name, role, is_admin, color) VALUES (?, ?, ?, ?, ?, ?)
     `);
-    const u1 = insertUser.run("yamada", "yamada123", "山田 太郎", "管理者", 1, "#4f46e5").lastInsertRowid;
-    const u2 = insertUser.run("sato", "sato123", "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
-    insertUser.run("suzuki", "suzuki123", "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
+    const u1 = insertUser.run("yamada", hashPassword("yamada123"), "山田 太郎", "管理者", 1, "#4f46e5").lastInsertRowid;
+    const u2 = insertUser.run("sato", hashPassword("sato123"), "佐藤 花子", "エンジニア", 0, "#3b82f6").lastInsertRowid;
+    insertUser.run("suzuki", hashPassword("suzuki123"), "鈴木 一郎", "デザイナー", 0, "#8b5cf6");
 
     // もし既に課題が存在していて担当者が未設定なら、初期メンバーを割り当てる
     const existingIssues = db.prepare("SELECT id FROM issues WHERE assignee_id IS NULL").all() as { id: number }[];
