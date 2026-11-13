@@ -300,8 +300,7 @@ export default function CommentPreviewBadge({
             </div>
 
             {/* フッター: 詳細への誘導ガイド */}
-            <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 text-[10px] text-slate-400">
-              <span>{displayList.length > 1 ? "スクロールで全件確認可能" : ""}</span>
+            <div className="flex items-center justify-end pt-2 mt-2 border-t border-slate-100 text-[10px]">
               <div className="flex items-center gap-1 text-indigo-600 font-medium hover:underline">
                 <span>クリックで詳細を開く</span>
                 <ArrowRight className="w-3 h-3" />
