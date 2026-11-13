@@ -482,34 +482,9 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 件名（親課題バッジ・子課題バッジ・プロジェクト名等） */}
+                    {/* 件名 */}
                     <td className="py-3 px-3 min-w-[240px]">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        {/* 親課題バッジ */}
-                        {isParent && (
-                          <span
-                            title={`子課題 ${childrenOfThis.length} 件 (完了 ${completedChildrenCount}/${childrenOfThis.length} 件)`}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200 shrink-0"
-                          >
-                            <FolderTree className="w-3 h-3 text-indigo-600" />
-                            親課題 (子{childrenOfThis.length}件{completedChildrenCount > 0 ? ` · 済${completedChildrenCount}` : ""})
-                          </span>
-                        )}
-
-                        {/* 子課題の親紐付けピル */}
-                        {isChild && (
-                          <span
-                            title={issue.parent_title ? `親課題: [${issue.parent_issue_key}] ${issue.parent_title}` : "親課題への紐付き"}
-                            className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0 cursor-default"
-                          >
-                            <CornerDownRight className="w-2.5 h-2.5 text-slate-400" />
-                            <span className="text-slate-400 text-[9px]">親:</span>
-                            <span className="font-mono font-bold text-indigo-600 text-[10px]">
-                              {issue.parent_issue_key || `ID:${issue.parent_id}`}
-                            </span>
-                          </span>
-                        )}
-
                         <a
                           href={`/issues/${issue.issue_key}`}
                           onClick={(e) => {
