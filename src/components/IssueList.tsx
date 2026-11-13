@@ -510,14 +510,6 @@ export default function IssueList({
                             {issue.title}
                           </span>
                         </a>
-                        {issue.project_name && (
-                          <span
-                            title={issue.project_name}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0 max-w-[160px] truncate font-medium"
-                          >
-                            {issue.project_name}
-                          </span>
-                        )}
                         {/* コメント件数バッジ ＆ ホバープレビュー */}
                         {Boolean(issue.comment_count && issue.comment_count > 0) && (
                           <CommentPreviewBadge
