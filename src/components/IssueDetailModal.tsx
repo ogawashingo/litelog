@@ -632,7 +632,7 @@ export default function IssueDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white sm:rounded-xl shadow-2xl border border-gray-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
+        className="bg-white sm:rounded-xl shadow-2xl border border-gray-200 w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ヘッダー（スマホで絶対にはみ出さず、戻るボタン＆✕ボタンを常時確保） */}
@@ -745,8 +745,9 @@ export default function IssueDetailModal({
                 />
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
-                <div>
+              {/* 編集モード時の属性グリッド（担当者と優先度等の横隙間を十分に確保） */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 gap-y-3.5 text-xs">
+                <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">種別</label>
                   <select
                     value={editType}
@@ -760,7 +761,7 @@ export default function IssueDetailModal({
                   </select>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">状態</label>
                   <select
                     value={editStatus}
@@ -781,7 +782,7 @@ export default function IssueDetailModal({
                   )}
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">担当者</label>
                   <select
                     value={editAssigneeId}
@@ -797,7 +798,7 @@ export default function IssueDetailModal({
                   </select>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">優先度</label>
                   <select
                     value={editPriority}
@@ -810,7 +811,7 @@ export default function IssueDetailModal({
                   </select>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">開始日</label>
                   <DatePicker
                     value={editStartDate || null}
@@ -820,7 +821,7 @@ export default function IssueDetailModal({
                   />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">期限日</label>
                   <DatePicker
                     value={editDueDate || null}
@@ -927,15 +928,15 @@ export default function IssueDetailModal({
                 </div>
               </div>
 
-              {/* 属性グリッド（状態、担当者、優先度、開始日、期限日、登録日時） */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-xs">
+              {/* 属性グリッド（状態、担当者、優先度、開始日、期限日、登録日時。担当者と優先度等に十分な隙間を確保） */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 sm:p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 gap-y-3.5 text-xs">
                 {/* 状態変更セレクター */}
-                <div>
+                <div className="min-w-0">
                   <span className="text-slate-500 block mb-1 font-medium">状態</span>
                   <select
                     value={activeIssue.status}
                     onChange={(e) => handleQuickStatusChange(e.target.value as IssueStatus)}
-                    className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
+                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
                   >
                     <option value="open">未対応</option>
                     <option value="in_progress">処理中</option>
@@ -955,9 +956,9 @@ export default function IssueDetailModal({
                 </div>
 
                 {/* 担当者即時変更セレクター */}
-                <div>
+                <div className="min-w-0">
                   <span className="text-slate-500 block mb-1 font-medium">担当者</span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <div
                       style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
                       className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0"
@@ -967,7 +968,7 @@ export default function IssueDetailModal({
                     <select
                       value={activeIssue.assignee_id ? String(activeIssue.assignee_id) : ""}
                       onChange={(e) => handleQuickAssigneeChange(e.target.value)}
-                      className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-medium text-slate-800 cursor-pointer focus:ring-1 focus:ring-indigo-500 max-w-[110px] truncate"
+                      className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-medium text-slate-800 cursor-pointer focus:ring-1 focus:ring-indigo-500 min-w-0 w-full truncate"
                     >
                       <option value="">未割当</option>
                       {users.map((u) => (
@@ -980,12 +981,12 @@ export default function IssueDetailModal({
                 </div>
 
                 {/* 優先度即時変更セレクター */}
-                <div>
+                <div className="min-w-0">
                   <span className="text-slate-500 block mb-1 font-medium">優先度</span>
                   <select
                     value={activeIssue.priority}
                     onChange={(e) => handleQuickPriorityChange(e.target.value as IssuePriority)}
-                    className={`bg-white border rounded px-1.5 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500 transition-colors ${
+                    className={`w-full bg-white border rounded px-1.5 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500 transition-colors ${
                       activeIssue.priority === "high"
                         ? "text-rose-600 border-rose-300 bg-rose-50/80"
                         : activeIssue.priority === "medium"
@@ -999,7 +1000,7 @@ export default function IssueDetailModal({
                   </select>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-1 mb-1">
                     <span className="text-gray-500 font-medium">開始日</span>
                     {Boolean(activeIssue.start_date_history_count && activeIssue.start_date_history_count > 0) && (
@@ -1017,12 +1018,12 @@ export default function IssueDetailModal({
                     )}
                   </div>
                   <div className="flex items-center gap-1 font-medium text-gray-800">
-                    <Calendar className="w-3.5 h-3.5 text-gray-500" />
-                    <span>{activeIssue.start_date || "指定なし"}</span>
+                    <Calendar className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                    <span className="truncate">{activeIssue.start_date || "指定なし"}</span>
                   </div>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-1 mb-1">
                     <span className="text-gray-500 font-medium">期限日</span>
                     {Boolean(activeIssue.due_date_history_count && activeIssue.due_date_history_count > 0) && (
@@ -1040,12 +1041,14 @@ export default function IssueDetailModal({
                     )}
                   </div>
                   <div className="flex items-center gap-1 font-medium text-gray-800">
-                    <Calendar className="w-3.5 h-3.5 text-gray-500" />
-                    <span>{activeIssue.due_date || "指定なし"}</span>
+                    <Calendar className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                    <span className={`truncate ${activeIssue.due_date && new Date(activeIssue.due_date) < new Date() && activeIssue.status !== "closed" ? "text-red-600 font-bold" : ""}`}>
+                      {activeIssue.due_date || "指定なし"}
+                    </span>
                   </div>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <span className="text-gray-500 block mb-1 font-medium">登録日時</span>
                   <div
                     className="flex items-center gap-1 text-gray-600"
