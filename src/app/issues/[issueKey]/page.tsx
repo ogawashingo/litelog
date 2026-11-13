@@ -295,14 +295,31 @@ export default function IssueDetailPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 space-y-4">
         {/* 上部ナビゲーション / パンくずリスト */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-3 rounded-xl border border-slate-200/80 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center gap-2 text-xs text-slate-600">
+            {/* モバイルで押しやすい戻るボタン */}
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push("/");
+                }
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:hidden cursor-pointer"
+              title="戻る"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>戻る</span>
+            </button>
+
             <Link
               href="/"
               className="flex items-center gap-1 hover:text-indigo-600 font-medium transition-colors"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>ダッシュボード</span>
+              <span className="hidden sm:inline">ダッシュボード</span>
             </Link>
             <span>/</span>
             {currentProject ? (

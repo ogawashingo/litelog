@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck } from "lucide-react";
+import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft } from "lucide-react";
 import { Project, Issue, IssueType, IssueStatus, IssuePriority } from "@/types";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
@@ -134,24 +134,43 @@ export default function CreateIssueModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl border border-indigo-100 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white sm:rounded-xl shadow-2xl border border-indigo-100 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* モーダルヘッダー */}
-        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-6 py-4 flex items-center justify-between text-white">
+        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between text-white shrink-0">
           <div className="flex items-center gap-2">
-            <Plus className="w-5 h-5 stroke-[2.5] text-amber-300" />
-            <h3 className="font-bold text-lg">課題の追加</h3>
+            {/* モバイル用戻るボタン */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1 p-1.5 rounded-lg hover:bg-white/10 active:bg-white/20 text-white font-bold text-xs sm:hidden cursor-pointer"
+              title="戻る"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>戻る</span>
+            </button>
+            <Plus className="w-5 h-5 stroke-[2.5] text-amber-300 hidden sm:block" />
+            <h3 className="font-bold text-base sm:text-lg">課題の追加</h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-md hover:bg-white/20 transition-colors text-white cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-white/20 text-white transition-colors cursor-pointer"
+            title="閉じる"
+            aria-label="閉じる"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* フォーム入力領域 */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg font-medium">
               {errorMessage}

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon } from "lucide-react";
+import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -282,27 +282,48 @@ export default function IssueDetailModal({
   const currentAssignee = users.find((u) => u.id === Number(editAssigneeId));
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
-        {/* ヘッダー */}
-        <div className="bg-gray-100 border-b border-gray-200 px-6 py-3.5 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white sm:rounded-xl shadow-2xl border border-gray-200 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ヘッダー（スマホで絶対にはみ出さず、戻るボタン＆✕ボタンを常時確保） */}
+        <div className="bg-gray-100 border-b border-gray-200 px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between shrink-0 gap-2">
+          {/* 左側: モバイル用「戻る」ボタン ＆ 種別・キー・プロジェクト名 */}
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1">
+            {/* モバイルで親指で確実に押せる「← 戻る」ボタン */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-slate-700 hover:bg-gray-200 active:bg-gray-300 font-bold text-xs sm:hidden shrink-0 cursor-pointer"
+              title="一覧へ戻る"
+              aria-label="一覧へ戻る"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>戻る</span>
+            </button>
+
             <TypeBadge type={isEditing ? editType : issue.issue_type} />
-            <span className="font-bold text-gray-800 text-sm tracking-wide">
+            <span className="font-bold text-gray-800 text-xs sm:text-sm tracking-wide shrink-0">
               {issue.issue_key}
             </span>
             {issue.project_name && (
-              <span className="text-xs bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-600">
+              <span className="text-[11px] sm:text-xs bg-white border border-gray-200 px-1.5 sm:px-2 py-0.5 rounded text-gray-600 truncate max-w-[90px] sm:max-w-none">
                 {issue.project_name}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* 右側: 各種アクションボタン ＆ 閉じる✕ボタン */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* URLコピーボタン */}
             <button
               type="button"
               onClick={handleCopyLink}
-              className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded border transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded border transition-colors cursor-pointer ${
                 isCopiedUrl
                   ? "bg-emerald-50 border-emerald-300 text-emerald-700"
                   : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
@@ -311,45 +332,53 @@ export default function IssueDetailModal({
             >
               {isCopiedUrl ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>コピー完了</span>
+                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="hidden sm:inline">コピー完了</span>
                 </>
               ) : (
                 <>
-                  <LinkIcon className="w-3.5 h-3.5" />
-                  <span>URLコピー</span>
+                  <LinkIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">URLコピー</span>
                 </>
               )}
             </button>
 
             {!isEditing ? (
               <button
+                type="button"
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
-                <Edit2 className="w-3.5 h-3.5" />
-                <span>編集</span>
+                <Edit2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">編集</span>
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handleSaveEdit}
                 disabled={isSaving}
-                className="flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 sm:px-3 py-1 rounded bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 transition-colors cursor-pointer"
               >
-                <Check className="w-3.5 h-3.5" />
-                <span>{isSaving ? "保存中..." : "保存"}</span>
+                <Check className="w-3.5 h-3.5 shrink-0" />
+                <span>{isSaving ? "保存中" : "保存"}</span>
               </button>
             )}
+
             <button
+              type="button"
               onClick={handleDelete}
-              className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
               title="課題を削除"
             >
               <Trash2 className="w-4 h-4" />
             </button>
+
             <button
+              type="button"
               onClick={onClose}
-              className="p-1 rounded text-gray-500 hover:bg-gray-200 transition-colors"
+              className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer shrink-0"
+              title="閉じる"
+              aria-label="閉じる"
             >
               <X className="w-5 h-5" />
             </button>
@@ -357,7 +386,7 @@ export default function IssueDetailModal({
         </div>
 
         {/* コンテンツ本体 */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
           {/* 編集モード時のフォーム */}
           {isEditing ? (
             <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -710,6 +739,18 @@ export default function IssueDetailModal({
                 </button>
               </div>
             </form>
+
+            {/* モバイル用最下部 戻るボタン（最下部までスクロールした際にもワンタップで戻れる） */}
+            <div className="pt-4 border-t border-slate-200 flex justify-center sm:hidden">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>一覧へ戻る</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
