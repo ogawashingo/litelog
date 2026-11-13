@@ -251,6 +251,28 @@ function DashboardContent() {
     setIsDetailOpen(true);
   };
 
+  // 通知等から課題キー指定で詳細モーダルを表示
+  const handleSelectIssueByKey = async (issueKey: string) => {
+    const existing = issues.find((i) => i.issue_key === issueKey);
+    if (existing) {
+      setSelectedIssue(existing);
+      setIsDetailOpen(true);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/issues/${encodeURIComponent(issueKey)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.issue) {
+          setSelectedIssue(data.issue);
+          setIsDetailOpen(true);
+        }
+      }
+    } catch (err) {
+      console.error("課題キーからの詳細取得失敗:", err);
+    }
+  };
+
   // 選択中プロジェクトによる厳密なフィルタリング（万が一のデータ不整合や混ざりを防止）
   const filteredIssues = useMemo(() => {
     if (!selectedProjectId) return issues;
@@ -273,6 +295,7 @@ function DashboardContent() {
         onSelectProject={handleSelectProject}
         onOpenCreateIssue={() => setIsCreateIssueOpen(true)}
         onOpenBackup={() => setIsBackupOpen(true)}
+        onSelectIssue={handleSelectIssueByKey}
       />
 
       {/* メインダッシュボードコンテンツ */}
@@ -336,6 +359,7 @@ function DashboardContent() {
         onClose={handleCloseDetail}
         onUpdated={refreshAll}
         onDeleted={refreshAll}
+        onSelectIssue={(issue) => setSelectedIssue(issue)}
       />
 
       {/* プロジェクト作成モーダル */}

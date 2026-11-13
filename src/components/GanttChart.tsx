@@ -1540,6 +1540,7 @@ export default function GanttChart({
           setDetailIssue(null);
           onRefresh();
         }}
+        onSelectIssue={(issue) => setDetailIssue(issue)}
       />
     </div>
   );

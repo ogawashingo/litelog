@@ -18,6 +18,7 @@ interface IssueDetailModalProps {
   onClose: () => void;
   onUpdated: () => void;
   onDeleted: () => void;
+  onSelectIssue?: (issue: Issue) => void; // 親コンポーネントの選択中課題も同期するコールバック
 }
 
 export default function IssueDetailModal({
@@ -26,6 +27,7 @@ export default function IssueDetailModal({
   onClose,
   onUpdated,
   onDeleted,
+  onSelectIssue,
 }: IssueDetailModalProps) {
   const { users, currentUser, refreshUsers, settings } = useUser();
 
@@ -45,6 +47,9 @@ export default function IssueDetailModal({
   const [isEditing, setIsEditing] = useState(false);
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
 
+  // モーダルコンテンツ領域のスクロールRef（課題切り替え時に先頭へスクロール）
+  const contentScrollRef = React.useRef<HTMLDivElement>(null);
+
   // 最新の onClose コールバックを保持
   const onCloseRef = React.useRef(onClose);
   onCloseRef.current = onClose;
@@ -52,7 +57,7 @@ export default function IssueDetailModal({
   // モーダルを開いた元の画面のURLを保持
   const originalUrlRef = React.useRef<string | null>(null);
 
-  // モーダルオープン時のURL同期（ブラウザアドレスバーを /issues/MYPRJ-30 に更新）
+  // モーダルオープン時および課題切り替え時のURL同期（ブラウザアドレスバーを /issues/MYPRJ-30 に更新）
   useEffect(() => {
     if (!isOpen || !issue) {
       // モーダルが閉じたときにURLを元に戻す
@@ -66,20 +71,26 @@ export default function IssueDetailModal({
       return;
     }
 
-    // モーダルが開いた最初の1回だけURLを保存＆pushState
+    // 初回オープン時は元のURLを保存
     if (!originalUrlRef.current) {
       originalUrlRef.current = window.location.pathname + window.location.search;
-      const targetUrl = `/issues/${issue.issue_key}`;
-      if (window.location.pathname !== targetUrl) {
-        window.history.pushState(
-          { modalIssueKey: issue.issue_key, returnUrl: originalUrlRef.current },
-          "",
-          targetUrl
-        );
-      }
     }
 
-    // ブラウザの戻る操作でモーダルを閉じる
+    // 現在表示中の課題キーに合わせてURLを更新
+    const targetUrl = `/issues/${issue.issue_key}`;
+    if (typeof window !== "undefined" && window.location.pathname !== targetUrl) {
+      window.history.pushState(
+        { modalIssueKey: issue.issue_key, returnUrl: originalUrlRef.current },
+        "",
+        targetUrl
+      );
+    }
+  }, [issue?.issue_key, isOpen]);
+
+  // ブラウザの戻る操作でモーダルを閉じる
+  useEffect(() => {
+    if (!isOpen) return;
+
     const handlePopState = () => {
       onCloseRef.current();
     };
@@ -97,7 +108,78 @@ export default function IssueDetailModal({
         }
       }
     };
-  }, [isOpen]); // issueやonCloseの参照変更による不要なURL再同期・チラつきを完全に防止
+  }, [isOpen]);
+
+  // 子課題または親課題をクリックして表示課題を切り替える
+  const handleSwitchIssue = async (target: Issue | { id: number; issue_key?: string | null }) => {
+    setIsEditing(false);
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+
+    // 親コンポーネントのコールバックがある場合
+    if (onSelectIssue) {
+      if ("title" in target && target.title) {
+        onSelectIssue(target as Issue);
+      } else {
+        // 親課題バッジなどID情報のみの場合はAPIから完全な課題情報を取得して親に渡す
+        try {
+          const res = await fetch(`/api/issues/${target.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.issue) {
+              onSelectIssue(data.issue);
+            }
+          }
+        } catch (err) {
+          console.error("課題切り替えエラー:", err);
+        }
+      }
+    } else {
+      // 親のコールバックが渡されていない場合はローカル状態で課題詳細を取得・更新
+      try {
+        const res = await fetch(`/api/issues/${target.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.issue) {
+            const nextIssue: Issue = data.issue;
+            setCurrentIssue(nextIssue);
+            setEditTitle(nextIssue.title);
+            setEditDescription(nextIssue.description || "");
+            setEditStatus(nextIssue.status);
+            setEditPriority(nextIssue.priority);
+            setEditType(nextIssue.issue_type);
+            setEditAssigneeId(nextIssue.assignee_id ? String(nextIssue.assignee_id) : "");
+            setEditParentId(nextIssue.parent_id ? String(nextIssue.parent_id) : "");
+            setEditStartDate(nextIssue.start_date || "");
+            setEditDueDate(nextIssue.due_date || "");
+            setComments(Array.isArray(data.comments) ? data.comments : []);
+            setChildrenIssues(Array.isArray(data.children) ? data.children : []);
+
+            fetch(`/api/issues?projectId=${nextIssue.project_id}`)
+              .then((r) => r.json())
+              .then((parents) => {
+                if (Array.isArray(parents)) {
+                  setAvailableParents(parents.filter((item: Issue) => item.id !== nextIssue.id));
+                }
+              })
+              .catch((err) => console.error("親課題候補取得失敗:", err));
+
+            if (typeof window !== "undefined" && originalUrlRef.current) {
+              const targetUrl = `/issues/${nextIssue.issue_key}`;
+              if (window.location.pathname !== targetUrl) {
+                window.history.pushState(
+                  { modalIssueKey: nextIssue.issue_key, returnUrl: originalUrlRef.current },
+                  "",
+                  targetUrl
+                );
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("課題切り替えエラー:", err);
+      }
+    }
+  };
 
   // 課題URLをクリップボードにコピー
   const handleCopyLink = async () => {
@@ -567,7 +649,7 @@ export default function IssueDetailModal({
         </div>
 
         {/* コンテンツ本体 */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
+        <div ref={contentScrollRef} className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
           {/* 編集モード時のフォーム */}
           {isEditing ? (
             <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -723,12 +805,21 @@ export default function IssueDetailModal({
               {/* タイトル ＆ 親課題バッジ */}
               <div>
                 {activeIssue.parent_id && activeIssue.parent_issue_key && (
-                  <div className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-xs text-slate-700 font-medium">
-                    <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeIssue.parent_id) {
+                        handleSwitchIssue({ id: activeIssue.parent_id, issue_key: activeIssue.parent_issue_key });
+                      }
+                    }}
+                    className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-xs text-slate-700 font-medium hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer group text-left"
+                    title={`親課題 [${activeIssue.parent_issue_key}] を開く`}
+                  >
+                    <GitBranch className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                     <span className="text-slate-500">親課題:</span>
-                    <span className="font-bold text-indigo-700">[{activeIssue.parent_issue_key}]</span>
-                    <span className="truncate max-w-sm">{activeIssue.parent_title}</span>
-                  </div>
+                    <span className="font-bold text-indigo-700 group-hover:underline">[{activeIssue.parent_issue_key}]</span>
+                    <span className="truncate max-w-sm group-hover:text-indigo-900">{activeIssue.parent_title}</span>
+                  </button>
                 )}
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-xl font-bold text-slate-900 leading-snug">
@@ -914,17 +1005,47 @@ export default function IssueDetailModal({
               {/* 子課題一覧（存在する場合のみ表示） */}
               {childrenIssues.length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>子課題 ({childrenIssues.length})</span>
-                  </h4>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>子課題 ({childrenIssues.length})</span>
+                    </h4>
+                    <span className="text-[11px] text-slate-400">クリックで子課題を開く</span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-200 overflow-hidden">
                     {childrenIssues.map((child) => (
-                      <div key={child.id} className="px-3 py-2 flex items-center justify-between text-xs">
+                      <div
+                        key={child.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleSwitchIssue(child)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            handleSwitchIssue(child);
+                          }
+                        }}
+                        className="px-3 py-2 flex items-center justify-between text-xs hover:bg-indigo-50/70 transition-colors cursor-pointer group select-none"
+                        title={`子課題 [${child.issue_key}] を開く`}
+                      >
                         <div className="flex items-center gap-2 min-w-0">
                           <TypeBadge type={child.issue_type} showLabel={false} />
-                          <span className="font-bold text-indigo-800 shrink-0">{child.issue_key}</span>
-                          <span className="text-slate-800 truncate">{child.title}</span>
+                          <a
+                            href={`/issues/${child.issue_key}`}
+                            onClick={(e) => {
+                              if (!e.metaKey && !e.ctrlKey) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleSwitchIssue(child);
+                              }
+                            }}
+                            className="font-bold text-indigo-700 group-hover:text-indigo-900 group-hover:underline shrink-0"
+                          >
+                            {child.issue_key}
+                          </a>
+                          <span className="text-slate-800 group-hover:text-slate-900 truncate font-medium">
+                            {child.title}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {child.assignee_name && (

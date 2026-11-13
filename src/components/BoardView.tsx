@@ -659,6 +659,7 @@ export default function BoardView({
           setIsDetailOpen(false);
           setDetailIssue(null);
         }}
+        onSelectIssue={(issue) => setDetailIssue(issue)}
       />
     </div>
   );

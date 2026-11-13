@@ -848,26 +848,22 @@ export default function IssueDetailPage() {
                   </h3>
                   <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden text-xs">
                     {childrenIssues.map((child) => (
-                      <div
+                      <Link
                         key={child.id}
-                        className="p-3 bg-white hover:bg-slate-50 flex items-center justify-between gap-3 transition-colors"
+                        href={`/issues/${child.issue_key}`}
+                        className="p-3 bg-white hover:bg-indigo-50/60 flex items-center justify-between gap-3 transition-colors group cursor-pointer block"
+                        title={`子課題 [${child.issue_key}] を開く`}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <TypeBadge type={child.issue_type} />
-                          <Link
-                            href={`/issues/${child.issue_key}`}
-                            className="font-mono font-bold text-indigo-600 hover:underline"
-                          >
+                          <span className="font-mono font-bold text-indigo-600 group-hover:underline shrink-0">
                             {child.issue_key}
-                          </Link>
-                          <Link
-                            href={`/issues/${child.issue_key}`}
-                            className="text-slate-800 hover:text-indigo-600 font-medium"
-                          >
+                          </span>
+                          <span className="text-slate-800 group-hover:text-indigo-600 font-medium truncate">
                             {child.title}
-                          </Link>
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           <StatusBadge status={child.status} />
                           {child.assignee_name && (
                             <span className="text-slate-500">
@@ -875,7 +871,7 @@ export default function IssueDetailPage() {
                             </span>
                           )}
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
