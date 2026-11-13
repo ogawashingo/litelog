@@ -216,7 +216,7 @@ export default function IssueList({
   return (
     <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
       {/* リストヘッダー & フィルターコントロール */}
-      <div className="p-4 border-b border-slate-200/80 bg-gradient-to-r from-indigo-50/40 via-white to-violet-50/40 flex flex-wrap items-center justify-between gap-3">
+      <div className="issue-list-header p-4 border-b border-slate-200/80 bg-gradient-to-r from-indigo-50/40 via-white to-violet-50/40 flex flex-wrap items-center justify-between gap-3">
         {/* タイトル・クイック切替タブ（すべて / 自分の担当） */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">

@@ -643,6 +643,37 @@ body {
   color: #94a3b8 !important;
 }
 
+/* ダッシュボード: 「遅延・期限間近の課題」ヘッダーのダークモード最適化 */
+[data-theme="dark"] .summary-cards-urgent-header {
+  background-image: linear-gradient(to right, rgba(136, 19, 55, 0.35), rgba(154, 52, 18, 0.25), rgba(180, 83, 9, 0.2)) !important;
+  background-color: #1a1418 !important;
+  border-bottom-color: rgba(244, 63, 94, 0.3) !important;
+}
+[data-theme="dark"] .summary-cards-urgent-header h2,
+[data-theme="dark"] .summary-cards-urgent-header span,
+[data-theme="dark"] .text-rose-950 {
+  color: #f4f4f8 !important;
+}
+[data-theme="dark"] .summary-cards-clean-header {
+  background-image: linear-gradient(to right, rgba(6, 78, 59, 0.35), rgba(19, 78, 74, 0.25), rgba(12, 74, 110, 0.2)) !important;
+  background-color: #121c18 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #f4f4f8 !important;
+}
+[data-theme="dark"] .summary-cards-clean-header span {
+  color: #f4f4f8 !important;
+}
+
+/* ダッシュボード: 「課題一覧」ヘッダー（17件など）のダークモード最適化 */
+[data-theme="dark"] .issue-list-header {
+  background-image: linear-gradient(to right, #161622, #181826, #161622) !important;
+  background-color: #161622 !important;
+  border-bottom-color: #272738 !important;
+}
+[data-theme="dark"] .issue-list-header h3 {
+  color: #f4f4f8 !important;
+}
+
 [data-theme="dark"] .border-rose-200\/90 {
   border-color: rgba(244, 63, 94, 0.35) !important;
 }

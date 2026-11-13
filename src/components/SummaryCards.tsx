@@ -121,7 +121,7 @@ export default function SummaryCards({
   // 問題なし（0件）の場合のクリーン表示
   if (urgentItems.length === 0) {
     return (
-      <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-sky-50/60 border border-emerald-200/70 rounded-xl text-sm text-emerald-950 shadow-2xs">
+      <div className="summary-cards-clean-header flex items-center justify-between p-3.5 bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-sky-50/60 border border-emerald-200/70 rounded-xl text-sm text-emerald-950 shadow-2xs">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
           <span className="font-semibold text-emerald-900">
@@ -144,7 +144,7 @@ export default function SummaryCards({
   return (
     <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-rose-200/90 overflow-hidden">
       {/* ヘッダー */}
-      <div className="p-3.5 bg-gradient-to-r from-rose-50/90 via-orange-50/60 to-amber-50/50 border-b border-rose-100 flex flex-wrap items-center justify-between gap-2.5">
+      <div className="summary-cards-urgent-header p-3.5 bg-gradient-to-r from-rose-50/90 via-orange-50/60 to-amber-50/50 border-b border-rose-100 flex flex-wrap items-center justify-between gap-2.5">
         <div className="flex items-center gap-2">
           <Flame className="w-5 h-5 text-rose-600 animate-pulse shrink-0" />
           <h2 className="text-sm font-bold text-rose-950 flex items-center gap-2">
