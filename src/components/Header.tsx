@@ -4,7 +4,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Users, Crown, Settings, Sparkles } from "lucide-react";
+import { Plus, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Crown, Settings, Sparkles } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -29,7 +29,7 @@ export default function Header({
   const isAdmin = pathname?.startsWith("/admin");
   const isDashboard = pathname === "/" || (!isBoard && !isGantt && !isAdmin);
 
-  const { users, currentUser, openUserManageModal, openPasswordChangeModal } = useUser();
+  const { currentUser, openPasswordChangeModal } = useUser();
 
   return (
     <header className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150">
@@ -129,8 +129,8 @@ export default function Header({
             </nav>
           </div>
 
-          {/* 右側: 課題の追加ボタン ＆ メンバー管理 ＆ 操作ユーザー表示 */}
-          <div className="flex items-center gap-2 shrink-0 ml-2 sm:ml-4">
+          {/* 右側: 課題の追加ボタン ＆ 操作ユーザー表示 */}
+          <div className="flex items-center gap-2.5 shrink-0 ml-2 sm:ml-4">
             {/* 課題追加ボタン（テーマ連動） */}
             <button
               onClick={onOpenCreateIssue}
@@ -140,18 +140,8 @@ export default function Header({
               <span className="hidden sm:inline">課題の追加</span>
             </button>
 
-            {/* チームメンバー管理ボタン */}
-            <button
-              onClick={openUserManageModal}
-              title="チームメンバーの追加・管理"
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <Users className="w-3.5 h-3.5 text-white/80 shrink-0" />
-              <span className="hidden lg:inline">メンバー ({users.length})</span>
-            </button>
-
             {/* ログイン中ユーザー表示（クリックでマイアカウント設定・ログアウト） */}
-            <div className="flex items-center gap-2 pl-2 border-l border-white/20 shrink-0">
+            <div className="flex items-center gap-2 pl-2.5 border-l border-white/20 shrink-0">
               {currentUser ? (
                 <button
                   type="button"
