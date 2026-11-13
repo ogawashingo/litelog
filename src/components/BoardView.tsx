@@ -349,15 +349,6 @@ export default function BoardView({
               {showClosed ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
               <span>{showClosed ? "完了を表示中" : "完了を非表示"}</span>
             </button>
-
-            {/* 新規課題追加ボタン */}
-            <button
-              onClick={() => handleOpenCreateWithStatus("open")}
-              className="flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5 stroke-[3]" />
-              <span>課題の追加</span>
-            </button>
           </div>
         </div>
       </div>

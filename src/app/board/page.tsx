@@ -92,7 +92,7 @@ export default function BoardIndexPage() {
         onOpenBackup={() => setIsBackupOpen(true)}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-gray-500 text-sm animate-pulse">

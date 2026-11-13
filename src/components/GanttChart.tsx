@@ -783,18 +783,6 @@ export default function GanttChart({
               <CheckCircle2 className={`w-3.5 h-3.5 ${showClosed ? "text-indigo-600" : "text-slate-400"}`} />
               <span>完了を含む</span>
             </button>
-
-            {/* 課題追加ボタン */}
-            <button
-              onClick={() => {
-                setCreateDefaultParentId(null);
-                setIsCreateOpen(true);
-              }}
-              className="flex items-center gap-1 text-xs font-bold px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-xs transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>課題の追加</span>
-            </button>
           </div>
         </div>
 

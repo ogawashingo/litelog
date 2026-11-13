@@ -231,7 +231,7 @@ export default function DashboardPage() {
       />
 
       {/* メインダッシュボードコンテンツ */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* サマリーカード・ステータス集計 */}
         <SummaryCards
           counts={counts}
