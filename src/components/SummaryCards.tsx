@@ -2,19 +2,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle2, ChevronDown, ChevronUp, Flame, Sparkles } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, ChevronDown, ChevronUp, Flame, Sparkles, ArrowUp } from "lucide-react";
 import { Issue, IssueStatus } from "@/types";
 import { TypeBadge } from "./IssueBadge";
 import { getTodayDateString } from "@/lib/dateUtils";
 import { useUser } from "./UserContext";
 
-// 至急課題の分類種別
-type UrgencyLevel = "overdue" | "today" | "upcoming" | "high_priority";
+// 至急課題の分類種別（時間的緊急度のみに限定）
+type UrgencyLevel = "overdue" | "today" | "upcoming";
 
 interface UrgentItem {
   issue: Issue;
   urgency: UrgencyLevel;
-  diffDays: number | null; // 期限日と今日の差分日数（負: 超過, 0: 本日, 正: 残り日数）
+  diffDays: number; // 期限日と今日の差分日数（負: 超過, 0: 本日, 正: 残り日数）
   badgeText: string;
 }
 
@@ -35,7 +35,7 @@ export default function SummaryCards({
   // 本日の日付文字列
   const todayStr = getTodayDateString(settings);
 
-  // 至急課題（期限切れ、本日期限、3日以内期限、優先度:高）の抽出と緊急度順ソート
+  // 至急課題（期限切れ、本日期限、直近3日以内期限）の抽出と緊急度・優先度順ソート
   const urgentItems = useMemo<UrgentItem[]>(() => {
     const [ty, tm, td] = todayStr.split("-").map(Number);
     const today = new Date(ty, tm - 1, td);
@@ -45,15 +45,15 @@ export default function SummaryCards({
     const items: UrgentItem[] = [];
 
     for (const issue of activeIssues) {
-      let diffDays: number | null = null;
-      if (issue.due_date) {
-        const [y, m, d] = issue.due_date.split("-").map(Number);
-        const target = new Date(y, m - 1, d);
-        target.setHours(0, 0, 0, 0);
-        diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      }
+      // 期限が設定されていない課題は至急枠の対象外（優先度高の乱用による枠の圧迫を防止）
+      if (!issue.due_date) continue;
 
-      if (diffDays !== null && diffDays < 0) {
+      const [y, m, d] = issue.due_date.split("-").map(Number);
+      const target = new Date(y, m - 1, d);
+      target.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
         // 期限切れ（最優先）
         items.push({
           issue,
@@ -61,7 +61,7 @@ export default function SummaryCards({
           diffDays,
           badgeText: `${Math.abs(diffDays)}日超過`,
         });
-      } else if (diffDays !== null && diffDays === 0) {
+      } else if (diffDays === 0) {
         // 本日締切
         items.push({
           issue,
@@ -69,15 +69,7 @@ export default function SummaryCards({
           diffDays,
           badgeText: "本日締切",
         });
-      } else if (issue.priority === "high") {
-        // 優先度「高」
-        items.push({
-          issue,
-          urgency: "high_priority",
-          diffDays,
-          badgeText: diffDays !== null ? `優先度:高 (残${diffDays}日)` : "優先度:高",
-        });
-      } else if (diffDays !== null && diffDays <= 3) {
+      } else if (diffDays <= 3) {
         // 直近3日以内締切
         items.push({
           issue,
@@ -88,7 +80,7 @@ export default function SummaryCards({
       }
     }
 
-    // 重複除外（1つの課題が複数条件に該当する場合、最も緊急度の高い条件が優先）
+    // 重複除外
     const seen = new Set<number>();
     const uniqueItems: UrgentItem[] = [];
     for (const item of items) {
@@ -98,26 +90,38 @@ export default function SummaryCards({
       }
     }
 
-    // 緊急度順にソート（期限切れ -> 本日 -> 残り日数少ない順/優先度高）
+    // 緊急度および優先度順にソート
+    // 1. 期限切れ > 本日 > 直近3日
+    // 2. 同グループ内では、期限が近い順（期限切れは超過日数が大きい順）
+    // 3. 同じ締切日内では、優先度「高」が最上位に来る
+    const priorityRank: Record<string, number> = { high: 1, medium: 2, low: 3 };
+
     uniqueItems.sort((a, b) => {
       const urgencyRank: Record<UrgencyLevel, number> = {
         overdue: 1,
         today: 2,
-        high_priority: 3,
-        upcoming: 4,
+        upcoming: 3,
       };
       if (urgencyRank[a.urgency] !== urgencyRank[b.urgency]) {
         return urgencyRank[a.urgency] - urgencyRank[b.urgency];
       }
-      // 期限切れ同士は超過日数が大きい順
+      // 期限切れ同士は超過日数が大きい順（例: 5日超過 > 1日超過）
       if (a.urgency === "overdue" && b.urgency === "overdue") {
-        return (a.diffDays ?? 0) - (b.diffDays ?? 0); // 負の数なので小さい（絶対値が大きい）方が前
+        if (a.diffDays !== b.diffDays) {
+          return a.diffDays - b.diffDays;
+        }
       }
-      // 残り日数がある場合は残り日数が少ない順
-      if (a.diffDays !== null && b.diffDays !== null) {
-        return a.diffDays - b.diffDays;
+      // 直近同士は残り日数が少ない順
+      if (a.urgency === "upcoming" && b.urgency === "upcoming") {
+        if (a.diffDays !== b.diffDays) {
+          return a.diffDays - b.diffDays;
+        }
       }
-      return 0;
+      // 同一締切日内では優先度高を優先
+      const pDiff = (priorityRank[a.issue.priority] ?? 2) - (priorityRank[b.issue.priority] ?? 2);
+      if (pDiff !== 0) return pDiff;
+
+      return b.issue.id - a.issue.id;
     });
 
     return uniqueItems;
@@ -137,7 +141,7 @@ export default function SummaryCards({
           </span>
         </div>
         <span className="text-xs text-emerald-700/80 hidden sm:inline">
-          期限切れ・本日期限・優先度高の課題はすべて対応済みです
+          期限切れや直近（3日以内）が期限の課題はありません
         </span>
       </div>
     );
@@ -187,8 +191,6 @@ export default function SummaryCards({
               ? "bg-rose-100 text-rose-800 border-rose-300 font-bold"
               : urgency === "today"
               ? "bg-amber-100 text-amber-900 border-amber-300 font-bold"
-              : urgency === "high_priority"
-              ? "bg-orange-50 text-orange-800 border-orange-200 font-semibold"
               : "bg-sky-50 text-sky-800 border-sky-200 font-medium";
 
           return (
@@ -206,6 +208,17 @@ export default function SummaryCards({
                   {urgency === "today" && <Calendar className="w-3 h-3 text-amber-600" />}
                   <span>{badgeText}</span>
                 </span>
+
+                {/* 優先度高の場合は強調バッジ */}
+                {issue.priority === "high" && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
+                    title="優先度: 高"
+                  >
+                    <ArrowUp className="w-3 h-3 text-rose-600" />
+                    <span>優先度高</span>
+                  </span>
+                )}
 
                 {/* 種別バッジ */}
                 <div className="shrink-0">
