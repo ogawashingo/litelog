@@ -1051,11 +1051,13 @@ export default function IssueDetailModal({
                 <div className="min-w-0">
                   <span className="text-gray-500 block mb-1 font-medium">登録日時</span>
                   <div
-                    className="flex items-center gap-1 text-gray-600"
+                    className="flex items-start gap-1 text-gray-600"
                     title={`登録: ${formatTimestamp(activeIssue.created_at, settings, true)}\n更新: ${formatTimestamp(activeIssue.updated_at, settings, true)}`}
                   >
-                    <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span className="truncate">{formatTimestamp(activeIssue.created_at, settings, true)}</span>
+                    <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+                    <span className="text-[11px] leading-tight whitespace-normal break-words">
+                      {formatTimestamp(activeIssue.created_at, settings, true)}
+                    </span>
                   </div>
                 </div>
               </div>
