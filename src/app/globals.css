@@ -429,10 +429,14 @@ body {
 
 /* インディゴ／アクセント強調ピル・バッジの調整 */
 [data-theme="dark"] .bg-indigo-50,
+[data-theme="dark"] .bg-indigo-50\/10,
 [data-theme="dark"] .bg-indigo-50\/20,
+[data-theme="dark"] .bg-indigo-50\/30,
+[data-theme="dark"] .bg-indigo-50\/40,
 [data-theme="dark"] .bg-indigo-50\/50,
+[data-theme="dark"] .bg-indigo-50\/60,
 [data-theme="dark"] .bg-indigo-50\/70 {
-  background-color: rgba(99, 102, 241, 0.18) !important;
+  background-color: rgba(99, 102, 241, 0.12) !important;
 }
 [data-theme="dark"] .bg-indigo-100,
 [data-theme="dark"] .bg-indigo-100\/70,
@@ -711,3 +715,13 @@ body {
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
   background: #3e3e56;
 }
+
+/* ダッシュボード: 課題一覧の親タスク（SAMPLE-4など）行のダークモード調和 */
+[data-theme="dark"] tr.issue-parent-row {
+  background-color: rgba(99, 102, 241, 0.1) !important;
+}
+[data-theme="dark"] tr.issue-parent-row:hover,
+[data-theme="dark"] tr.issue-parent-row:hover td {
+  background-color: rgba(99, 102, 241, 0.18) !important;
+}
+

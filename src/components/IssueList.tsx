@@ -450,7 +450,7 @@ export default function IssueList({
                       isClosed
                         ? "bg-slate-50/60 text-slate-400 hover:bg-slate-100/60"
                         : isParent && !issueAlert
-                        ? "bg-indigo-50/30 hover:bg-indigo-50/60"
+                        ? "issue-parent-row bg-indigo-50/30 hover:bg-indigo-50/60"
                         : isChild && !issueAlert
                         ? "bg-white hover:bg-indigo-50/20"
                         : !issueAlert
