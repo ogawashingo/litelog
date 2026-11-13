@@ -130,6 +130,13 @@ docker run -d -p 3000:3000 -v "$(pwd)/data:/app/data" --name personal-backlog pe
 起動後、ブラウザで [http://localhost:3000](http://localhost:3000) にアクセスします。
 ※ データはホスト側の `./data/backlog.db` に永続化されます。
 
+> **Proxmox LXC 環境（Docker in LXC）でのヒント**:
+> - **初回権限設定**: `mkdir -p data && chmod -R 777 data`
+> - **ビルド時の通信ハング対策**: 仮想ブリッジ環境で `npm ci` が止まる場合は、Docker の MTU を 1400 に設定してください。
+>   ```bash
+>   echo '{"dns": ["8.8.8.8", "1.1.1.1"], "mtu": 1400}' > /etc/docker/daemon.json && systemctl restart docker
+>   ```
+
 ---
 
 ## 📂 技術スタック

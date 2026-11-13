@@ -114,6 +114,30 @@ docker run -d -p 3000:3000 -v "$(pwd)/data:/app/data" --name personal-backlog pe
 起動後、ブラウザで **[http://localhost:3000](http://localhost:3000)** にアクセスします。
 ※ データはホスト側の `./data/backlog.db` に同期・永続化されます。
 
+#### 💡 Proxmox LXC（Docker in LXC）環境での注意点・トラブルシューティング
+
+Proxmox VE の LXC コンテナ内で Docker を稼働させる場合、仮想ブリッジ環境特有の注意点があります。
+
+1. **データディレクトリの書き込み権限（Permission Denied 対策）**
+   コンテナ内の Next.js はセキュリティのため非 root ユーザー（UID 1001）で動作します。ホスト側マウントディレクトリに書き込み権限を付与してください。
+   ```bash
+   mkdir -p data && chmod -R 777 data
+   ```
+
+2. **`docker build` 時の `npm ci` ハング・タイムアウト（MTU / DNS 不一致対策）**
+   - **現象**: ビルド時の `RUN npm ci` が数分〜10分近く止まり、`npm error Exit handler never called!` で失敗する。
+   - **原因**: LXC ホスト側（`127.0.0.53` / systemd-resolved）と Docker コンテナ内との DNS 疎通不全、および仮想ブリッジ間の **MTU（パケット最大サイズ）不一致** による大容量パケット破棄が原因です。
+   - **対策**: Docker デーモンにパブリック DNS と安全な MTU（1400）を指定して再起動します。
+     ```bash
+     cat <<'EOF' > /etc/docker/daemon.json
+     {
+       "dns": ["8.8.8.8", "1.1.1.1"],
+       "mtu": 1400
+     }
+     EOF
+     systemctl restart docker
+     ```
+
 ---
 
 ## 3. ログインとアカウント権限
@@ -434,3 +458,11 @@ personal-backlog/
 
 ### Q4. 初期状態（サンプルデータ）にリセットしたい場合は？
 **A.** サーバーを停止した状態で `data/backlog.db` ファイルを削除（または別名に退避）してから再度 `npm run dev` または `npm start` を実行してください。ブラウザでアクセスすると自動的に「初期セットアップ（管理者アカウント作成）」画面が表示されます。管理者アカウントを作成して登録を完了すると、初期プロジェクトおよびサンプル課題が利用可能な状態になります。
+
+### Q5. Proxmox LXC 環境で Docker ビルド時に `npm ci` が止まる／タイムアウトする
+**A.** Proxmox LXC（仮想ブリッジ）特有の **MTU（パケットサイズ）不一致** により、大きなファイルのダウンロード時にパケットがドロップされる現象です。
+LXC コンテナ内で `/etc/docker/daemon.json` に以下を記述して Docker を再起動してください。
+```bash
+echo '{"dns": ["8.8.8.8", "1.1.1.1"], "mtu": 1400}' > /etc/docker/daemon.json
+systemctl restart docker
+```
