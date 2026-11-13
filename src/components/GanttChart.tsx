@@ -1126,14 +1126,14 @@ export default function GanttChart({
               {/* ---------- タイムラインヘッダー（2段：年月 ＆ 日/週/月ラベル） ---------- */}
               <div className="sticky top-0 z-20 bg-gray-50 border-b border-gray-200">
                 {/* 1段目：年月グループ */}
-                <div className="flex border-b border-gray-200 text-xs font-bold text-gray-700 h-[26px]">
+                <div className="flex border-b border-gray-200 text-xs font-bold text-slate-800 h-[26px]">
                   {monthGroups.map((g, idx) => (
                     <div
                       key={idx}
                       style={{ width: `${g.daysCount * cellWidth}px` }}
-                      className="px-2 flex items-center border-r border-gray-300 truncate bg-gray-100/90"
+                      className="px-2 flex items-center border-r border-gray-300 truncate bg-gray-100/90 text-slate-900 font-extrabold"
                     >
-                      <span>
+                      <span className="font-extrabold tracking-wide">
                         {g.year}年 {g.month}月
                       </span>
                     </div>

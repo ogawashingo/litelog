@@ -240,9 +240,14 @@ body {
 [data-theme="dark"] .bg-slate-100\/50,
 [data-theme="dark"] .bg-slate-100\/70,
 [data-theme="dark"] .bg-slate-100\/80,
+[data-theme="dark"] .bg-slate-100\/90,
 [data-theme="dark"] .bg-gray-100,
+[data-theme="dark"] .bg-gray-100\/50,
+[data-theme="dark"] .bg-gray-100\/70,
+[data-theme="dark"] .bg-gray-100\/80,
+[data-theme="dark"] .bg-gray-100\/90,
 [data-theme="dark"] .bg-zinc-100 {
-  background-color: #20202c !important;
+  background-color: #1e1e2a !important;
 }
 [data-theme="dark"] .bg-slate-200,
 [data-theme="dark"] .bg-slate-200\/70,
@@ -550,6 +555,15 @@ body {
 [data-theme="dark"] .text-indigo-900,
 [data-theme="dark"] .text-indigo-700 {
   color: #c7d2fe !important;
+}
+
+/* ガントチャート年月表示ヘッダー（「2026年11月」等の横長ヘッダー）の視認性最適化 */
+[data-theme="dark"] .bg-gray-100\/90,
+[data-theme="dark"] .bg-gray-100\/90 span,
+[data-theme="dark"] .bg-gray-100 span {
+  background-color: #1e1e2a !important;
+  color: #f4f4f8 !important;
+  font-weight: 700 !important;
 }
 
 [data-theme="dark"] .border-rose-200\/90 {
