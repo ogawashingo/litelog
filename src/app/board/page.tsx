@@ -9,6 +9,7 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
 import { Project, Issue, IssueStatus } from "@/types";
+import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 export default function BoardIndexPage() {
   const router = useRouter();
@@ -33,9 +34,11 @@ export default function BoardIndexPage() {
         const projData: Project[] = await projRes.json();
         setProjects(projData);
 
-        // プロジェクトが1件以上ある場合、最初のプロジェクトのボードURLへ遷移（Backlog仕様準拠）
+        // プロジェクトが1件以上ある場合、選択中または先頭のプロジェクトのボードURLへ遷移（Backlog仕様準拠）
         if (projData.length > 0) {
-          router.replace(`/board/${encodeURIComponent(projData[0].key)}`);
+          const storedId = getStoredProjectId();
+          const target = (storedId && projData.find((p) => p.id === storedId)) || projData[0];
+          router.replace(`/board/${encodeURIComponent(target.key)}`);
           return;
         }
       }
@@ -80,8 +83,9 @@ export default function BoardIndexPage() {
       <Header
         activeNav="board"
         projects={projects}
-        selectedProjectId={null}
+        selectedProjectId={getStoredProjectId()}
         onSelectProject={(id) => {
+          setStoredProjectId(id);
           if (id) {
             const found = projects.find((p) => p.id === id);
             if (found) {

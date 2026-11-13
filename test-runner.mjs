@@ -1121,6 +1121,40 @@ async function runTests() {
   }
   console.log(`✓ 日本の祝日（元日・春分・秋分・振替休日・国民の休日等18日）内蔵計算＆表示ON/OFF検証成功`);
 
+  // ヘッダーナビゲーションリンクとプロジェクト選択連動検証
+  const testProjects = [
+    { id: 1, key: "PRJA", name: "プロジェクトA" },
+    { id: 2, key: "PRJB", name: "プロジェクトB" },
+  ];
+  const generateHeaderHrefs = (selectedId, projects) => {
+    const selected = projects.find((p) => p.id === selectedId) || null;
+    const projectKey = selected ? encodeURIComponent(selected.key) : "";
+    return {
+      dashboard: selectedId ? `/?projectId=${selectedId}` : "/",
+      board: projectKey ? `/board/${projectKey}` : "/board",
+      gantt: projectKey ? `/gantt/${projectKey}` : "/gantt",
+    };
+  };
+
+  const hrefsWithProject = generateHeaderHrefs(2, testProjects);
+  if (
+    hrefsWithProject.dashboard !== "/?projectId=2" ||
+    hrefsWithProject.board !== "/board/PRJB" ||
+    hrefsWithProject.gantt !== "/gantt/PRJB"
+  ) {
+    throw new Error(`プロジェクト選択時のヘッダーリンク生成失敗: ${JSON.stringify(hrefsWithProject)}`);
+  }
+
+  const hrefsWithoutProject = generateHeaderHrefs(null, testProjects);
+  if (
+    hrefsWithoutProject.dashboard !== "/" ||
+    hrefsWithoutProject.board !== "/board" ||
+    hrefsWithoutProject.gantt !== "/gantt"
+  ) {
+    throw new Error(`プロジェクト未選択時のヘッダーリンク生成失敗: ${JSON.stringify(hrefsWithoutProject)}`);
+  }
+  console.log("✓ ヘッダーのプロジェクト選択連動ナビゲーションリンク生成テスト成功");
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

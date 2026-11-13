@@ -8,6 +8,7 @@ import GanttChart from "@/components/GanttChart";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { Project, Issue } from "@/types";
+import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 function GanttIndexContent() {
   const router = useRouter();
@@ -30,10 +31,12 @@ function GanttIndexContent() {
         const projData: Project[] = await projRes.json();
         setProjects(projData);
 
-        // プロジェクトが1件以上ある場合、先頭プロジェクトのURLへ遷移（クエリパラメータも引き継ぐ）
+        // プロジェクトが1件以上ある場合、選択中または先頭プロジェクトのURLへ遷移（クエリパラメータも引き継ぐ）
         if (projData.length > 0) {
+          const storedId = getStoredProjectId();
+          const target = (storedId && projData.find((p) => p.id === storedId)) || projData[0];
           const search = typeof window !== "undefined" ? window.location.search : "";
-          router.replace(`/gantt/${encodeURIComponent(projData[0].key)}${search}`);
+          router.replace(`/gantt/${encodeURIComponent(target.key)}${search}`);
           return;
         }
       }
@@ -66,8 +69,9 @@ function GanttIndexContent() {
       <Header
         activeNav="gantt"
         projects={projects}
-        selectedProjectId={null}
+        selectedProjectId={getStoredProjectId()}
         onSelectProject={(id) => {
+          setStoredProjectId(id);
           if (id) {
             const found = projects.find((p) => p.id === id);
             if (found) {

@@ -46,6 +46,7 @@ import {
 } from "@/lib/dateUtils";
 import { THEME_LIST, getThemeConfig } from "@/lib/themeConfig";
 import versionData from "@/lib/version.json";
+import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -369,9 +370,12 @@ export default function AdminPage() {
       <Header
         activeNav="admin"
         projects={projects}
-        selectedProjectId={null}
+        selectedProjectId={getStoredProjectId()}
         onSelectProject={(id) => {
+          setStoredProjectId(id);
           if (id) {
+            router.push(`/?projectId=${id}`);
+          } else {
             router.push("/");
           }
         }}

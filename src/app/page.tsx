@@ -14,6 +14,7 @@ import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
 import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType } from "@/types";
 import { getTodayDateString } from "@/lib/dateUtils";
+import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 export default function DashboardPage() {
   const { currentUser, refreshUsers, settings } = useUser();
@@ -85,6 +86,16 @@ export default function DashboardPage() {
 
   // 初回データ取得
   useEffect(() => {
+    // URLクエリまたはローカルストレージから前回の選択プロジェクトIDを復元
+    if (typeof window !== "undefined") {
+      const param = new URLSearchParams(window.location.search).get("projectId");
+      const paramId = param ? Number(param) : null;
+      const initialId = (paramId && !isNaN(paramId)) ? paramId : getStoredProjectId();
+      if (initialId !== null) {
+        setSelectedProjectId(initialId);
+      }
+    }
+
     const init = async () => {
       setIsLoading(true);
       await refreshAll();
@@ -92,6 +103,16 @@ export default function DashboardPage() {
     };
     init();
   }, [refreshAll]);
+
+  // プロジェクト選択切り替え（ローカルストレージおよびURL同期）
+  const handleSelectProject = useCallback((id: number | null) => {
+    setSelectedProjectId(id);
+    setStoredProjectId(id);
+    if (typeof window !== "undefined") {
+      const url = id ? `/?projectId=${id}` : "/";
+      window.history.replaceState(null, "", url);
+    }
+  }, []);
 
   // 課題のステータス即時変更
   const handleUpdateStatus = async (issueId: number, newStatus: IssueStatus) => {
@@ -238,7 +259,7 @@ export default function DashboardPage() {
         activeNav="dashboard"
         projects={projects}
         selectedProjectId={selectedProjectId}
-        onSelectProject={(id) => setSelectedProjectId(id)}
+        onSelectProject={handleSelectProject}
         onOpenCreateIssue={() => setIsCreateIssueOpen(true)}
         onOpenBackup={() => setIsBackupOpen(true)}
       />
@@ -273,7 +294,7 @@ export default function DashboardPage() {
           <ProjectList
             projects={projects}
             selectedProjectId={selectedProjectId}
-            onSelectProject={(id) => setSelectedProjectId(id)}
+            onSelectProject={handleSelectProject}
             onOpenCreateProject={() => setIsCreateProjectOpen(true)}
             onUpdated={refreshAll}
           />

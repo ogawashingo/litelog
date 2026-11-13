@@ -8,6 +8,7 @@ import GanttChart from "@/components/GanttChart";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { Project, Issue } from "@/types";
+import { setStoredProjectId } from "@/lib/projectStorage";
 
 function ProjectGanttContent() {
   const params = useParams();
@@ -77,6 +78,7 @@ function ProjectGanttContent() {
         (p) => p.key.toLowerCase() === projectKey.toLowerCase()
       );
       if (curr) {
+        setStoredProjectId(curr.id);
         await fetchIssues(curr.id);
       } else if (projs.length > 0) {
         await fetchIssues();
@@ -90,8 +92,13 @@ function ProjectGanttContent() {
   const handleSelectProjectKey = (newKey: string) => {
     const search = typeof window !== "undefined" ? window.location.search : "";
     if (!newKey) {
+      setStoredProjectId(null);
       router.push(`/gantt${search}`);
     } else {
+      const found = projects.find((p) => p.key.toLowerCase() === newKey.toLowerCase());
+      if (found) {
+        setStoredProjectId(found.id);
+      }
       router.push(`/gantt/${encodeURIComponent(newKey)}${search}`);
     }
   };
@@ -104,6 +111,7 @@ function ProjectGanttContent() {
         projects={projects}
         selectedProjectId={currentProject?.id || null}
         onSelectProject={(id) => {
+          setStoredProjectId(id);
           const search = typeof window !== "undefined" ? window.location.search : "";
           if (!id) {
             router.push(`/gantt${search}`);

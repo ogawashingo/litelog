@@ -30,6 +30,7 @@ import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority, Project } from "@/types";
+import { setStoredProjectId } from "@/lib/projectStorage";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -119,6 +120,7 @@ export default function IssueDetailPage() {
 
       // 同プロジェクト内の親課題候補一覧を取得
       if (currentIssue.project_id) {
+        setStoredProjectId(currentIssue.project_id);
         fetch(`/api/issues?projectId=${currentIssue.project_id}`)
           .then((r) => (r.ok ? r.json() : []))
           .then((parentCandidates: Issue[]) => {
@@ -379,6 +381,7 @@ export default function IssueDetailPage() {
         projects={projects}
         selectedProjectId={issue?.project_id || null}
         onSelectProject={(id) => {
+          setStoredProjectId(id);
           if (!id) {
             router.push("/");
           } else {

@@ -9,6 +9,7 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
 import { Project, Issue, IssueStatus } from "@/types";
+import { setStoredProjectId } from "@/lib/projectStorage";
 
 export default function ProjectBoardPage() {
   const params = useParams();
@@ -80,6 +81,7 @@ export default function ProjectBoardPage() {
         (p) => p.key.toLowerCase() === projectKey.toLowerCase()
       );
       if (curr) {
+        setStoredProjectId(curr.id);
         await fetchIssues(curr.id);
       } else if (projs.length > 0) {
         // プロジェクトが見つからない場合、全課題または最初のプロジェクトを表示
@@ -117,8 +119,13 @@ export default function ProjectBoardPage() {
   // プロジェクト選択時のルーティング遷移
   const handleSelectProjectKey = (newKey: string) => {
     if (!newKey) {
+      setStoredProjectId(null);
       router.push("/board");
     } else {
+      const found = projects.find((p) => p.key.toLowerCase() === newKey.toLowerCase());
+      if (found) {
+        setStoredProjectId(found.id);
+      }
       router.push(`/board/${encodeURIComponent(newKey)}`);
     }
   };
@@ -131,6 +138,7 @@ export default function ProjectBoardPage() {
         projects={projects}
         selectedProjectId={currentProject?.id || null}
         onSelectProject={(id) => {
+          setStoredProjectId(id);
           if (!id) {
             router.push("/board");
           } else {

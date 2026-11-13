@@ -33,6 +33,14 @@ export default function Header({
 
   const { currentUser, openPasswordChangeModal } = useUser();
 
+  // 選択中プロジェクトの特定と各画面への連動リンク生成
+  const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
+  const projectKey = selectedProject ? encodeURIComponent(selectedProject.key) : "";
+
+  const dashboardHref = selectedProjectId ? `/?projectId=${selectedProjectId}` : "/";
+  const boardHref = projectKey ? `/board/${projectKey}` : "/board";
+  const ganttHref = projectKey ? `/gantt/${projectKey}` : "/gantt";
+
   return (
     <header className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150">
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,7 +66,7 @@ export default function Header({
             <nav className="hidden md:flex items-center gap-1 pl-3 border-l border-white/20">
               {/* ダッシュボードタブ */}
               <Link
-                href="/"
+                href={dashboardHref}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isDashboard
                     ? "app-nav-active text-white font-semibold shadow-2xs"
@@ -71,7 +79,7 @@ export default function Header({
 
               {/* ボードタブ */}
               <Link
-                href="/board"
+                href={boardHref}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isBoard
                     ? "app-nav-active text-white font-semibold shadow-2xs"
@@ -84,7 +92,7 @@ export default function Header({
 
               {/* ガントチャートタブ */}
               <Link
-                href="/gantt"
+                href={ganttHref}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isGantt
                     ? "app-nav-active text-white font-semibold shadow-2xs"
