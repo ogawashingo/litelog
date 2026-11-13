@@ -1,8 +1,8 @@
 // 課題一覧テーブルコンポーネント（チーム全体／自分の課題／担当者別フィルター対応）
 "use client";
 
-import React, { useState } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2 } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -43,6 +43,8 @@ export default function IssueList({
   const [typeFilter, setTypeFilter] = useState<IssueType | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "all">("all");
   const [sortBy, setSortBy] = useState<"due" | "updated" | "priority">("due");
+  // 親子階層表示（ツリー構造）フラグ（デフォルトON）
+  const [withParentRelation, setWithParentRelation] = useState<boolean>(true);
   // ダッシュボードでは完了済み（closed）のタスクはデフォルトで非表示
   const [showClosed, setShowClosed] = useState(false);
 
@@ -145,30 +147,69 @@ export default function IssueList({
       ).length
     : 0;
 
-  // ソート処理
-  const sortedIssues = [...filteredIssues].sort((a, b) => {
-    // 完了は常に下部に配置（ただし完了タブ表示時は通常ソート）
-    if (selectedStatus === "all") {
-      if (a.status === "closed" && b.status !== "closed") return 1;
-      if (a.status !== "closed" && b.status === "closed") return -1;
+  // ソートおよび親子ツリー順の課題配列構築
+  const displayedIssues = useMemo<{ issue: Issue; depth: number }[]>(() => {
+    // 共通のソート比較関数
+    const compareIssues = (a: Issue, b: Issue) => {
+      // 完了は常に下部に配置（ただし完了タブ表示時は通常ソート）
+      if (selectedStatus === "all") {
+        if (a.status === "closed" && b.status !== "closed") return 1;
+        if (a.status !== "closed" && b.status === "closed") return -1;
+      }
+
+      if (sortBy === "due") {
+        if (!a.due_date && b.due_date) return 1;
+        if (a.due_date && !b.due_date) return -1;
+        if (a.due_date && b.due_date) {
+          return a.due_date.localeCompare(b.due_date);
+        }
+        return b.id - a.id;
+      } else if (sortBy === "priority") {
+        const priorityOrder: Record<IssuePriority, number> = { high: 1, medium: 2, low: 3 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      } else {
+        return parseDbTimestamp(b.updated_at).getTime() - parseDbTimestamp(a.updated_at).getTime();
+      }
+    };
+
+    if (!withParentRelation) {
+      // フラット表示
+      return [...filteredIssues].sort(compareIssues).map((issue) => ({
+        issue,
+        depth: 0,
+      }));
     }
 
-    if (sortBy === "due") {
-      // 期限日が設定されていないものは後ろ
-      if (!a.due_date && b.due_date) return 1;
-      if (a.due_date && !b.due_date) return -1;
-      if (a.due_date && b.due_date) {
-        return a.due_date.localeCompare(b.due_date);
+    // 親子関係ツリー順に整理して配置
+    const filteredIdSet = new Set(filteredIssues.map((i) => i.id));
+    const childrenMap = new Map<number, Issue[]>();
+
+    filteredIssues.forEach((issue) => {
+      if (issue.parent_id && filteredIdSet.has(issue.parent_id)) {
+        const list = childrenMap.get(issue.parent_id) || [];
+        list.push(issue);
+        childrenMap.set(issue.parent_id, list);
       }
-      return b.id - a.id;
-    } else if (sortBy === "priority") {
-      const priorityOrder: Record<IssuePriority, number> = { high: 1, medium: 2, low: 3 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
-    } else {
-      // 更新日順（UTCタイムスタンプを正確にパースして比較）
-      return parseDbTimestamp(b.updated_at).getTime() - parseDbTimestamp(a.updated_at).getTime();
-    }
-  });
+    });
+
+    // ルート課題（親が存在しない、またはフィルター内に親が存在しない単独課題）
+    const roots = filteredIssues
+      .filter((i) => !i.parent_id || !filteredIdSet.has(i.parent_id))
+      .sort(compareIssues);
+
+    const result: { issue: Issue; depth: number }[] = [];
+    roots.forEach((root) => {
+      result.push({ issue: root, depth: 0 });
+      const children = childrenMap.get(root.id) || [];
+      // 子課題は課題番号（連番）順で整列
+      children.sort((a, b) => a.issue_number - b.issue_number);
+      children.forEach((child) => {
+        result.push({ issue: child, depth: 1 });
+      });
+    });
+
+    return result;
+  }, [filteredIssues, withParentRelation, sortBy, selectedStatus]);
 
   return (
     <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
@@ -183,7 +224,7 @@ export default function IssueList({
                 : "課題一覧"}
             </h3>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
-              {sortedIssues.length} 件
+              {displayedIssues.length} 件
             </span>
           </div>
 
@@ -284,6 +325,25 @@ export default function IssueList({
             <option value="priority">ソート: 優先度順</option>
           </select>
 
+          {/* 親子階層表示の切り替えトグル */}
+          <button
+            type="button"
+            onClick={() => setWithParentRelation((prev) => !prev)}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+              withParentRelation
+                ? "bg-indigo-50/70 text-indigo-800 border-indigo-200 font-semibold"
+                : "bg-white text-slate-500 border-slate-300 hover:bg-slate-50"
+            }`}
+            title="親課題と子課題を階層ツリー構造で整理して表示します"
+          >
+            <FolderTree
+              className={`w-3.5 h-3.5 ${
+                withParentRelation ? "text-indigo-600" : "text-slate-400"
+              }`}
+            />
+            <span>親子階層表示</span>
+          </button>
+
           {/* 完了済み課題の表示切り替えトグル */}
           <button
             type="button"
@@ -328,7 +388,7 @@ export default function IssueList({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {sortedIssues.length === 0 ? (
+            {displayedIssues.length === 0 ? (
               <tr>
                 <td colSpan={8} className="py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
@@ -339,22 +399,31 @@ export default function IssueList({
                 </td>
               </tr>
             ) : (
-              sortedIssues.map((issue, index) => {
+              displayedIssues.map(({ issue, depth }, index) => {
                 const dueInfo = formatDueDate(issue.due_date);
                 const isClosed = issue.status === "closed";
                 const assigneeColor = issue.assignee_color || "#4f46e5";
-                // 未完了の子課題件数を判定
-                const unclosedChildrenCount = issues.filter(
-                  (child) => child.parent_id === issue.id && child.status !== "closed"
-                ).length;
+
+                // 親子判定
+                const isChild = Boolean(issue.parent_id);
+                const childrenOfThis = issues.filter((child) => child.parent_id === issue.id);
+                const isParent = childrenOfThis.length > 0;
+                const unclosedChildrenCount = childrenOfThis.filter((c) => c.status !== "closed").length;
                 const hasUnclosedChildren = unclosedChildrenCount > 0;
+                const completedChildrenCount = childrenOfThis.length - unclosedChildrenCount;
 
                 return (
                   <tr
                     key={issue.id}
-                    className={`hover:bg-indigo-50/40 transition-colors group ${
-                      isClosed ? "bg-slate-50/60 text-slate-400" : ""
-                    }`}
+                    className={`transition-colors group ${
+                      isClosed
+                        ? "bg-slate-50/60 text-slate-400 hover:bg-slate-100/60"
+                        : isParent
+                        ? "bg-indigo-50/30 hover:bg-indigo-50/60"
+                        : isChild
+                        ? "bg-white hover:bg-indigo-50/20"
+                        : "hover:bg-indigo-50/40"
+                    } ${isParent ? "border-l-4 border-indigo-600" : isChild ? "border-l-4 border-indigo-200/50" : "border-l-4 border-transparent"}`}
                   >
                     {/* 種別（セレクトボックスで直接変更可能） */}
                     <td className="py-3 px-3 whitespace-nowrap">
@@ -392,25 +461,55 @@ export default function IssueList({
                       </select>
                     </td>
 
-                    {/* キー */}
+                    {/* キー（階層表示時は子課題にツリーアイコンを付与） */}
                     <td className="py-3 px-3 whitespace-nowrap">
-                      <a
-                        href={`/issues/${issue.issue_key}`}
-                        onClick={(e) => {
-                          if (!e.metaKey && !e.ctrlKey) {
-                            e.preventDefault();
-                            onSelectIssue(issue);
-                          }
-                        }}
-                        className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-xs font-mono cursor-pointer"
-                      >
-                        {issue.issue_key}
-                      </a>
+                      <div className="flex items-center gap-1.5">
+                        {depth > 0 && (
+                          <CornerDownRight className="w-3.5 h-3.5 text-indigo-500 shrink-0 ml-1" />
+                        )}
+                        <a
+                          href={`/issues/${issue.issue_key}`}
+                          onClick={(e) => {
+                            if (!e.metaKey && !e.ctrlKey) {
+                              e.preventDefault();
+                              onSelectIssue(issue);
+                            }
+                          }}
+                          className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-xs font-mono cursor-pointer"
+                        >
+                          {issue.issue_key}
+                        </a>
+                      </div>
                     </td>
 
-                    {/* 件名 */}
+                    {/* 件名（親課題バッジ・子課題バッジ・プロジェクト名等） */}
                     <td className="py-3 px-3 min-w-[240px]">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {/* 親課題バッジ */}
+                        {isParent && (
+                          <span
+                            title={`子課題 ${childrenOfThis.length} 件 (完了 ${completedChildrenCount}/${childrenOfThis.length} 件)`}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 border border-indigo-200 shrink-0"
+                          >
+                            <FolderTree className="w-3 h-3 text-indigo-600" />
+                            親課題 (子{childrenOfThis.length}件{completedChildrenCount > 0 ? ` · 済${completedChildrenCount}` : ""})
+                          </span>
+                        )}
+
+                        {/* 子課題の親紐付けピル */}
+                        {isChild && (
+                          <span
+                            title={issue.parent_title ? `親課題: [${issue.parent_issue_key}] ${issue.parent_title}` : "親課題への紐付き"}
+                            className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0 cursor-default"
+                          >
+                            <CornerDownRight className="w-2.5 h-2.5 text-slate-400" />
+                            <span className="text-slate-400 text-[9px]">親:</span>
+                            <span className="font-mono font-bold text-indigo-600 text-[10px]">
+                              {issue.parent_issue_key || `ID:${issue.parent_id}`}
+                            </span>
+                          </span>
+                        )}
+
                         <a
                           href={`/issues/${issue.issue_key}`}
                           onClick={(e) => {
@@ -420,8 +519,12 @@ export default function IssueList({
                             }
                           }}
                           title={issue.title}
-                          className={`text-left font-medium hover:text-indigo-700 transition-colors max-w-full cursor-pointer ${
-                            isClosed ? "text-slate-500" : "text-slate-900"
+                          className={`text-left hover:text-indigo-700 transition-colors max-w-full cursor-pointer ${
+                            isClosed
+                              ? "text-slate-500"
+                              : isParent
+                              ? "font-bold text-slate-900"
+                              : "font-medium text-slate-800"
                           }`}
                         >
                           <span
