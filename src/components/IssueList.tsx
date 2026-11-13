@@ -289,6 +289,19 @@ export default function IssueList({
             ))}
           </select>
 
+          {/* 状態（ステータス）フィルター */}
+          <select
+            value={selectedStatus}
+            onChange={(e) => onSelectStatus?.(e.target.value as IssueStatus | "all")}
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="all">状態: すべて</option>
+            <option value="open">状態: 未対応</option>
+            <option value="in_progress">状態: 処理中</option>
+            <option value="resolved">状態: 処理済み</option>
+            <option value="closed">状態: 完了</option>
+          </select>
+
           {/* 種別フィルター */}
           <select
             value={typeFilter}

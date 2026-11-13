@@ -14,12 +14,11 @@ import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
 import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType } from "@/types";
-import { getTodayDateString } from "@/lib/dateUtils";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 function DashboardContent() {
   const searchParams = useSearchParams();
-  const { currentUser, refreshUsers, settings } = useUser();
+  const { currentUser, refreshUsers } = useUser();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -258,18 +257,6 @@ function DashboardContent() {
     return issues.filter((i) => i.project_id === selectedProjectId);
   }, [issues, selectedProjectId]);
 
-  // サマリー集計計算（設定タイムゾーン基準・選択プロジェクトに連動）
-  const todayStr = getTodayDateString(settings);
-  const counts = {
-    all: filteredIssues.length,
-    open: filteredIssues.filter((i) => i.status === "open").length,
-    in_progress: filteredIssues.filter((i) => i.status === "in_progress").length,
-    resolved: filteredIssues.filter((i) => i.status === "resolved").length,
-    closed: filteredIssues.filter((i) => i.status === "closed").length,
-    overdue: filteredIssues.filter((i) => i.status !== "closed" && i.due_date && i.due_date < todayStr).length,
-    dueToday: filteredIssues.filter((i) => i.status !== "closed" && i.due_date === todayStr).length,
-  };
-
   // 詳細モーダルを閉じる
   const handleCloseDetail = useCallback(() => {
     setIsDetailOpen(false);
@@ -290,11 +277,11 @@ function DashboardContent() {
 
       {/* メインダッシュボードコンテンツ */}
       <main className="flex-1 max-w-[1800px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-5 space-y-5">
-        {/* サマリーカード・ステータス集計 */}
+        {/* 至急対応が必要な課題ウィジェット（期限切れ・本日期限・優先度高） */}
         <SummaryCards
-          counts={counts}
-          currentStatus={selectedStatus}
-          onSelectStatus={(st) => setSelectedStatus(st)}
+          issues={filteredIssues}
+          onSelectIssue={handleSelectIssue}
+          onUpdateStatus={handleUpdateStatus}
         />
 
         {/* メインエリア: 課題一覧を全幅で表示し、件名や担当者の視認性を確保 */}
