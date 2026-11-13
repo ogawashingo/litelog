@@ -13,7 +13,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
+      <head>
+        {/* 初回ロード時のテーマチラつき(FOUC)を0ミリ秒で防止する初期化スクリプト */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("backlog_theme");if(t){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
         className="antialiased font-sans transition-colors duration-150"
       >

@@ -64,6 +64,7 @@ function GanttIndexContent() {
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
       <Header
+        activeNav="gantt"
         projects={projects}
         selectedProjectId={null}
         onSelectProject={(id) => {

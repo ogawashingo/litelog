@@ -60,6 +60,7 @@ const UserContext = createContext<UserContextValue>({
 });
 
 const STORAGE_KEY = "backlog_current_user_id";
+const THEME_STORAGE_KEY = "backlog_theme";
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -73,15 +74,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SYSTEM_SETTINGS);
   const [previewTheme, setPreviewTheme] = useState<ThemeId | null>(null);
 
-  // 現在有効なテーマ（プレビュー指定があればそれを優先）
-  const currentTheme: ThemeId = previewTheme || settings.theme || "cosmic";
+  // ローカルストレージにキャッシュされた前回のテーマ（初回0ミリ秒適用用）
+  const [storedTheme, setStoredTheme] = useState<ThemeId | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      if (saved) return saved as ThemeId;
+    }
+    return null;
+  });
+
+  // 現在有効なテーマ（プレビュー指定があればそれを最優先、なければ保存済みテーマ）
+  const currentTheme: ThemeId = previewTheme || settings.theme || storedTheme || "cosmic";
 
   // HTMLのroot要素にテーマ用データ属性を反映
   useEffect(() => {
     if (typeof document !== "undefined") {
       document.documentElement.setAttribute("data-theme", currentTheme);
+      // プレビュー以外の正規テーマをローカルストレージへ即時同期
+      if (!previewTheme && currentTheme) {
+        try {
+          localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+        } catch {
+          // ignore
+        }
+      }
     }
-  }, [currentTheme]);
+  }, [currentTheme, previewTheme]);
 
   const refreshSettings = useCallback(async () => {
     try {
@@ -94,6 +112,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           const stored = localStorage.getItem("backlog_week_start");
           if (stored === "monday" || stored === "sunday") {
             localWeekStart = stored;
+          }
+          if (data.theme) {
+            localStorage.setItem(THEME_STORAGE_KEY, data.theme);
+            setStoredTheme(data.theme);
           }
         }
         setSettings({
@@ -110,11 +132,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const updateSettings = useCallback(
     async (next: Partial<SystemSettings>): Promise<SystemSettings> => {
       // 週開始曜日はlocalStorageにも保存して即時反映を保証
-      if (typeof window !== "undefined" && next.weekStart) {
-        try {
-          localStorage.setItem("backlog_week_start", next.weekStart);
-        } catch {
-          // ignore
+      if (typeof window !== "undefined") {
+        if (next.weekStart) {
+          try {
+            localStorage.setItem("backlog_week_start", next.weekStart);
+          } catch {
+            // ignore
+          }
+        }
+        if (next.theme) {
+          try {
+            localStorage.setItem(THEME_STORAGE_KEY, next.theme);
+            setStoredTheme(next.theme);
+          } catch {
+            // ignore
+          }
         }
       }
       try {

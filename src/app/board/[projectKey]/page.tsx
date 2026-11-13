@@ -127,6 +127,7 @@ export default function ProjectBoardPage() {
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
       {/* グローバルヘッダー */}
       <Header
+        activeNav="board"
         projects={projects}
         selectedProjectId={currentProject?.id || null}
         onSelectProject={(id) => {

@@ -15,6 +15,7 @@ interface HeaderProps {
   onSelectProject: (id: number | null) => void;
   onOpenCreateIssue: () => void;
   onOpenBackup?: () => void;
+  activeNav?: "dashboard" | "board" | "gantt" | "admin";
 }
 
 export default function Header({
@@ -22,12 +23,13 @@ export default function Header({
   selectedProjectId,
   onSelectProject,
   onOpenCreateIssue,
+  activeNav,
 }: HeaderProps) {
   const pathname = usePathname();
-  const isBoard = pathname?.startsWith("/board");
-  const isGantt = pathname?.startsWith("/gantt");
-  const isAdmin = pathname?.startsWith("/admin");
-  const isDashboard = pathname === "/" || (!isBoard && !isGantt && !isAdmin);
+  const isBoard = activeNav ? activeNav === "board" : Boolean(pathname?.startsWith("/board"));
+  const isGantt = activeNav ? activeNav === "gantt" : Boolean(pathname?.startsWith("/gantt"));
+  const isAdmin = activeNav ? activeNav === "admin" : Boolean(pathname?.startsWith("/admin"));
+  const isDashboard = activeNav ? activeNav === "dashboard" : (pathname === "/" || (!isBoard && !isGantt && !isAdmin));
 
   const { currentUser, openPasswordChangeModal } = useUser();
 

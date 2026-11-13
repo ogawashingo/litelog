@@ -35,37 +35,59 @@ export default function IssueDetailModal({
   const [isEditing, setIsEditing] = useState(false);
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
 
+  // 最新の onClose コールバックを保持
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // モーダルを開いた元の画面のURLを保持
+  const originalUrlRef = React.useRef<string | null>(null);
+
   // モーダルオープン時のURL同期（ブラウザアドレスバーを /issues/MYPRJ-30 に更新）
   useEffect(() => {
-    if (!isOpen || !issue) return;
+    if (!isOpen || !issue) {
+      // モーダルが閉じたときにURLを元に戻す
+      if (originalUrlRef.current) {
+        const returnUrl = originalUrlRef.current;
+        originalUrlRef.current = null;
+        if (typeof window !== "undefined" && window.location.pathname.startsWith("/issues/")) {
+          window.history.replaceState(null, "", returnUrl);
+        }
+      }
+      return;
+    }
 
-    // 開いた時点の元のURLを保存
-    const originalUrl = window.location.pathname + window.location.search;
-    const targetUrl = `/issues/${issue.issue_key}`;
-
-    if (window.location.pathname !== targetUrl) {
-      window.history.pushState(
-        { modalIssueKey: issue.issue_key, returnUrl: originalUrl },
-        "",
-        targetUrl
-      );
+    // モーダルが開いた最初の1回だけURLを保存＆pushState
+    if (!originalUrlRef.current) {
+      originalUrlRef.current = window.location.pathname + window.location.search;
+      const targetUrl = `/issues/${issue.issue_key}`;
+      if (window.location.pathname !== targetUrl) {
+        window.history.pushState(
+          { modalIssueKey: issue.issue_key, returnUrl: originalUrlRef.current },
+          "",
+          targetUrl
+        );
+      }
     }
 
     // ブラウザの戻る操作でモーダルを閉じる
     const handlePopState = () => {
-      onClose();
+      onCloseRef.current();
     };
 
     window.addEventListener("popstate", handlePopState);
 
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      // モーダル終了時にURLが課題URLのままなら元のURLに戻す
-      if (window.location.pathname === targetUrl) {
-        window.history.replaceState(null, "", originalUrl);
+      // アンマウント時にもURLを安全に復元
+      if (originalUrlRef.current) {
+        const returnUrl = originalUrlRef.current;
+        originalUrlRef.current = null;
+        if (typeof window !== "undefined" && window.location.pathname.startsWith("/issues/")) {
+          window.history.replaceState(null, "", returnUrl);
+        }
       }
     };
-  }, [isOpen, issue?.issue_key, onClose]);
+  }, [isOpen]); // issueやonCloseの参照変更による不要なURL再同期・チラつきを完全に防止
 
   // 課題URLをクリップボードにコピー
   const handleCopyLink = async () => {

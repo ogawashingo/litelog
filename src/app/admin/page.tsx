@@ -367,6 +367,7 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
       <Header
+        activeNav="admin"
         projects={projects}
         selectedProjectId={null}
         onSelectProject={(id) => {

@@ -78,6 +78,7 @@ export default function BoardIndexPage() {
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
       <Header
+        activeNav="board"
         projects={projects}
         selectedProjectId={null}
         onSelectProject={(id) => {

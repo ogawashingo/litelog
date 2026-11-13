@@ -219,10 +219,17 @@ export default function DashboardPage() {
     dueToday: issues.filter((i) => i.status !== "closed" && i.due_date === todayStr).length,
   };
 
+  // 詳細モーダルを閉じる
+  const handleCloseDetail = useCallback(() => {
+    setIsDetailOpen(false);
+    setSelectedIssue(null);
+  }, []);
+
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
       {/* グローバルヘッダー */}
       <Header
+        activeNav="dashboard"
         projects={projects}
         selectedProjectId={selectedProjectId}
         onSelectProject={(id) => setSelectedProjectId(id)}
@@ -288,10 +295,7 @@ export default function DashboardPage() {
       <IssueDetailModal
         issue={selectedIssue}
         isOpen={isDetailOpen}
-        onClose={() => {
-          setIsDetailOpen(false);
-          setSelectedIssue(null);
-        }}
+        onClose={handleCloseDetail}
         onUpdated={refreshAll}
         onDeleted={refreshAll}
       />
