@@ -360,7 +360,7 @@ export default function UserManageModal({
                 登録メンバー一覧 ({users.length}名)
               </h4>
               <span className="text-[11px] text-slate-500">
-                ※別アカウントで操作する場合はヘッダー右上の「ログアウト」から別IDでログインしてください
+                ※別アカウントで操作する場合はマイアカウント内の「ログアウト」から別IDでログインしてください
               </span>
             </div>
 

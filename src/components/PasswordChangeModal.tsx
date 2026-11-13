@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon } from "lucide-react";
+import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut } from "lucide-react";
 import { User } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 
@@ -23,6 +23,7 @@ interface PasswordChangeModalProps {
   currentUser: User | null;
   onClose: () => void;
   onSuccess?: () => void;
+  onLogout?: () => void;
 }
 
 export default function PasswordChangeModal({
@@ -30,6 +31,7 @@ export default function PasswordChangeModal({
   currentUser,
   onClose,
   onSuccess,
+  onLogout,
 }: PasswordChangeModalProps) {
   // プロフィール（表示名・テーマ色）用State
   const [name, setName] = useState("");
@@ -136,6 +138,14 @@ export default function PasswordChangeModal({
       setErrorMsg(err instanceof Error ? err.message : "更新中にエラーが発生しました");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // ログアウト処理（誤タップ防止の確認ダイアログ付き）
+  const handleLogout = () => {
+    if (!onLogout) return;
+    if (window.confirm("ログアウトしてもよろしいですか？")) {
+      onLogout();
     }
   };
 
@@ -340,22 +350,37 @@ export default function PasswordChangeModal({
           </div>
 
           {/* フッターボタン */}
-          <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              閉じる
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? "保存中..." : "設定を保存する"}</span>
-            </button>
+          <div className="pt-3 border-t border-gray-200 flex items-center justify-between gap-2">
+            {/* ログアウトボタン（誤操作防止のため左側に分離配置） */}
+            {onLogout ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 text-xs font-semibold transition-colors cursor-pointer"
+                title="ログアウトして別IDでログイン"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>ログアウト</span>
+              </button>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg bg-white border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                閉じる
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{isSubmitting ? "保存中..." : "設定を保存する"}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

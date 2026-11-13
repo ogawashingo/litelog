@@ -4,7 +4,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Users, Crown, Settings, LogOut, Sparkles } from "lucide-react";
+import { Plus, FolderGit2, Kanban, LayoutDashboard, ChartGantt, Users, Crown, Settings, Sparkles } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -29,7 +29,7 @@ export default function Header({
   const isAdmin = pathname?.startsWith("/admin");
   const isDashboard = pathname === "/" || (!isBoard && !isGantt && !isAdmin);
 
-  const { users, currentUser, logout, openUserManageModal, openPasswordChangeModal } = useUser();
+  const { users, currentUser, openUserManageModal, openPasswordChangeModal } = useUser();
 
   return (
     <header className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150">
@@ -150,63 +150,51 @@ export default function Header({
               <span className="hidden lg:inline">メンバー ({users.length})</span>
             </button>
 
-            {/* ログイン中ユーザー表示（クリックでマイアカウント設定） ＆ ログアウトボタン */}
+            {/* ログイン中ユーザー表示（クリックでマイアカウント設定・ログアウト） */}
             <div className="flex items-center gap-2 pl-2 border-l border-white/20 shrink-0">
               {currentUser ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={openPasswordChangeModal}
-                    title="クリックしてマイアカウント設定（アイコン色・パスワード変更）を開く"
-                    className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0 text-left group"
-                  >
-                    <div className="relative shrink-0">
-                      <div
-                        style={{ backgroundColor: currentUser.color || "#4f46e5" }}
-                        className="w-7 h-7 rounded-full border-2 border-white/40 group-hover:border-amber-300 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0 transition-colors"
-                      >
-                        {getUserInitials(currentUser.name)}
-                      </div>
-                      {Boolean(currentUser.is_admin) && (
-                        <span
-                          title="Admin（管理者権限）"
-                          className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center shadow-2xs border border-white"
-                        >
-                          <Crown className="w-2.5 h-2.5 stroke-[2.5]" />
-                        </span>
-                      )}
+                <button
+                  type="button"
+                  onClick={openPasswordChangeModal}
+                  title="クリックしてマイアカウント設定（アイコン色・パスワード変更・ログアウト）を開く"
+                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer shrink-0 text-left group"
+                >
+                  <div className="relative shrink-0">
+                    <div
+                      style={{ backgroundColor: currentUser.color || "#4f46e5" }}
+                      className="w-7 h-7 rounded-full border-2 border-white/40 group-hover:border-amber-300 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0 transition-colors"
+                    >
+                      {getUserInitials(currentUser.name)}
                     </div>
-                    <div className="hidden sm:flex flex-col leading-tight whitespace-nowrap">
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs font-bold text-white group-hover:text-amber-200 transition-colors whitespace-nowrap">
-                          {currentUser.name}
-                        </span>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                            currentUser.is_admin
-                              ? "bg-amber-300 text-amber-950"
-                              : "bg-white/20 text-white"
-                          }`}
-                        >
-                          {currentUser.is_admin ? "Admin" : "一般"}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-white/70 font-mono whitespace-nowrap">
-                        ID: {currentUser.login_id}
+                    {Boolean(currentUser.is_admin) && (
+                      <span
+                        title="Admin（管理者権限）"
+                        className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-400 text-amber-950 flex items-center justify-center shadow-2xs border border-white"
+                      >
+                        <Crown className="w-2.5 h-2.5 stroke-[2.5]" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="hidden sm:flex flex-col leading-tight whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-bold text-white group-hover:text-amber-200 transition-colors whitespace-nowrap">
+                        {currentUser.name}
+                      </span>
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
+                          currentUser.is_admin
+                            ? "bg-amber-300 text-amber-950"
+                            : "bg-white/20 text-white"
+                        }`}
+                      >
+                        {currentUser.is_admin ? "Admin" : "一般"}
                       </span>
                     </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={logout}
-                    title="ログアウトして別IDでログイン"
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-rose-600/80 border border-white/20 hover:border-rose-300/40 text-white text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
-                  >
-                    <LogOut className="w-3.5 h-3.5 shrink-0" />
-                    <span className="hidden md:inline">ログアウト</span>
-                  </button>
-                </>
+                    <span className="text-[10px] text-white/70 font-mono whitespace-nowrap">
+                      ID: {currentUser.login_id}
+                    </span>
+                  </div>
+                </button>
               ) : (
                 <Link
                   href="/login"

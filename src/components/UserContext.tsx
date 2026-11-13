@@ -277,6 +277,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         currentUser={currentUser}
         onClose={() => setIsPasswordModalOpen(false)}
         onSuccess={refreshUsers}
+        onLogout={async () => {
+          // マイアカウントモーダルを閉じてからログアウト処理を実行
+          setIsPasswordModalOpen(false);
+          await logout();
+        }}
       />
     </UserContext.Provider>
   );
