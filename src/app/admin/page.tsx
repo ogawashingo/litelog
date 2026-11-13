@@ -390,9 +390,6 @@ export default function AdminPage() {
                   {versionData.version}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
-                タイムスタンプのタイムゾーン・時刻フォーマット設定や、メンバー・プロジェクト・バックアップを一元管理します
-              </p>
             </div>
           </div>
 
