@@ -235,13 +235,13 @@ export default function ActivityList({
   return (
     <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden">
       {/* ウィジェットヘッダー（本家Backlog風の折りたたみトグル＆表示設定フィルター付き） */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/60 flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsCollapsed((prev) => !prev)}
             title={isCollapsed ? "最近の更新を展開" : "最近の更新を折りたたむ"}
-            className="p-1 rounded hover:bg-gray-200/70 text-gray-500 transition-colors cursor-pointer"
+            className="p-1 rounded-md hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer"
           >
             {isCollapsed ? (
               <ChevronDown className="w-4 h-4" />
