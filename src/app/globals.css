@@ -432,9 +432,11 @@ body {
 
 /* 各ステータス・優先度バッジのネオン調カラー調整 */
 [data-theme="dark"] .bg-rose-50,
-[data-theme="dark"] .bg-rose-50\/80 {
-  background-color: rgba(244, 63, 94, 0.16) !important;
+[data-theme="dark"] .bg-rose-50\/80,
+[data-theme="dark"] .bg-rose-100 {
+  background-color: rgba(244, 63, 94, 0.18) !important;
 }
+[data-theme="dark"] .text-rose-800,
 [data-theme="dark"] .text-rose-700,
 [data-theme="dark"] .text-rose-600 {
   color: #fda4af !important;
@@ -445,9 +447,11 @@ body {
 }
 
 [data-theme="dark"] .bg-sky-50,
-[data-theme="dark"] .bg-sky-50\/80 {
-  background-color: rgba(14, 165, 233, 0.16) !important;
+[data-theme="dark"] .bg-sky-50\/80,
+[data-theme="dark"] .bg-sky-100 {
+  background-color: rgba(14, 165, 233, 0.18) !important;
 }
+[data-theme="dark"] .text-sky-800,
 [data-theme="dark"] .text-sky-700,
 [data-theme="dark"] .text-sky-600 {
   color: #7dd3fc !important;
@@ -458,9 +462,11 @@ body {
 }
 
 [data-theme="dark"] .bg-violet-50,
-[data-theme="dark"] .bg-violet-50\/80 {
-  background-color: rgba(139, 92, 246, 0.16) !important;
+[data-theme="dark"] .bg-violet-50\/80,
+[data-theme="dark"] .bg-violet-100 {
+  background-color: rgba(139, 92, 246, 0.18) !important;
 }
+[data-theme="dark"] .text-violet-800,
 [data-theme="dark"] .text-violet-700,
 [data-theme="dark"] .text-violet-600 {
   color: #c4b5fd !important;
@@ -471,9 +477,11 @@ body {
 }
 
 [data-theme="dark"] .bg-amber-50,
-[data-theme="dark"] .bg-amber-50\/80 {
-  background-color: rgba(245, 158, 11, 0.16) !important;
+[data-theme="dark"] .bg-amber-50\/80,
+[data-theme="dark"] .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.18) !important;
 }
+[data-theme="dark"] .text-amber-800,
 [data-theme="dark"] .text-amber-700,
 [data-theme="dark"] .text-amber-600 {
   color: #fcd34d !important;
@@ -564,6 +572,22 @@ body {
   background-color: #1e1e2a !important;
   color: #f4f4f8 !important;
   font-weight: 700 !important;
+}
+
+/* ダッシュボード「最近の更新」タイムライン日付見出し（YYYY年M月D日(曜日)）のダークモード最適化 */
+[data-theme="dark"] .timeline__date,
+[data-theme="dark"] .bg-\[\#f0f3f5\],
+[data-theme="dark"] h4.timeline__date {
+  background-color: #1a1a26 !important;
+  border-color: #2b2b3d !important;
+  color: #f4f4f8 !important;
+}
+[data-theme="dark"] .timeline__date span:first-child {
+  color: #f4f4f8 !important;
+  font-weight: 700;
+}
+[data-theme="dark"] .timeline__date span:last-child {
+  color: #94a3b8 !important;
 }
 
 [data-theme="dark"] .border-rose-200\/90 {

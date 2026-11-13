@@ -293,9 +293,9 @@ export default function ActivityList({
             groupedTimeline.map((group) => (
               <div key={group.dateKey} className="timeline">
                 {/* 本家Backlog風の日付見出し (h3.timeline__date: YYYY年M月D日(曜日)) */}
-                <h4 className="timeline__date sticky top-0 z-10 bg-[#f0f3f5] border-y border-gray-200/90 px-4 py-1.5 text-xs font-bold text-gray-700 flex items-center justify-between shadow-2xs">
-                  <span>{group.dateLabel}</span>
-                  <span className="text-[10px] font-semibold text-gray-500">
+                <h4 className="timeline__date sticky top-0 z-10 bg-slate-100 border-y border-slate-200/90 px-4 py-1.5 text-xs font-bold text-slate-800 flex items-center justify-between shadow-2xs">
+                  <span className="font-bold text-slate-900">{group.dateLabel}</span>
+                  <span className="text-[10px] font-semibold text-slate-500">
                     {group.items.length} 件の更新
                   </span>
                 </h4>
