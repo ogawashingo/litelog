@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
   ChartGantt,
-  FolderTree,
   CornerDownRight,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
@@ -542,17 +541,6 @@ export default function BoardView({
                             : "bg-white border-slate-200/90 border-l-4 border-l-transparent"
                         } ${isDragging ? "opacity-40 scale-95 border-indigo-500 shadow-lg" : ""}`}
                       >
-                        {/* 親課題の場合: 子課題進捗ピル */}
-                        {isParent && (
-                          <div className="flex items-center gap-1.5 mb-2 px-2 py-0.5 rounded-md bg-indigo-50/80 border border-indigo-200/80 text-[10px] text-indigo-800 w-fit max-w-full">
-                            <FolderTree className="w-3 h-3 text-indigo-600 shrink-0" />
-                            <span className="font-bold text-[10px]">親課題</span>
-                            <span className="text-indigo-600 font-medium">
-                              · 子 {children.length}件 ({completedChildrenCount}完了)
-                            </span>
-                          </div>
-                        )}
-
                         {/* カード上部: 種別バッジ＆課題キー（子課題の場合は 自身のキー ↳ 親キー の順で表示） */}
                         <div className="flex items-center justify-between gap-1 mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
