@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck } from "lucide-react";
 import { Project, Issue, IssueType, IssueStatus, IssuePriority } from "@/types";
 import { useUser } from "./UserContext";
+import { DatePicker } from "./DatePicker";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -325,11 +326,11 @@ export default function CreateIssueModal({
                   開始日
                 </span>
               </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              <DatePicker
+                value={startDate || null}
+                onChange={(nextDate) => setStartDate(nextDate || "")}
+                placeholder="開始日を設定"
+                fullWidth
               />
             </div>
 
@@ -341,11 +342,11 @@ export default function CreateIssueModal({
                   期限日
                 </span>
               </label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              <DatePicker
+                value={dueDate || null}
+                onChange={(nextDate) => setDueDate(nextDate || "")}
+                placeholder="期限日を設定"
+                fullWidth
               />
             </div>
           </div>

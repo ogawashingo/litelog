@@ -121,6 +121,9 @@ export type ThemeId =
   | "sunset"      // サンセット・コーラル＆アンバー（夕暮れウォームグラデーション）
   | "dark";       // ミッドナイト・サイバーダーク（ダークモード）
 
+// カレンダーの週開始曜日（月曜始まり / 日曜始まり）
+export type WeekStartDay = "monday" | "sunday";
+
 // システム時刻・表示設定（管理ページ設定）
 export interface SystemSettings {
   timezone: string;                  // 例: 'Asia/Tokyo', 'UTC', 'local' 等
@@ -129,5 +132,6 @@ export interface SystemSettings {
   activityTimeStyle: ActivityTimeStyle; // 最近の更新の時刻表示形式
   timeOffsetMinutes: number;         // 手動時刻補正オフセット（分単位、デフォルト 0）
   theme: ThemeId;                    // デザインカラーテーマ
+  weekStart: WeekStartDay;           // 週の開始曜日（カレンダー表示: "monday" | "sunday"）
 }
 

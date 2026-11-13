@@ -906,11 +906,103 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* 5. 手動時刻オフセット補正 */}
+            {/* 5. カレンダーの週開始曜日（期日・日付ピッカー表示） */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-indigo-600" />
+                <span>5. カレンダーの週開始曜日（期日・日付選択）</span>
+              </label>
+              <p className="text-[11px] text-slate-500">
+                課題の期限日や開始日を選択するカレンダーで、月曜始まりにするか日曜始まりにするかを設定します。
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraftSettings((prev) => ({ ...prev, weekStart: "monday" }))
+                  }
+                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                    draftSettings.weekStart === "monday"
+                      ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">月曜始まり（推奨）</span>
+                    {draftSettings.weekStart === "monday" && (
+                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                        選択中
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    平日（月〜金）が連続し、週末（土・日）が末尾にまとまるビジネス標準の配置です。
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-1 font-mono text-[11px]">
+                    {["月", "火", "水", "木", "金"].map((d) => (
+                      <span
+                        key={d}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-700"
+                      >
+                        {d}
+                      </span>
+                    ))}
+                    <span className="w-6 h-6 flex items-center justify-center rounded bg-blue-50 border border-blue-200 text-blue-600 font-semibold">
+                      土
+                    </span>
+                    <span className="w-6 h-6 flex items-center justify-center rounded bg-rose-50 border border-rose-200 text-rose-600 font-semibold">
+                      日
+                    </span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraftSettings((prev) => ({ ...prev, weekStart: "sunday" }))
+                  }
+                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                    draftSettings.weekStart === "sunday"
+                      ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">日曜始まり</span>
+                    {draftSettings.weekStart === "sunday" && (
+                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                        選択中
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    一般的な日本の紙のカレンダー等で馴染みのある配置です。
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-1 font-mono text-[11px]">
+                    <span className="w-6 h-6 flex items-center justify-center rounded bg-rose-50 border border-rose-200 text-rose-600 font-semibold">
+                      日
+                    </span>
+                    {["月", "火", "水", "木", "金"].map((d) => (
+                      <span
+                        key={d}
+                        className="w-6 h-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-700"
+                      >
+                        {d}
+                      </span>
+                    ))}
+                    <span className="w-6 h-6 flex items-center justify-center rounded bg-blue-50 border border-blue-200 text-blue-600 font-semibold">
+                      土
+                    </span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 6. 手動時刻オフセット補正 */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Sliders className="w-4 h-4 text-indigo-600" />
-                <span>5. 時刻の手動オフセット補正（分単位の微調整）</span>
+                <span>6. 時刻の手動オフセット補正（分単位の微調整）</span>
               </label>
               <p className="text-[11px] text-slate-500">
                 サーバー時計のズレを補正したい場合や、任意の時刻オフセットを加算・減算したい場合に設定します（通常は 0分 のままで問題ありません）。

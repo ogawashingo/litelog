@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { User, SystemSettings, ThemeId } from "@/types";
+import { User, SystemSettings, ThemeId, WeekStartDay } from "@/types";
 import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/dateUtils";
 import UserManageModal from "./UserManageModal";
 import PasswordChangeModal from "./PasswordChangeModal";
@@ -80,7 +80,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/settings");
       if (res.ok) {
         const data: SystemSettings = await res.json();
-        setSettings({ ...DEFAULT_SYSTEM_SETTINGS, ...data });
+        // localStorage にユーザー個別の週開始曜日設定がある場合は尊重
+        let localWeekStart: WeekStartDay | undefined = undefined;
+        if (typeof window !== "undefined") {
+          const stored = localStorage.getItem("backlog_week_start");
+          if (stored === "monday" || stored === "sunday") {
+            localWeekStart = stored;
+          }
+        }
+        setSettings({
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...data,
+          ...(localWeekStart ? { weekStart: localWeekStart } : {}),
+        });
       }
     } catch (err) {
       console.error("システム設定の取得エラー:", err);
@@ -89,6 +101,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const updateSettings = useCallback(
     async (next: Partial<SystemSettings>): Promise<SystemSettings> => {
+      // 週開始曜日はlocalStorageにも保存して即時反映を保証
+      if (typeof window !== "undefined" && next.weekStart) {
+        try {
+          localStorage.setItem("backlog_week_start", next.weekStart);
+        } catch {
+          // ignore
+        }
+      }
       try {
         const res = await fetch("/api/settings", {
           method: "PUT",
@@ -104,7 +124,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("システム設定の更新エラー:", err);
       }
-      return settings;
+      // 一般ユーザー等でAPI更新が許可されていない場合でもローカルステートは更新
+      const fallback = { ...settings, ...next };
+      setSettings(fallback);
+      return fallback;
     },
     [settings]
   );

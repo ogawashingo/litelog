@@ -2,9 +2,9 @@
 // SQLiteのUTCタイムスタンプ（YYYY-MM-DD HH:MM:SS）の正確なパースと、
 // 管理ページで設定されたタイムゾーン・フォーマットでの表示変換を提供します。
 
-import { SystemSettings } from "@/types";
+import { SystemSettings, WeekStartDay } from "@/types";
 
-// デフォルトのシステム時刻設定（日本標準時 JST / 24時間表記）
+// デフォルトのシステム時刻設定（日本標準時 JST / 24時間表記・月曜始まり）
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   timezone: "Asia/Tokyo",
   datetimeFormat: "slash_sec",
@@ -12,6 +12,7 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   activityTimeStyle: "both",
   timeOffsetMinutes: 0,
   theme: "cosmic",
+  weekStart: "monday",
 };
 
 // 管理ページで選択可能なタイムゾーン一覧
@@ -362,4 +363,101 @@ export function generateDateRange(start: Date, end: Date): Date[] {
     current.setDate(current.getDate() + 1);
   }
   return dates;
+}
+
+/**
+ * カレンダーのグリッドセル情報
+ */
+export interface CalendarDayCell {
+  date: Date;
+  dateString: string; // "YYYY-MM-DD"
+  dayNumber: number;  // 1〜31
+  isCurrentMonth: boolean; // 表示対象月かどうか
+  isToday: boolean;        // 今日かどうか
+  isSaturday: boolean;     // 土曜日かどうか
+  isSunday: boolean;       // 日曜日かどうか
+  dayOfWeek: number;       // 0: 日, 1: 月, ..., 6: 土
+}
+
+/**
+ * 曜日ヘッダー情報（月曜始まりまたは日曜始まり）
+ */
+export interface WeekdayLabel {
+  name: string;
+  isSunday: boolean;
+  isSaturday: boolean;
+  dayOfWeek: number;
+}
+
+/**
+ * カレンダーの曜日ヘッダー一覧を取得（月曜始まり / 日曜始まり）
+ */
+export function getWeekdayLabels(weekStart: WeekStartDay = "monday"): WeekdayLabel[] {
+  if (weekStart === "sunday") {
+    return [
+      { name: "日", isSunday: true, isSaturday: false, dayOfWeek: 0 },
+      { name: "月", isSunday: false, isSaturday: false, dayOfWeek: 1 },
+      { name: "火", isSunday: false, isSaturday: false, dayOfWeek: 2 },
+      { name: "水", isSunday: false, isSaturday: false, dayOfWeek: 3 },
+      { name: "木", isSunday: false, isSaturday: false, dayOfWeek: 4 },
+      { name: "金", isSunday: false, isSaturday: false, dayOfWeek: 5 },
+      { name: "土", isSunday: false, isSaturday: true, dayOfWeek: 6 },
+    ];
+  } else {
+    return [
+      { name: "月", isSunday: false, isSaturday: false, dayOfWeek: 1 },
+      { name: "火", isSunday: false, isSaturday: false, dayOfWeek: 2 },
+      { name: "水", isSunday: false, isSaturday: false, dayOfWeek: 3 },
+      { name: "木", isSunday: false, isSaturday: false, dayOfWeek: 4 },
+      { name: "金", isSunday: false, isSaturday: false, dayOfWeek: 5 },
+      { name: "土", isSunday: false, isSaturday: true, dayOfWeek: 6 },
+      { name: "日", isSunday: true, isSaturday: false, dayOfWeek: 0 },
+    ];
+  }
+}
+
+/**
+ * 指定した年月のカレンダーグリッド（42セル: 6行×7列）を生成
+ * 月曜始まり / 日曜始まり を指定可能
+ */
+export function getCalendarMonthDays(
+  year: number,
+  month: number, // 1〜12
+  weekStart: WeekStartDay = "monday",
+  todayDateStr?: string
+): CalendarDayCell[] {
+  const actualToday = todayDateStr || formatDateString(new Date());
+
+  // 当月の1日
+  const firstDay = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const firstDayOfWeek = firstDay.getDay(); // 0(日) 〜 6(土)
+
+  // 当月の1日より前に埋める前月の日数
+  const leadDays = weekStart === "sunday"
+    ? firstDayOfWeek
+    : (firstDayOfWeek + 6) % 7;
+
+  // カレンダーグリッドの開始日
+  const startDate = new Date(year, month - 1, 1 - leadDays, 0, 0, 0, 0);
+
+  const cells: CalendarDayCell[] = [];
+  // 常に6行×7列 = 42セルで生成（高さのガタつきを防止）
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i, 0, 0, 0, 0);
+    const dateStr = formatDateString(d);
+    const dow = d.getDay();
+
+    cells.push({
+      date: d,
+      dateString: dateStr,
+      dayNumber: d.getDate(),
+      isCurrentMonth: d.getMonth() === month - 1,
+      isToday: dateStr === actualToday,
+      isSaturday: dow === 6,
+      isSunday: dow === 0,
+      dayOfWeek: dow,
+    });
+  }
+
+  return cells;
 }

@@ -12,7 +12,7 @@ import IssueDetailModal from "@/components/IssueDetailModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
-import { Project, Issue, Activity, IssueStatus, IssuePriority } from "@/types";
+import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType } from "@/types";
 import { getTodayDateString } from "@/lib/dateUtils";
 
 export default function DashboardPage() {
@@ -104,6 +104,27 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
+      fetchIssues();
+    }
+  };
+
+  // 課題の種別即時変更
+  const handleUpdateType = async (issueId: number, newType: IssueType) => {
+    try {
+      // 楽観的UI更新
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issueId ? { ...i, issue_type: newType } : i))
+      );
+      const res = await fetch(`/api/issues/${issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issueType: newType, actorId: currentUser?.id || null }),
+      });
+      if (res.ok) {
+        await refreshAll();
+      }
+    } catch (err) {
+      console.error("種別変更エラー:", err);
       fetchIssues();
     }
   };
@@ -225,6 +246,7 @@ export default function DashboardPage() {
             selectedStatus={selectedStatus}
             onSelectStatus={(st) => setSelectedStatus(st)}
             onSelectIssue={handleSelectIssue}
+            onUpdateType={handleUpdateType}
             onUpdateStatus={handleUpdateStatus}
             onUpdateAssignee={handleUpdateAssignee}
             onUpdatePriority={handleUpdatePriority}

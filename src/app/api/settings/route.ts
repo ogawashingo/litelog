@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { SystemSettings, DateTimeFormatType, ActivityTimeStyle, ThemeId } from "@/types";
+import { SystemSettings, DateTimeFormatType, ActivityTimeStyle, ThemeId, WeekStartDay } from "@/types";
 import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/dateUtils";
 import { THEME_LIST } from "@/lib/themeConfig";
 
@@ -16,6 +16,7 @@ const VALID_FORMATS: DateTimeFormatType[] = [
 
 const VALID_ACTIVITY_STYLES: ActivityTimeStyle[] = ["both", "absolute", "relative"];
 const VALID_THEMES: ThemeId[] = THEME_LIST.map((t) => t.id);
+const VALID_WEEK_STARTS: WeekStartDay[] = ["monday", "sunday"];
 
 // DBから現在のシステム設定を構築して返すヘルパー（内部シークレットは除外）
 function loadSettingsFromDb(): SystemSettings {
@@ -36,6 +37,7 @@ function loadSettingsFromDb(): SystemSettings {
   const rawActivityStyle = map.get("activityTimeStyle") as ActivityTimeStyle | undefined;
   const rawOffset = Number(map.get("timeOffsetMinutes") ?? 0);
   const rawTheme = map.get("theme") as ThemeId | undefined;
+  const rawWeekStart = map.get("weekStart") as WeekStartDay | undefined;
 
   return {
     timezone: map.get("timezone") || DEFAULT_SYSTEM_SETTINGS.timezone,
@@ -50,6 +52,10 @@ function loadSettingsFromDb(): SystemSettings {
         : DEFAULT_SYSTEM_SETTINGS.activityTimeStyle,
     timeOffsetMinutes: isNaN(rawOffset) ? 0 : rawOffset,
     theme: rawTheme && VALID_THEMES.includes(rawTheme) ? rawTheme : DEFAULT_SYSTEM_SETTINGS.theme,
+    weekStart:
+      rawWeekStart && VALID_WEEK_STARTS.includes(rawWeekStart)
+        ? rawWeekStart
+        : DEFAULT_SYSTEM_SETTINGS.weekStart,
   };
 }
 
@@ -121,6 +127,13 @@ export async function PUT(request: Request) {
       VALID_THEMES.includes(body.theme as ThemeId)
     ) {
       upsert.run("theme", body.theme);
+    }
+
+    if (
+      typeof body.weekStart === "string" &&
+      VALID_WEEK_STARTS.includes(body.weekStart as WeekStartDay)
+    ) {
+      upsert.run("weekStart", body.weekStart);
     }
 
     const updated = loadSettingsFromDb();

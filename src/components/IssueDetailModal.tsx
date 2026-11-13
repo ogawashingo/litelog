@@ -8,6 +8,7 @@ import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
+import { DatePicker } from "./DatePicker";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -338,21 +339,21 @@ export default function IssueDetailModal({
 
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">開始日</label>
-                  <input
-                    type="date"
-                    value={editStartDate}
-                    onChange={(e) => setEditStartDate(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800"
+                  <DatePicker
+                    value={editStartDate || null}
+                    onChange={(nextDate) => setEditStartDate(nextDate || "")}
+                    placeholder="開始日を設定"
+                    fullWidth
                   />
                 </div>
 
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">期限日</label>
-                  <input
-                    type="date"
-                    value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800"
+                  <DatePicker
+                    value={editDueDate || null}
+                    onChange={(nextDate) => setEditDueDate(nextDate || "")}
+                    placeholder="期限日を設定"
+                    fullWidth
                   />
                 </div>
               </div>

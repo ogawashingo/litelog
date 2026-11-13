@@ -341,13 +341,19 @@ async function runTests() {
   if (updated.status !== "in_progress") throw new Error("ステータス変更に失敗しました");
   console.log(`✓ ステータス更新テスト成功: ${updated.status}`);
 
-  // 4-2. 優先度即時変更テスト
+  // 4-2. 種別即時変更テスト
+  db.prepare("UPDATE issues SET issue_type = 'bug' WHERE id = ?").run(createdId);
+  const updatedType = db.prepare("SELECT issue_type FROM issues WHERE id = ?").get(createdId);
+  if (updatedType.issue_type !== "bug") throw new Error("種別変更に失敗しました");
+  console.log(`✓ 種別更新テスト成功: ${updatedType.issue_type}`);
+
+  // 4-3. 優先度即時変更テスト
   db.prepare("UPDATE issues SET priority = 'low' WHERE id = ?").run(createdId);
   const updatedPrio = db.prepare("SELECT priority FROM issues WHERE id = ?").get(createdId);
   if (updatedPrio.priority !== "low") throw new Error("優先度変更に失敗しました");
   console.log(`✓ 優先度更新テスト成功: ${updatedPrio.priority}`);
 
-  // 4-3. 期限日即時更新＆クリアテスト
+  // 4-4. 期限日即時更新＆クリアテスト
   db.prepare("UPDATE issues SET due_date = '2026-12-01' WHERE id = ?").run(createdId);
   const updatedDue = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(createdId);
   if (updatedDue.due_date !== "2026-12-01") throw new Error("期限日変更に失敗しました");
@@ -790,6 +796,40 @@ async function runTests() {
   const reCheckCount = setupDb.prepare("SELECT COUNT(*) as c FROM users").get().c;
   if (reCheckCount <= 0) throw new Error("ユーザー存在判定エラー");
   console.log(`✓ 初回セットアップ＆デモユーザー削除マイグレーション検証成功: 管理者「${createdAdmin.name}」(ID=${createdAdmin.login_id}) 作成完了`);
+
+  // 20. カレンダー週開始曜日（月曜始まり／日曜始まり）および設定保存テスト
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('weekStart', 'sunday')").run();
+  const loadedWeekStart = db.prepare("SELECT value FROM settings WHERE key = 'weekStart'").get().value;
+  if (loadedWeekStart !== "sunday") {
+    throw new Error(`カレンダー設定保存テスト失敗: 期待='sunday', 実際='${loadedWeekStart}'`);
+  }
+
+  // 2026年11月1日は日曜日(getDay() === 0)
+  // 月曜始まりの場合: 11月1日の前に10月26日(月)〜10月31日(土)の6日分が入る
+  const nov1st = new Date(2026, 10, 1); // 2026-11-01
+  const nov1Dow = nov1st.getDay(); // 0 (日曜日)
+  const mondayLeadDays = (nov1Dow + 6) % 7; // 6日間
+  const sundayLeadDays = nov1Dow; // 0日間
+
+  if (mondayLeadDays !== 6) {
+    throw new Error(`月曜始まりカレンダーのオフセット計算テスト失敗: 期待=6, 実際=${mondayLeadDays}`);
+  }
+  if (sundayLeadDays !== 0) {
+    throw new Error(`日曜始まりカレンダーのオフセット計算テスト失敗: 期待=0, 実際=${sundayLeadDays}`);
+  }
+
+  // 月曜始まりの先頭日は 10月26日(月)
+  const monStart = new Date(2026, 10, 1 - mondayLeadDays);
+  if (monStart.getDate() !== 26 || monStart.getDay() !== 1) {
+    throw new Error(`月曜始まり先頭日計算テスト失敗: ${monStart.toISOString()}`);
+  }
+
+  // 日曜始まりの先頭日は 11月1日(日)
+  const sunStart = new Date(2026, 10, 1 - sundayLeadDays);
+  if (sunStart.getDate() !== 1 || sunStart.getDay() !== 0) {
+    throw new Error(`日曜始まり先頭日計算テスト失敗: ${sunStart.toISOString()}`);
+  }
+  console.log(`✓ 期日カレンダーの週開始曜日（月曜始まり／日曜始まり）計算＆設定保存テスト成功`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

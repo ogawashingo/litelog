@@ -24,6 +24,7 @@ import { TypeBadge } from "./IssueBadge";
 import IssueDetailModal from "./IssueDetailModal";
 import CreateIssueModal from "./CreateIssueModal";
 import { useUser } from "./UserContext";
+import { DatePicker } from "./DatePicker";
 import { getUserInitials } from "./UserManageModal";
 import {
   parseDateString,
@@ -264,7 +265,8 @@ export default function GanttChart({
   // 折りたたまれている親課題IDのSet
   const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set());
 
-  const { users, currentUser } = useUser();
+  const { users, currentUser, settings } = useUser();
+  const weekStart = settings.weekStart || "monday";
 
   // フィルター用State
   const [searchQuery, setSearchQuery] = useState("");
@@ -618,12 +620,12 @@ export default function GanttChart({
     return groups;
   }, [dateRange]);
 
-  // 週スケール用のグループ化（月曜始まりまたは先頭区切り）
+  // 週スケール用のグループ化（設定された週開始曜日、または先頭区切り）
   const weekGroups = useMemo(() => {
     const groups: { label: string; daysCount: number; startDateStr: string }[] = [];
     dateRange.forEach((d, idx) => {
-      const isMonday = d.getDay() === 1;
-      if (idx === 0 || isMonday) {
+      const isStartDay = weekStart === "sunday" ? d.getDay() === 0 : d.getDay() === 1;
+      if (idx === 0 || isStartDay) {
         groups.push({
           label: `${d.getMonth() + 1}/${d.getDate()}`,
           daysCount: 1,
@@ -634,7 +636,7 @@ export default function GanttChart({
       }
     });
     return groups;
-  }, [dateRange]);
+  }, [dateRange, weekStart]);
 
   // 行の高さ（ピクセル）
   const ROW_HEIGHT = 42;
@@ -827,17 +829,16 @@ export default function GanttChart({
             {/* 開始日指定（startDate） */}
             <div className="flex items-center gap-1.5 text-xs">
               <span className="text-slate-500 font-semibold">開始日:</span>
-              <input
-                type="date"
+              <DatePicker
                 value={formatDateString(startDate)}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    const nextD = parseDateString(e.target.value);
+                onChange={(nextStr) => {
+                  if (nextStr) {
+                    const nextD = parseDateString(nextStr);
                     setStartDate(nextD);
                     updateUrlParams({ startDate: nextD });
                   }
                 }}
-                className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                allowClear={false}
               />
             </div>
 
@@ -1249,7 +1250,8 @@ export default function GanttChart({
                 <div className="absolute inset-0 flex pointer-events-none z-0">
                   {dateRange.map((d, colIdx) => {
                     const weekend = getWeekendInfo(d);
-                    const isMonday = d.getDay() === 1;
+                    const isWeekStartDay = weekStart === "sunday" ? d.getDay() === 0 : d.getDay() === 1;
+                    const isWeekEndDay = weekStart === "sunday" ? d.getDay() === 6 : d.getDay() === 0;
                     const isFirstOfMonth = d.getDate() === 1;
 
                     let bg = "";
@@ -1259,11 +1261,11 @@ export default function GanttChart({
                     }
 
                     let borderClass = "border-r border-gray-100";
-                    if (scale === "weeks" && d.getDay() === 0) {
+                    if (scale === "weeks" && isWeekEndDay) {
                       borderClass = "border-r border-gray-300";
                     } else if (scale === "months") {
                       borderClass = isFirstOfMonth ? "border-l border-gray-300" : "";
-                    } else if (isMonday && scale === "days") {
+                    } else if (isWeekStartDay && scale === "days") {
                       borderClass = "border-r border-gray-100 border-l border-l-gray-200/70";
                     }
 
