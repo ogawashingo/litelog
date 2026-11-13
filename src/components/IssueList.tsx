@@ -49,8 +49,6 @@ export default function IssueList({
   const [withParentRelation, setWithParentRelation] = useState<boolean>(true);
   // ダッシュボードでは完了済み（closed）のタスクはデフォルトで非表示
   const [showClosed, setShowClosed] = useState(false);
-  // 問題・要フォロー（遅延・停滞・未着手警告等）のみ絞り込みフラグ
-  const [filterAlertOnly, setFilterAlertOnly] = useState(false);
 
   // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
   const isShowingClosed = selectedStatus === "closed" || showClosed;
@@ -111,10 +109,6 @@ export default function IssueList({
     if (!isShowingClosed && issue.status === "closed") {
       return false;
     }
-    // 要フォロー（アラート発生課題）のみフィルター
-    if (filterAlertOnly && getIssueAlert(issue, settings) === null) {
-      return false;
-    }
     // 担当者フィルター
     if (assigneeFilter === "me") {
       if (!currentUser || issue.assignee_id !== currentUser.id) return false;
@@ -144,14 +138,6 @@ export default function IssueList({
     }
     return true;
   });
-
-  // 「要フォロー」バッジ件数（未完了かつ問題アラートあり）
-  const followupIssuesCount = useMemo(() => {
-    return issues.filter((i) => {
-      if (i.status === "closed") return false;
-      return getIssueAlert(i, settings) !== null;
-    }).length;
-  }, [issues, settings]);
 
   // 「自分の担当」バッジ件数（完了非表示設定に連動）
   const myIssuesCount = currentUser
@@ -235,31 +221,22 @@ export default function IssueList({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-slate-800 text-base">
-              {filterAlertOnly
-                ? "🚨 問題・要フォロー課題"
-                : assigneeFilter === "me" && currentUser
+              {assigneeFilter === "me" && currentUser
                 ? `${currentUser.name} の担当課題`
                 : "課題一覧"}
             </h3>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-              filterAlertOnly
-                ? "bg-rose-100 text-rose-800"
-                : "bg-indigo-100 text-indigo-800"
-            }`}>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
               {displayedIssues.length} 件
             </span>
           </div>
 
-          {/* ワンクリック切替ピル（全員 / 自分の担当 / 要フォロー） */}
+          {/* ワンクリック切替ピル（全員 / 自分の担当） */}
           <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-xs">
             <button
               type="button"
-              onClick={() => {
-                setFilterAlertOnly(false);
-                setAssigneeFilter("all");
-              }}
+              onClick={() => setAssigneeFilter("all")}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                !filterAlertOnly && assigneeFilter === "all"
+                assigneeFilter === "all"
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -269,33 +246,15 @@ export default function IssueList({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setFilterAlertOnly(false);
-                setAssigneeFilter("me");
-              }}
+              onClick={() => setAssigneeFilter("me")}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                !filterAlertOnly && assigneeFilter === "me"
+                assigneeFilter === "me"
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
               <span>自分の担当 ({myIssuesCount})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterAlertOnly((prev) => !prev)}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                filterAlertOnly
-                  ? "bg-rose-600 text-white shadow-2xs"
-                  : followupIssuesCount > 0
-                  ? "text-rose-700 hover:bg-rose-100/60"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-              title="期限超過・停滞・未着手警告など問題が発生している課題のみを抽出します"
-            >
-              <AlertTriangle className={`w-3.5 h-3.5 ${filterAlertOnly ? "text-white" : "text-rose-600"}`} />
-              <span>要フォロー ({followupIssuesCount})</span>
             </button>
           </div>
         </div>

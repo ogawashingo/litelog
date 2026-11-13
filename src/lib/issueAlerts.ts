@@ -1,4 +1,4 @@
-// 課題の問題・遅延・停滞・要フォロー検知ユーティリティ
+// 課題の遅延・停滞・未着手等のアラート検知ユーティリティ
 import { Issue, SystemSettings } from "@/types";
 import { getTodayDateString, parseDbTimestamp } from "./dateUtils";
 

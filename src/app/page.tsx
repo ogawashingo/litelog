@@ -303,7 +303,6 @@ function DashboardContent() {
         {/* 至急対応が必要な課題ウィジェット（期限切れ・本日期限・優先度高） */}
         <SummaryCards
           issues={filteredIssues}
-          projectName={projects.find((p) => p.id === selectedProjectId)?.name}
           onSelectIssue={handleSelectIssue}
           onUpdateStatus={handleUpdateStatus}
         />
