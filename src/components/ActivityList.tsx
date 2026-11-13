@@ -251,7 +251,7 @@ export default function ActivityList({
           </button>
           <History className="w-4 h-4 text-indigo-600 shrink-0" />
           <h3 className="font-bold text-slate-800 text-sm">最近の更新</h3>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-100 text-indigo-700">
+          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700 shadow-2xs">
             {filteredActivities.length}
           </span>
         </div>

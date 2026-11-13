@@ -491,6 +491,39 @@ body {
   border-color: rgba(245, 158, 11, 0.35) !important;
 }
 
+/* 丸形件数バッジ（「最近の更新 50」「課題一覧 ◯件」「レーン件数」等）の視認性最適化 */
+[data-theme="dark"] .rounded-full.bg-indigo-100,
+[data-theme="dark"] .bg-indigo-100.rounded-full {
+  background-color: #3730a3 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(165, 180, 252, 0.45) !important;
+}
+
+[data-theme="dark"] .rounded-full.bg-rose-100,
+[data-theme="dark"] .bg-rose-100.rounded-full {
+  background-color: #881337 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(253, 164, 175, 0.45) !important;
+}
+
+[data-theme="dark"] .rounded-full.bg-sky-100,
+[data-theme="dark"] .bg-sky-100.rounded-full {
+  background-color: #075985 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(125, 211, 252, 0.45) !important;
+}
+
+[data-theme="dark"] .rounded-full.bg-violet-100,
+[data-theme="dark"] .bg-violet-100.rounded-full {
+  background-color: #5b21b6 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(196, 181, 253, 0.45) !important;
+}
+
 [data-theme="dark"] .bg-emerald-50 {
   background-color: rgba(16, 185, 129, 0.16) !important;
 }
