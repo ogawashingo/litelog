@@ -312,9 +312,9 @@ export default function BoardView({
   }, [filteredIssues, childrenMap]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* ボードヘッダー / フィルターツールバー */}
-      <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
+      <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-3 sm:p-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* 左側: プロジェクト情報（タイトル・キー） */}
           <div className="flex flex-wrap items-center gap-3">
@@ -462,7 +462,7 @@ export default function BoardView({
               </div>
 
               {/* カード一覧 */}
-              <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-280px)]">
+              <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-215px)]">
                 {columnIssues.length === 0 ? (
                   <div
                     className={`h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-3 text-center transition-colors ${

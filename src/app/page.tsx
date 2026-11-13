@@ -289,7 +289,7 @@ function DashboardContent() {
       />
 
       {/* メインダッシュボードコンテンツ */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-[1800px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-5 space-y-5">
         {/* サマリーカード・ステータス集計 */}
         <SummaryCards
           counts={counts}

@@ -658,9 +658,9 @@ export default function GanttChart({
   const ROW_HEIGHT = 42;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* ツールバー / フィルター・コントロールバー */}
-      <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
+      <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-3 sm:p-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* 左側: プロジェクト情報（タイトル・キー） */}
           <div className="flex flex-wrap items-center gap-3">
@@ -928,11 +928,11 @@ export default function GanttChart({
               <div className="w-[58px] shrink-0 text-center">期限日</div>
             </div>
 
-            {/* 課題一覧ボディ（タイムラインと連動して縦スクロール） */}
+            {/* 課題一覧ボディ（タイムラインと連動して縦スクロール・ビューポート追従でフッターレス画面を最大活用） */}
             <div
               ref={leftTableScrollRef}
               onScroll={handleLeftTableScroll}
-              className="overflow-y-auto overflow-x-hidden max-h-[620px] divide-y divide-gray-100"
+              className="overflow-y-auto overflow-x-hidden max-h-[calc(100vh-222px)] min-h-[448px] divide-y divide-gray-100"
             >
               {displayRows.length === 0 ? (
                 <div className="p-8 text-center text-xs text-gray-400">
@@ -1116,7 +1116,7 @@ export default function GanttChart({
           <div
             ref={timelineScrollRef}
             onScroll={handleTimelineScroll}
-            className="overflow-x-auto overflow-y-auto max-h-[672px] relative select-none"
+            className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-170px)] min-h-[500px] relative select-none"
           >
             {/* タイムライン全体の幅を持つラッパー */}
             <div
