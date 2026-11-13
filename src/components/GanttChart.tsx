@@ -56,9 +56,9 @@ const SCALE_CELL_WIDTH: Record<ViewScale, number> = {
 };
 
 // 左ペイン（課題一覧テーブル）の幅設定定数（px）
-const DEFAULT_LEFT_PANE_WIDTH = 540;
-const MIN_LEFT_PANE_WIDTH = 340;
-const MAX_LEFT_PANE_WIDTH = 900;
+const DEFAULT_LEFT_PANE_WIDTH = 440;
+const MIN_LEFT_PANE_WIDTH = 260;
+const MAX_LEFT_PANE_WIDTH = 800;
 
 // ステータスに応じたバーの配色設定（緑を排除したオリジナルカラー）
 const STATUS_BAR_STYLES: Record<
@@ -922,7 +922,6 @@ export default function GanttChart({
           >
             {/* テーブルヘッダー（高さ: 52px = 右側の2段ヘッダーと正確に一致） */}
             <div className="h-[52px] bg-gray-50 border-b border-gray-200 flex items-center px-3 text-xs font-bold text-gray-600">
-              <div className="w-[100px] shrink-0">課題キー</div>
               <div className="flex-1 min-w-0 pr-2">件名</div>
               <div className="w-[34px] shrink-0 text-center">担当</div>
               <div className="w-[66px] shrink-0 text-center">状態</div>
@@ -960,55 +959,57 @@ export default function GanttChart({
                         hasChildren ? "bg-slate-50/70 font-semibold" : ""
                       } ${isHovered ? "bg-indigo-50/70" : "hover:bg-slate-50/80"}`}
                     >
-                      {/* 課題キー ＆ 展開トグル/ツリーアイコン ＆ 種別アイコン */}
-                      <div className="w-[100px] shrink-0 flex items-center gap-1">
-                        {withParentRelation && depth > 0 && (
-                          <CornerDownRight className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1" />
-                        )}
-                        {withParentRelation && hasChildren && (
-                          <button
-                            onClick={() => toggleParentCollapse(issue.id)}
-                            className="p-0.5 rounded hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
-                            title={isCollapsed ? "子課題を展開" : "子課題を折りたたむ"}
-                          >
-                            {isCollapsed ? (
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            ) : (
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            )}
-                          </button>
-                        )}
-                        <TypeBadge type={issue.issue_type} showLabel={false} />
-                        <button
-                          onClick={() => {
-                            setDetailIssue(issue);
-                            setIsDetailOpen(true);
-                          }}
-                          className="font-semibold text-indigo-700 hover:text-indigo-950 hover:underline truncate cursor-pointer font-mono"
-                          title="詳細を開く"
-                        >
-                          {issue.issue_key}
-                        </button>
-                      </div>
+                      {/* 件名（ツリー展開・種別アイコン統合） ＆ クイック子課題追加ボタン */}
+                      <div className="flex-1 min-w-0 pr-2 flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          {/* 親子ツリー表示時のインデント・矢印・折りたたみトグル */}
+                          {withParentRelation && (
+                            <>
+                              {depth > 0 ? (
+                                <div className="flex items-center shrink-0 pl-3">
+                                  <CornerDownRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                </div>
+                              ) : hasChildren ? (
+                                <button
+                                  onClick={() => toggleParentCollapse(issue.id)}
+                                  className="w-[18px] h-[18px] flex items-center justify-center p-0.5 rounded hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer shrink-0"
+                                  title={isCollapsed ? "子課題を展開" : "子課題を折りたたむ"}
+                                >
+                                  {isCollapsed ? (
+                                    <ChevronRight className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <ChevronDown className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="w-[18px] shrink-0" />
+                              )}
+                            </>
+                          )}
 
-                      {/* 課題名 ＆ クイック子課題追加ボタン */}
-                      <div className="flex-1 min-w-0 pr-2 flex items-center justify-between gap-1">
-                        <button
-                          onClick={() => {
-                            setDetailIssue(issue);
-                            setIsDetailOpen(true);
-                          }}
-                          className={`text-left truncate flex-1 cursor-pointer ${
-                            isClosed
-                              ? "line-through text-slate-400"
-                              : hasChildren
-                              ? "font-bold text-slate-900 hover:text-indigo-700"
-                              : "font-medium text-slate-800 hover:text-indigo-700"
-                          }`}
-                          title={issue.title}
-                        >
-                          {issue.title}
-                        </button>
+                          {/* 種別アイコン */}
+                          <div className="shrink-0 flex items-center">
+                            <TypeBadge type={issue.issue_type} showLabel={false} />
+                          </div>
+
+                          {/* 課題名（ホバーでキー＋件名ツールチップ表示、クリックで詳細モーダル） */}
+                          <button
+                            onClick={() => {
+                              setDetailIssue(issue);
+                              setIsDetailOpen(true);
+                            }}
+                            className={`text-left truncate flex-1 cursor-pointer ${
+                              isClosed
+                                ? "line-through text-slate-400"
+                                : hasChildren
+                                ? "font-bold text-slate-900 hover:text-indigo-700"
+                                : "font-medium text-slate-800 hover:text-indigo-700"
+                            }`}
+                            title={`[${issue.issue_key}] ${issue.title}`}
+                          >
+                            {issue.title}
+                          </button>
+                        </div>
 
                         {/* 親課題の場合、子課題件数と＋ボタンを表示 */}
                         {withParentRelation && depth === 0 && (
