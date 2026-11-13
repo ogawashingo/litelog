@@ -1,7 +1,8 @@
 // Personal Backlog ダッシュボードメインページ
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import SummaryCards from "@/components/SummaryCards";
 import IssueList from "@/components/IssueList";
@@ -16,7 +17,8 @@ import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType } from 
 import { getTodayDateString } from "@/lib/dateUtils";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
   const { currentUser, refreshUsers, settings } = useUser();
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -46,18 +48,19 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // 課題一覧取得
-  const fetchIssues = useCallback(async () => {
+  // 課題一覧取得（projectId引数が指定されていればそれを優先、なければselectedProjectIdを使用）
+  const fetchIssues = useCallback(async (targetProjectId?: number | null) => {
     try {
-      const url = selectedProjectId ? `/api/issues?projectId=${selectedProjectId}` : "/api/issues";
+      const pid = targetProjectId !== undefined ? targetProjectId : selectedProjectId;
+      const url = pid ? `/api/issues?projectId=${pid}` : "/api/issues";
       const res = await fetch(url);
       if (res.ok) {
-        const data = await res.json();
+        const data: Issue[] = await res.json();
         setIssues(data);
         // モーダル表示中の課題があれば最新データで同期
         setSelectedIssue((prev) => {
           if (!prev) return null;
-          const updated = (data as Issue[]).find((i) => i.id === prev.id);
+          const updated = data.find((i) => i.id === prev.id);
           return updated || prev;
         });
       }
@@ -84,25 +87,36 @@ export default function DashboardPage() {
     await Promise.all([fetchProjects(), fetchIssues(), fetchActivities(), refreshUsers()]);
   }, [fetchProjects, fetchIssues, fetchActivities, refreshUsers]);
 
-  // 初回データ取得
+  // URLパラメータ（?projectId=...）およびストレージから選択中プロジェクトを同期
   useEffect(() => {
-    // URLクエリまたはローカルストレージから前回の選択プロジェクトIDを復元
-    if (typeof window !== "undefined") {
-      const param = new URLSearchParams(window.location.search).get("projectId");
-      const paramId = param ? Number(param) : null;
-      const initialId = (paramId && !isNaN(paramId)) ? paramId : getStoredProjectId();
-      if (initialId !== null) {
-        setSelectedProjectId(initialId);
+    const queryParam = searchParams.get("projectId");
+    if (queryParam !== null) {
+      const num = Number(queryParam);
+      const targetId = !isNaN(num) && num > 0 ? num : null;
+      setSelectedProjectId(targetId);
+      setStoredProjectId(targetId);
+    } else {
+      const stored = getStoredProjectId();
+      if (stored !== null) {
+        setSelectedProjectId(stored);
       }
     }
+  }, [searchParams]);
 
+  // selectedProjectIdが更新されたら対象プロジェクトの課題を取得
+  useEffect(() => {
+    fetchIssues(selectedProjectId);
+  }, [selectedProjectId, fetchIssues]);
+
+  // 初回データ取得
+  useEffect(() => {
     const init = async () => {
       setIsLoading(true);
-      await refreshAll();
+      await Promise.all([fetchProjects(), fetchActivities(), refreshUsers()]);
       setIsLoading(false);
     };
     init();
-  }, [refreshAll]);
+  }, [fetchProjects, fetchActivities, refreshUsers]);
 
   // プロジェクト選択切り替え（ローカルストレージおよびURL同期）
   const handleSelectProject = useCallback((id: number | null) => {
@@ -234,16 +248,22 @@ export default function DashboardPage() {
     setIsDetailOpen(true);
   };
 
-  // サマリー集計計算（設定タイムゾーン基準）
+  // 選択中プロジェクトによる厳密なフィルタリング（万が一のデータ不整合や混ざりを防止）
+  const filteredIssues = useMemo(() => {
+    if (!selectedProjectId) return issues;
+    return issues.filter((i) => i.project_id === selectedProjectId);
+  }, [issues, selectedProjectId]);
+
+  // サマリー集計計算（設定タイムゾーン基準・選択プロジェクトに連動）
   const todayStr = getTodayDateString(settings);
   const counts = {
-    all: issues.length,
-    open: issues.filter((i) => i.status === "open").length,
-    in_progress: issues.filter((i) => i.status === "in_progress").length,
-    resolved: issues.filter((i) => i.status === "resolved").length,
-    closed: issues.filter((i) => i.status === "closed").length,
-    overdue: issues.filter((i) => i.status !== "closed" && i.due_date && i.due_date < todayStr).length,
-    dueToday: issues.filter((i) => i.status !== "closed" && i.due_date === todayStr).length,
+    all: filteredIssues.length,
+    open: filteredIssues.filter((i) => i.status === "open").length,
+    in_progress: filteredIssues.filter((i) => i.status === "in_progress").length,
+    resolved: filteredIssues.filter((i) => i.status === "resolved").length,
+    closed: filteredIssues.filter((i) => i.status === "closed").length,
+    overdue: filteredIssues.filter((i) => i.status !== "closed" && i.due_date && i.due_date < todayStr).length,
+    dueToday: filteredIssues.filter((i) => i.status !== "closed" && i.due_date === todayStr).length,
   };
 
   // 詳細モーダルを閉じる
@@ -276,7 +296,7 @@ export default function DashboardPage() {
         {/* メインエリア: 課題一覧を全幅で表示し、件名や担当者の視認性を確保 */}
         <div>
           <IssueList
-            issues={issues}
+            issues={filteredIssues}
             selectedStatus={selectedStatus}
             onSelectStatus={(st) => setSelectedStatus(st)}
             onSelectIssue={handleSelectIssue}
@@ -301,7 +321,7 @@ export default function DashboardPage() {
 
           <ActivityList
             activities={activities}
-            issues={issues}
+            issues={filteredIssues}
             projects={projects}
             selectedProjectId={selectedProjectId}
             onSelectIssue={handleSelectIssue}
@@ -341,5 +361,19 @@ export default function DashboardPage() {
         onRestored={refreshAll}
       />
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-transparent flex items-center justify-center">
+          <div className="text-slate-500 text-sm animate-pulse">ダッシュボードを準備中...</div>
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
