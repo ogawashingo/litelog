@@ -26,6 +26,7 @@ import CreateIssueModal from "./CreateIssueModal";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
 import { getUserInitials } from "./UserManageModal";
+import { getJapaneseHoliday } from "@/lib/holidayUtils";
 import {
   parseDateString,
   formatDateString,
@@ -265,8 +266,9 @@ export default function GanttChart({
   // 折りたたまれている親課題IDのSet
   const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set());
 
-  const { users, currentUser, settings } = useUser();
-  const weekStart = settings.weekStart || "monday";
+  const { users, currentUser, settings, effectiveWeekStart, effectiveShowHolidays } = useUser();
+  const weekStart = effectiveWeekStart || settings.weekStart || "monday";
+  const showHolidays = effectiveShowHolidays;
 
   // フィルター用State
   const [searchQuery, setSearchQuery] = useState("");
@@ -1173,16 +1175,22 @@ export default function GanttChart({
                       const weekend = getWeekendInfo(d);
                       const dayNum = d.getDate();
                       const weekday = getWeekdayJa(d);
+                      const holidayName = showHolidays ? getJapaneseHoliday(d) : null;
+                      const isHoliday = Boolean(holidayName);
 
                       let colBg = "bg-white";
                       let textColor = "text-gray-600";
                       if (weekend.isSaturday) {
                         colBg = "bg-blue-50/70";
                         textColor = "text-blue-600";
-                      } else if (weekend.isSunday) {
+                      } else if (weekend.isSunday || isHoliday) {
                         colBg = "bg-rose-50/70";
-                        textColor = "text-rose-600";
+                        textColor = "text-rose-600 font-bold";
                       }
+
+                      const cellTooltip = holidayName
+                        ? `${dateStr} (${weekday}・祝日: ${holidayName})`
+                        : `${dateStr} (${weekday})`;
 
                       return (
                         <div
@@ -1191,7 +1199,7 @@ export default function GanttChart({
                           className={`shrink-0 flex flex-col items-center justify-center border-r border-slate-200 ${colBg} ${
                             isToday ? "bg-indigo-100/80 font-bold" : ""
                           }`}
-                          title={`${dateStr} (${weekday})`}
+                          title={cellTooltip}
                         >
                           <span
                             className={`leading-none ${
@@ -1250,6 +1258,7 @@ export default function GanttChart({
                 <div className="absolute inset-0 flex pointer-events-none z-0">
                   {dateRange.map((d, colIdx) => {
                     const weekend = getWeekendInfo(d);
+                    const isHoliday = Boolean(showHolidays && getJapaneseHoliday(d));
                     const isWeekStartDay = weekStart === "sunday" ? d.getDay() === 0 : d.getDay() === 1;
                     const isWeekEndDay = weekStart === "sunday" ? d.getDay() === 6 : d.getDay() === 0;
                     const isFirstOfMonth = d.getDate() === 1;
@@ -1257,7 +1266,7 @@ export default function GanttChart({
                     let bg = "";
                     if (scale === "days") {
                       if (weekend.isSaturday) bg = "bg-blue-50/30";
-                      else if (weekend.isSunday) bg = "bg-rose-50/30";
+                      else if (weekend.isSunday || isHoliday) bg = "bg-rose-50/30";
                     }
 
                     let borderClass = "border-r border-gray-100";

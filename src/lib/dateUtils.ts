@@ -3,8 +3,9 @@
 // 管理ページで設定されたタイムゾーン・フォーマットでの表示変換を提供します。
 
 import { SystemSettings, WeekStartDay } from "@/types";
+import { getJapaneseHoliday } from "./holidayUtils";
 
-// デフォルトのシステム時刻設定（日本標準時 JST / 24時間表記・月曜始まり）
+// デフォルトのシステム時刻設定（日本標準時 JST / 24時間表記・月曜始まり・祝日表示ON）
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   timezone: "Asia/Tokyo",
   datetimeFormat: "slash_sec",
@@ -13,6 +14,7 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   timeOffsetMinutes: 0,
   theme: "cosmic",
   weekStart: "monday",
+  showHolidays: true,
 };
 
 // 管理ページで選択可能なタイムゾーン一覧
@@ -377,6 +379,7 @@ export interface CalendarDayCell {
   isSaturday: boolean;     // 土曜日かどうか
   isSunday: boolean;       // 日曜日かどうか
   dayOfWeek: number;       // 0: 日, 1: 月, ..., 6: 土
+  holidayName?: string | null; // 祝日名（日本の祝日の場合）
 }
 
 /**
@@ -446,6 +449,7 @@ export function getCalendarMonthDays(
     const d = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i, 0, 0, 0, 0);
     const dateStr = formatDateString(d);
     const dow = d.getDay();
+    const holiday = getJapaneseHoliday(dateStr);
 
     cells.push({
       date: d,
@@ -456,6 +460,7 @@ export function getCalendarMonthDays(
       isSaturday: dow === 6,
       isSunday: dow === 0,
       dayOfWeek: dow,
+      holidayName: holiday,
     });
   }
 

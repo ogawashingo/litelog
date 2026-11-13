@@ -56,6 +56,7 @@ export default function UserManageModal({
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [newColor, setNewColor] = useState(AVATAR_COLORS[0]);
   const [newWeekStart, setNewWeekStart] = useState<WeekStartDay>("monday");
+  const [newShowHolidays, setNewShowHolidays] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -68,6 +69,7 @@ export default function UserManageModal({
   const [editIsAdmin, setEditIsAdmin] = useState(false);
   const [editColor, setEditColor] = useState("");
   const [editWeekStart, setEditWeekStart] = useState<WeekStartDay>("monday");
+  const [editShowHolidays, setEditShowHolidays] = useState(true);
 
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin);
 
@@ -99,6 +101,7 @@ export default function UserManageModal({
           isAdmin: newIsAdmin,
           color: newColor,
           weekStart: newWeekStart,
+          showHolidays: newShowHolidays,
         }),
       });
 
@@ -113,6 +116,7 @@ export default function UserManageModal({
       setNewRole("メンバー");
       setNewIsAdmin(false);
       setNewWeekStart("monday");
+      setNewShowHolidays(true);
       const nextColorIdx = (users.length + 1) % AVATAR_COLORS.length;
       setNewColor(AVATAR_COLORS[nextColorIdx]);
       await onUpdated();
@@ -133,6 +137,9 @@ export default function UserManageModal({
     setEditIsAdmin(Boolean(user.is_admin));
     setEditColor(user.color || "#4f46e5");
     setEditWeekStart(user.week_start || "monday");
+    setEditShowHolidays(
+      user.show_holidays !== undefined ? Boolean(user.show_holidays) : true
+    );
     setErrorMsg("");
   };
 
@@ -152,6 +159,7 @@ export default function UserManageModal({
         isAdmin: editIsAdmin,
         color: editColor,
         weekStart: editWeekStart,
+        showHolidays: editShowHolidays,
       };
       if (editPassword.trim()) {
         payload.password = editPassword.trim();
@@ -361,6 +369,16 @@ export default function UserManageModal({
                     </div>
                   </div>
 
+                  <label className="inline-flex items-center gap-1 text-xs text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newShowHolidays}
+                      onChange={(e) => setNewShowHolidays(e.target.checked)}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                    />
+                    <span>日本の祝日表示</span>
+                  </label>
+
                   <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none">
                     <input
                       type="checkbox"
@@ -518,6 +536,15 @@ export default function UserManageModal({
                                 </button>
                               </div>
                             </div>
+                            <label className="inline-flex items-center gap-1 text-[11px] text-slate-700 cursor-pointer ml-1 select-none">
+                              <input
+                                type="checkbox"
+                                checked={editShowHolidays}
+                                onChange={(e) => setEditShowHolidays(e.target.checked)}
+                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                              />
+                              <span>祝日表示</span>
+                            </label>
                           </div>
                           <div className="flex items-center gap-2">
                             <button

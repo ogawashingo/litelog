@@ -28,7 +28,7 @@ export async function GET() {
     const db = getDb();
     // セキュリティ保護のため password カラムはエクスポートに含めない
     const users = db
-      .prepare("SELECT id, login_id, name, role, is_admin, color, week_start, created_at FROM users")
+      .prepare("SELECT id, login_id, name, role, is_admin, color, week_start, show_holidays, created_at FROM users")
       .all();
     const projects = db.prepare("SELECT * FROM projects").all();
     const issues = db.prepare("SELECT * FROM issues").all();
@@ -105,8 +105,8 @@ export async function POST(request: Request) {
       if (Array.isArray(users) && users.length > 0) {
         db.exec("DELETE FROM users;");
         const insertUser = db.prepare(`
-          INSERT INTO users (id, login_id, password, name, role, is_admin, color, week_start, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO users (id, login_id, password, name, role, is_admin, color, week_start, show_holidays, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         for (const u of users) {
           const isAdminVal =
@@ -143,6 +143,7 @@ export async function POST(request: Request) {
             isAdminVal,
             u.color || "#4f46e5",
             u.week_start === "sunday" ? "sunday" : "monday",
+            u.show_holidays === 0 || u.show_holidays === false ? 0 : 1,
             u.created_at || new Date().toISOString()
           );
         }

@@ -9,6 +9,7 @@ export interface User {
   is_admin: number;  // 管理者権限フラグ（1: Admin管理者, 0: 一般メンバー）
   color: string;     // アバターカラー（16進数カラーコード）
   week_start?: WeekStartDay; // カレンダー週開始曜日（'monday' | 'sunday'）
+  show_holidays?: boolean;   // 日本の祝日表示フラグ（true: 表示, false: 非表示）
   created_at: string;
   issue_count?: number;      // 担当課題総数（集計時）
   open_issue_count?: number; // 未完了の担当課題数（集計時）
@@ -134,5 +135,6 @@ export interface SystemSettings {
   timeOffsetMinutes: number;         // 手動時刻補正オフセット（分単位、デフォルト 0）
   theme: ThemeId;                    // デザインカラーテーマ
   weekStart: WeekStartDay;           // 週の開始曜日（カレンダー表示: "monday" | "sunday"）
+  showHolidays: boolean;             // 日本の祝日表示（カレンダー赤字・祝日名表示）
 }
 

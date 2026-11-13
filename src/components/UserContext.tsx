@@ -26,6 +26,8 @@ interface UserContextValue {
   openPasswordChangeModal: () => void;
   updateUserWeekStart: (userId: number, weekStart: WeekStartDay) => Promise<boolean>;
   effectiveWeekStart: WeekStartDay;
+  updateUserShowHolidays: (userId: number, showHolidays: boolean) => Promise<boolean>;
+  effectiveShowHolidays: boolean;
   settings: SystemSettings;
   refreshSettings: () => Promise<void>;
   updateSettings: (next: Partial<SystemSettings>) => Promise<SystemSettings>;
@@ -47,6 +49,8 @@ const UserContext = createContext<UserContextValue>({
   openPasswordChangeModal: () => {},
   updateUserWeekStart: async () => false,
   effectiveWeekStart: "monday",
+  updateUserShowHolidays: async () => false,
+  effectiveShowHolidays: true,
   settings: DEFAULT_SYSTEM_SETTINGS,
   refreshSettings: async () => {},
   updateSettings: async () => DEFAULT_SYSTEM_SETTINGS,
@@ -307,6 +311,40 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     [currentUserId]
   );
 
+  // 有効な日本の祝日表示フラグ（個人設定 > システム設定 > デフォルトtrue）
+  const effectiveShowHolidays: boolean =
+    currentUser?.show_holidays !== undefined
+      ? Boolean(currentUser.show_holidays)
+      : (settings.showHolidays ?? true);
+
+  // 個別ユーザーの祝日表示設定を更新
+  const updateUserShowHolidays = useCallback(
+    async (userId: number, nextShowHolidays: boolean): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/users/${userId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ showHolidays: nextShowHolidays }),
+        });
+        if (res.ok) {
+          const updatedUser: User = await res.json();
+          setUsers((prev) =>
+            prev.map((u) =>
+              u.id === userId
+                ? { ...u, show_holidays: updatedUser.show_holidays !== undefined ? updatedUser.show_holidays : nextShowHolidays }
+                : u
+            )
+          );
+          return true;
+        }
+      } catch (err) {
+        console.error("ユーザー祝日表示設定の更新エラー:", err);
+      }
+      return false;
+    },
+    []
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -322,6 +360,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         openPasswordChangeModal: () => setIsPasswordModalOpen(true),
         updateUserWeekStart,
         effectiveWeekStart,
+        updateUserShowHolidays,
+        effectiveShowHolidays,
         settings,
         refreshSettings,
         updateSettings,

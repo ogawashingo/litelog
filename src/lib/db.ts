@@ -42,6 +42,7 @@ function initDb(db: DatabaseSync) {
       is_admin INTEGER NOT NULL DEFAULT 0,
       color TEXT NOT NULL DEFAULT '#4f46e5',
       week_start TEXT NOT NULL DEFAULT 'monday',
+      show_holidays INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -60,6 +61,9 @@ function initDb(db: DatabaseSync) {
     }
     if (!userCols.some((col) => col.name === "week_start")) {
       db.exec("ALTER TABLE users ADD COLUMN week_start TEXT NOT NULL DEFAULT 'monday';");
+    }
+    if (!userCols.some((col) => col.name === "show_holidays")) {
+      db.exec("ALTER TABLE users ADD COLUMN show_holidays INTEGER NOT NULL DEFAULT 1;");
     }
 
     // その他login_idが未設定のユーザーにユニークなlogin_idを補完

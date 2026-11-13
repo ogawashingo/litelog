@@ -44,8 +44,17 @@ export function DatePicker({
   ariaLabel,
   fullWidth = false,
 }: DatePickerProps) {
-  const { settings, updateSettings, currentUser, updateUserWeekStart, effectiveWeekStart } = useUser();
+  const {
+    settings,
+    updateSettings,
+    currentUser,
+    updateUserWeekStart,
+    effectiveWeekStart,
+    effectiveShowHolidays,
+    updateUserShowHolidays,
+  } = useUser();
   const weekStart: WeekStartDay = effectiveWeekStart || "monday";
+  const showHolidays = effectiveShowHolidays;
 
   // ポップアップの開閉状態
   const [isOpen, setIsOpen] = useState(false);
@@ -207,6 +216,16 @@ export function DatePicker({
     await updateSettings({ weekStart: nextStart });
   };
 
+  // 日本の祝日表示の切り替え（ON ⇔ OFF）
+  const toggleShowHolidays = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextVal = !showHolidays;
+    if (currentUser?.id) {
+      await updateUserShowHolidays(currentUser.id, nextVal);
+    }
+    await updateSettings({ showHolidays: nextVal });
+  };
+
   // カレンダーセル一覧と曜日ラベルを算出
   const weekdayLabels = getWeekdayLabels(weekStart);
   const calendarDays = getCalendarMonthDays(viewYear, viewMonth, weekStart, todayStr);
@@ -304,16 +323,32 @@ export function DatePicker({
                 </button>
               </div>
 
-              {/* 週開始曜日トグル（月曜始まり ⇔ 日曜始まり） */}
-              <button
-                type="button"
-                onClick={toggleWeekStart}
-                title={`現在: ${weekStart === "monday" ? "月曜始まり" : "日曜始まり"}（クリックで切替）`}
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-slate-600 border-slate-200"
-              >
-                <span>{weekStart === "monday" ? "月始" : "日始"}</span>
-                <RotateCcw className="w-2.5 h-2.5 opacity-60" />
-              </button>
+              <div className="flex items-center gap-1">
+                {/* 祝日表示トグル（ON ⇔ OFF） */}
+                <button
+                  type="button"
+                  onClick={toggleShowHolidays}
+                  title={`日本の祝日表示: ${showHolidays ? "ON (赤字・祝日名表示)" : "OFF"}（クリックで切替）`}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                    showHolidays
+                      ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                      : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
+                  }`}
+                >
+                  祝{showHolidays ? "ON" : "OFF"}
+                </button>
+
+                {/* 週開始曜日トグル（月曜始まり ⇔ 日曜始まり） */}
+                <button
+                  type="button"
+                  onClick={toggleWeekStart}
+                  title={`現在: ${weekStart === "monday" ? "月曜始まり" : "日曜始まり"}（クリックで切替）`}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-slate-600 border-slate-200"
+                >
+                  <span>{weekStart === "monday" ? "月始" : "日始"}</span>
+                  <RotateCcw className="w-2.5 h-2.5 opacity-60" />
+                </button>
+              </div>
             </div>
 
             {/* 曜日ヘッダー */}
@@ -338,6 +373,7 @@ export function DatePicker({
             <div className="grid grid-cols-7 gap-1 text-center">
               {calendarDays.map((cell, idx) => {
                 const isSelected = cell.dateString === value;
+                const isHoliday = Boolean(showHolidays && cell.holidayName);
 
                 // セルの文字色・背景色決定
                 let cellClass = "hover:bg-indigo-50 cursor-pointer";
@@ -345,13 +381,18 @@ export function DatePicker({
                   cellClass = "bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-sm";
                 } else if (!cell.isCurrentMonth) {
                   cellClass = "text-slate-300 hover:bg-slate-50 cursor-pointer";
-                } else if (cell.isSunday) {
+                } else if (cell.isSunday || isHoliday) {
                   cellClass = "text-rose-600 font-medium hover:bg-rose-50";
                 } else if (cell.isSaturday) {
                   cellClass = "text-blue-600 font-medium hover:bg-blue-50";
                 } else {
                   cellClass = "text-slate-700 hover:bg-slate-100";
                 }
+
+                const tooltip =
+                  cell.holidayName && showHolidays
+                    ? `${cell.dateString} (${cell.holidayName})`
+                    : cell.dateString;
 
                 return (
                   <button
@@ -363,9 +404,12 @@ export function DatePicker({
                         ? "ring-1 ring-indigo-500 font-bold"
                         : ""
                     }`}
-                    title={cell.dateString}
+                    title={tooltip}
                   >
-                    {cell.dayNumber}
+                    <span>{cell.dayNumber}</span>
+                    {isHoliday && cell.isCurrentMonth && !isSelected && (
+                      <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-rose-500" />
+                    )}
                   </button>
                 );
               })}

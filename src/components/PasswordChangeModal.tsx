@@ -33,10 +33,11 @@ export default function PasswordChangeModal({
   onSuccess,
   onLogout,
 }: PasswordChangeModalProps) {
-  // プロフィール（表示名・テーマ色・カレンダー週開始）用State
+  // プロフィール（表示名・テーマ色・カレンダー設定）用State
   const [name, setName] = useState("");
   const [color, setColor] = useState(AVATAR_COLORS[0]);
   const [weekStart, setWeekStart] = useState<WeekStartDay>("monday");
+  const [showHolidays, setShowHolidays] = useState(true);
 
   // パスワード変更用State（変更する場合のみ入力）
   const [currentPassword, setCurrentPassword] = useState("");
@@ -54,6 +55,11 @@ export default function PasswordChangeModal({
       setName(currentUser.name || "");
       setColor(currentUser.color || AVATAR_COLORS[0]);
       setWeekStart(currentUser.week_start || "monday");
+      setShowHolidays(
+        currentUser.show_holidays !== undefined
+          ? Boolean(currentUser.show_holidays)
+          : true
+      );
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -109,6 +115,7 @@ export default function PasswordChangeModal({
         name: name.trim(),
         color,
         weekStart,
+        showHolidays,
       };
       if (isChangingPassword) {
         payload.currentPassword = currentPassword;
@@ -320,6 +327,20 @@ export default function PasswordChangeModal({
                 <div className="text-[11px] text-gray-500 mt-0.5">日・月・火・水・木・金・土</div>
               </button>
             </div>
+
+            {/* 日本の祝日表示 ON/OFF */}
+            <label className="mt-2.5 flex items-center justify-between p-2.5 rounded-lg border border-gray-200 bg-gray-50/70 hover:bg-gray-100/70 transition-colors cursor-pointer select-none">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-800">日本の祝日を表示する</span>
+                <span className="text-[10px] text-gray-500">（カレンダーに祝日名と赤字を反映）</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={showHolidays}
+                onChange={(e) => setShowHolidays(e.target.checked)}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer accent-[#4f46e5]"
+              />
+            </label>
           </div>
 
           {/* 4. パスワード変更セクション（任意） */}

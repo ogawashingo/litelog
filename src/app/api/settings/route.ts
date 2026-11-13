@@ -56,6 +56,7 @@ function loadSettingsFromDb(): SystemSettings {
       rawWeekStart && VALID_WEEK_STARTS.includes(rawWeekStart)
         ? rawWeekStart
         : DEFAULT_SYSTEM_SETTINGS.weekStart,
+    showHolidays: map.get("showHolidays") !== "false",
   };
 }
 
@@ -134,6 +135,10 @@ export async function PUT(request: Request) {
       VALID_WEEK_STARTS.includes(body.weekStart as WeekStartDay)
     ) {
       upsert.run("weekStart", body.weekStart);
+    }
+
+    if (typeof body.showHolidays === "boolean") {
+      upsert.run("showHolidays", String(body.showHolidays));
     }
 
     const updated = loadSettingsFromDb();

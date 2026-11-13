@@ -156,6 +156,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updates.push("week_start = ?");
       values.push(cleanWeekStart);
     }
+    const incomingShowHolidays = body.showHolidays ?? body.show_holidays;
+    if (incomingShowHolidays !== undefined) {
+      updates.push("show_holidays = ?");
+      values.push(incomingShowHolidays === false || incomingShowHolidays === 0 ? 0 : 1);
+    }
 
     if (updates.length > 0) {
       values.push(targetId);
@@ -171,6 +176,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         u.is_admin,
         u.color,
         u.week_start,
+        u.show_holidays,
         u.created_at,
         COUNT(i.id) AS issue_count,
         SUM(CASE WHEN i.id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END) AS open_issue_count

@@ -58,6 +58,7 @@ export default function AdminPage() {
     updateSettings,
     refreshUsers,
     updateUserWeekStart,
+    updateUserShowHolidays,
     previewTheme,
     setPreviewTheme,
   } = useUser();
@@ -999,11 +1000,71 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* 6. 手動時刻オフセット補正 */}
+            {/* 6. 日本の祝日表示（システム共通デフォルト設定） */}
+            <div className="pt-4 border-t border-slate-100 space-y-2">
+              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-indigo-600" />
+                <span>6. 日本の祝日表示（システム共通デフォルト設定）</span>
+              </label>
+              <p className="text-[11px] text-slate-500">
+                期日や開始日を選択するカレンダーおよびガントチャートで、日本の国民の祝日を赤字・祝日名ツールチップ付きで表示するかどうかのシステム共通デフォルトです。
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraftSettings((prev) => ({ ...prev, showHolidays: true }))
+                  }
+                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                    draftSettings.showHolidays !== false
+                      ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">祝日を表示する（推奨）</span>
+                    {draftSettings.showHolidays !== false && (
+                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                        選択中
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    元日、成人の日、ゴールデンウィーク、振替休日などを赤文字およびツールチップで表示します。
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDraftSettings((prev) => ({ ...prev, showHolidays: false }))
+                  }
+                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                    draftSettings.showHolidays === false
+                      ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">祝日を表示しない</span>
+                    {draftSettings.showHolidays === false && (
+                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                        選択中
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    祝日の赤字判定を行わず、土日のみを休日の配色として扱います。
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* 7. 手動時刻オフセット補正 */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Sliders className="w-4 h-4 text-indigo-600" />
-                <span>6. 時刻の手動オフセット補正（分単位の微調整）</span>
+                <span>7. 時刻の手動オフセット補正（分単位の微調整）</span>
               </label>
               <p className="text-[11px] text-slate-500">
                 サーバー時計のズレを補正したい場合や、任意の時刻オフセットを加算・減算したい場合に設定します（通常は 0分 のままで問題ありません）。
@@ -1129,11 +1190,12 @@ export default function AdminPage() {
                 </button>
               </div>
               <p className="text-xs text-slate-500">
-                メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] カレンダー設定を直接変更できます。
+                メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] および祝日 [祝ON / 祝OFF] 設定を直接変更できます。
               </p>
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
                 {users.map((u) => {
                   const userWeekStart = u.week_start || "monday";
+                  const userShowHolidays = u.show_holidays !== undefined ? Boolean(u.show_holidays) : true;
                   return (
                     <div
                       key={u.id}
@@ -1155,8 +1217,21 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-slate-500 text-[11px] hidden sm:inline">{u.role}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-slate-500 text-[11px] hidden sm:inline mr-1">{u.role}</span>
+                        {/* 祝日表示個人設定切替（ON / OFF） */}
+                        <button
+                          type="button"
+                          onClick={() => updateUserShowHolidays(u.id, !userShowHolidays)}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                            userShowHolidays
+                              ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                              : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
+                          }`}
+                          title={`${u.name}さんの日本の祝日表示: ${userShowHolidays ? "ON (赤字・祝日名)" : "OFF"}（クリックで切替）`}
+                        >
+                          祝{userShowHolidays ? "ON" : "OFF"}
+                        </button>
                         {/* カレンダー個人設定切替（月曜始まり / 日曜始まり） */}
                         <div className="inline-flex rounded border border-slate-200 bg-slate-50 p-0.5 text-[10px]">
                           <button

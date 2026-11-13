@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
+import { getJapaneseHoliday } from "./src/lib/holidayUtils.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -49,6 +50,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       is_admin INTEGER NOT NULL DEFAULT 0,
       color TEXT NOT NULL DEFAULT '#4f46e5',
       week_start TEXT NOT NULL DEFAULT 'monday',
+      show_holidays INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -68,6 +70,10 @@ function setupSchemaAndSeed(db, isProdDb = false) {
   if (!userCols.some((col) => col.name === "week_start")) {
     db.exec("ALTER TABLE users ADD COLUMN week_start TEXT NOT NULL DEFAULT 'monday';");
     console.log("✓ users.week_start カラムのマイグレーションが成功しました");
+  }
+  if (!userCols.some((col) => col.name === "show_holidays")) {
+    db.exec("ALTER TABLE users ADD COLUMN show_holidays INTEGER NOT NULL DEFAULT 1;");
+    console.log("✓ users.show_holidays カラムのマイグレーションが成功しました");
   }
   db.prepare(`
     UPDATE users
@@ -111,6 +117,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       name TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#4f46e5',
       week_start TEXT NOT NULL DEFAULT 'monday',
+      show_holidays INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -762,6 +769,7 @@ async function runTests() {
       is_admin INTEGER NOT NULL DEFAULT 0,
       color TEXT NOT NULL DEFAULT '#4f46e5',
       week_start TEXT NOT NULL DEFAULT 'monday',
+      show_holidays INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE settings (
@@ -860,6 +868,56 @@ async function runTests() {
     throw new Error(`他メンバーへの副作用検知: yamada期待='monday', 実際='${recheckYamada.week_start}'`);
   }
   console.log(`✓ メンバー各個人のカレンダー設定（山田: 月曜始まり, 佐藤: 日曜始まり）個別更新＆分離検証成功`);
+
+  // 22. 日本の祝日（方式A: アプリ内蔵方式）の自動計算＆判定テスト
+  const expectedHolidays2026 = [
+    { date: "2026-01-01", name: "元日" },
+    { date: "2026-01-12", name: "成人の日" },
+    { date: "2026-02-11", name: "建国記念の日" },
+    { date: "2026-02-23", name: "天皇誕生日" },
+    { date: "2026-03-20", name: "春分の日" },
+    { date: "2026-04-29", name: "昭和の日" },
+    { date: "2026-05-03", name: "憲法記念日" },
+    { date: "2026-05-04", name: "みどりの日" },
+    { date: "2026-05-05", name: "こどもの日" },
+    { date: "2026-05-06", name: "振替休日" }, // 5/3(日)の振替
+    { date: "2026-07-20", name: "海の日" },
+    { date: "2026-08-11", name: "山の日" },
+    { date: "2026-09-21", name: "敬老の日" },
+    { date: "2026-09-22", name: "国民の休日" }, // 敬老の日と秋分の日の中間日
+    { date: "2026-09-23", name: "秋分の日" },
+    { date: "2026-10-12", name: "スポーツの日" },
+    { date: "2026-11-03", name: "文化の日" },
+    { date: "2026-11-23", name: "勤労感謝の日" },
+  ];
+
+  for (const h of expectedHolidays2026) {
+    const res = getJapaneseHoliday(h.date);
+    if (res !== h.name) {
+      throw new Error(`祝日判定エラー (${h.date}): 期待='${h.name}', 実際='${res}'`);
+    }
+  }
+
+  // 平日判定
+  if (getJapaneseHoliday("2026-11-13") !== null) {
+    throw new Error("平日判定エラー: 2026-11-13が祝日として判定されました");
+  }
+  if (getJapaneseHoliday("2026-05-07") !== null) {
+    throw new Error("平日判定エラー: 2026-05-07が祝日として判定されました");
+  }
+
+  // 祝日表示フラグ（show_holidays）の個人別保存・照合テスト
+  db.prepare("UPDATE users SET show_holidays = 0 WHERE id = ?").run(userSato.id);
+  const satoHolidays = db.prepare("SELECT show_holidays FROM users WHERE id = ?").get(userSato.id);
+  const yamadaHolidays = db.prepare("SELECT show_holidays FROM users WHERE id = ?").get(userYamada.id);
+
+  if (satoHolidays.show_holidays !== 0) {
+    throw new Error(`個人祝日設定保存失敗: sato期待=0, 実際=${satoHolidays.show_holidays}`);
+  }
+  if (yamadaHolidays.show_holidays !== 1) {
+    throw new Error(`個人祝日設定保存失敗: yamada期待=1, 実際=${yamadaHolidays.show_holidays}`);
+  }
+  console.log(`✓ 日本の祝日（元日・春分・秋分・振替休日・国民の休日等18日）内蔵計算＆表示ON/OFF検証成功`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }
