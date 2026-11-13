@@ -427,7 +427,7 @@ export default function IssueDetailPage() {
   const currentProject = projects.find((p) => p.id === issue?.project_id);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-transparent flex flex-col font-sans">
       {/* 共通ヘッダー */}
       <Header
         projects={projects}

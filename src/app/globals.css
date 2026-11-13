@@ -209,3 +209,279 @@ body {
 .app-nav-indicator {
   color: var(--theme-nav-indicator);
 }
+
+/* ==========================================================================
+   ミッドナイト・サイバーダーク（ダークモード）: 全コンテンツ対応包括スタイル
+   外側のヘッダーだけでなく、カード・テーブル・フォーム・モーダル等の内部コンテンツ全体を
+   開発者向けサイバーダークテーマ（ダークスレート・ネオンアクセント）に調和させます。
+   ========================================================================== */
+
+/* メインコンテナ・カード・モーダル・ダイアログのダーク背景 */
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .bg-white\/95,
+[data-theme="dark"] .bg-white\/90,
+[data-theme="dark"] .bg-white\/80 {
+  background-color: #121218 !important;
+}
+
+/* サブエリア・テーブル見出し・フィルターバー・レーン背景 */
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-slate-50\/60,
+[data-theme="dark"] .bg-slate-50\/70,
+[data-theme="dark"] .bg-slate-50\/80,
+[data-theme="dark"] .bg-slate-50\/90,
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-zinc-50 {
+  background-color: #181822 !important;
+}
+
+/* ツールバーピルやセクション背景（濃いめ） */
+[data-theme="dark"] .bg-slate-100,
+[data-theme="dark"] .bg-slate-100\/50,
+[data-theme="dark"] .bg-slate-100\/70,
+[data-theme="dark"] .bg-slate-100\/80,
+[data-theme="dark"] .bg-gray-100,
+[data-theme="dark"] .bg-zinc-100 {
+  background-color: #20202c !important;
+}
+[data-theme="dark"] .bg-slate-200,
+[data-theme="dark"] .bg-slate-200\/70,
+[data-theme="dark"] .bg-gray-200 {
+  background-color: #282838 !important;
+}
+
+/* テキスト色のダークモード最適化 */
+[data-theme="dark"] .text-slate-900,
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-gray-800,
+[data-theme="dark"] .text-zinc-900,
+[data-theme="dark"] .text-zinc-800 {
+  color: #f4f4f8 !important;
+}
+[data-theme="dark"] .text-slate-700,
+[data-theme="dark"] .text-slate-600,
+[data-theme="dark"] .text-gray-700,
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-zinc-700,
+[data-theme="dark"] .text-zinc-600 {
+  color: #c5c9d6 !important;
+}
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-slate-400,
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-gray-400,
+[data-theme="dark"] .text-zinc-500,
+[data-theme="dark"] .text-zinc-400 {
+  color: #8b92a5 !important;
+}
+
+/* 枠線・区切り線のダークモード対応 */
+[data-theme="dark"] .border-slate-100,
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-200\/80,
+[data-theme="dark"] .border-slate-200\/90,
+[data-theme="dark"] .border-slate-300,
+[data-theme="dark"] .border-gray-100,
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-300,
+[data-theme="dark"] .border-zinc-200,
+[data-theme="dark"] .border-zinc-300,
+[data-theme="dark"] .border-indigo-100,
+[data-theme="dark"] .border-indigo-100\/60,
+[data-theme="dark"] .border-indigo-100\/80,
+[data-theme="dark"] .border-indigo-100\/90,
+[data-theme="dark"] .border-indigo-200 {
+  border-color: #272738 !important;
+}
+[data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+[data-theme="dark"] .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+[data-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #272738 !important;
+}
+
+/* ホバーインタラクションのダークモード対応 */
+[data-theme="dark"] .hover\:bg-slate-50:hover,
+[data-theme="dark"] .hover\:bg-gray-50:hover,
+[data-theme="dark"] .hover\:bg-slate-50\/70:hover {
+  background-color: #1c1c28 !important;
+}
+[data-theme="dark"] .hover\:bg-slate-100:hover,
+[data-theme="dark"] .hover\:bg-gray-100:hover {
+  background-color: #252536 !important;
+}
+[data-theme="dark"] .hover\:bg-slate-200:hover {
+  background-color: #2f2f44 !important;
+}
+[data-theme="dark"] .hover\:border-slate-300:hover,
+[data-theme="dark"] .hover\:border-slate-400:hover {
+  border-color: #42425c !important;
+}
+[data-theme="dark"] .hover\:bg-indigo-50:hover,
+[data-theme="dark"] .hover\:bg-indigo-50\/20:hover,
+[data-theme="dark"] .hover\:bg-indigo-50\/40:hover,
+[data-theme="dark"] .hover\:bg-indigo-50\/60:hover,
+[data-theme="dark"] .hover\:bg-indigo-100:hover {
+  background-color: rgba(99, 102, 241, 0.22) !important;
+}
+
+/* 入力フォーム（input, select, textarea）のダークテーマ化 */
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background-color: #161622 !important;
+  color: #f4f4f8 !important;
+  border-color: #313146 !important;
+}
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  border-color: #6366f1 !important;
+  background-color: #1a1a28 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4) !important;
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+[data-theme="dark"] select option {
+  background-color: #181824;
+  color: #f4f4f8;
+}
+
+/* インディゴ／アクセント強調ピル・バッジの調整 */
+[data-theme="dark"] .bg-indigo-50,
+[data-theme="dark"] .bg-indigo-50\/20,
+[data-theme="dark"] .bg-indigo-50\/50,
+[data-theme="dark"] .bg-indigo-50\/70 {
+  background-color: rgba(99, 102, 241, 0.18) !important;
+}
+[data-theme="dark"] .bg-indigo-100,
+[data-theme="dark"] .bg-indigo-100\/70,
+[data-theme="dark"] .bg-indigo-100\/80 {
+  background-color: rgba(99, 102, 241, 0.28) !important;
+}
+[data-theme="dark"] .text-indigo-600,
+[data-theme="dark"] .text-indigo-700,
+[data-theme="dark"] .text-indigo-800,
+[data-theme="dark"] .text-indigo-900 {
+  color: #a5b4fc !important;
+}
+[data-theme="dark"] .border-indigo-200,
+[data-theme="dark"] .border-indigo-300 {
+  border-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+/* 各ステータス・優先度バッジのネオン調カラー調整 */
+[data-theme="dark"] .bg-rose-50,
+[data-theme="dark"] .bg-rose-50\/80 {
+  background-color: rgba(244, 63, 94, 0.16) !important;
+}
+[data-theme="dark"] .text-rose-700,
+[data-theme="dark"] .text-rose-600 {
+  color: #fda4af !important;
+}
+[data-theme="dark"] .border-rose-200,
+[data-theme="dark"] .border-rose-300 {
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+
+[data-theme="dark"] .bg-sky-50,
+[data-theme="dark"] .bg-sky-50\/80 {
+  background-color: rgba(14, 165, 233, 0.16) !important;
+}
+[data-theme="dark"] .text-sky-700,
+[data-theme="dark"] .text-sky-600 {
+  color: #7dd3fc !important;
+}
+[data-theme="dark"] .border-sky-200,
+[data-theme="dark"] .border-sky-300 {
+  border-color: rgba(14, 165, 233, 0.35) !important;
+}
+
+[data-theme="dark"] .bg-violet-50,
+[data-theme="dark"] .bg-violet-50\/80 {
+  background-color: rgba(139, 92, 246, 0.16) !important;
+}
+[data-theme="dark"] .text-violet-700,
+[data-theme="dark"] .text-violet-600 {
+  color: #c4b5fd !important;
+}
+[data-theme="dark"] .border-violet-200,
+[data-theme="dark"] .border-violet-300 {
+  border-color: rgba(139, 92, 246, 0.35) !important;
+}
+
+[data-theme="dark"] .bg-amber-50,
+[data-theme="dark"] .bg-amber-50\/80 {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+}
+[data-theme="dark"] .text-amber-700,
+[data-theme="dark"] .text-amber-600 {
+  color: #fcd34d !important;
+}
+[data-theme="dark"] .border-amber-200,
+[data-theme="dark"] .border-amber-300 {
+  border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+[data-theme="dark"] .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.16) !important;
+}
+[data-theme="dark"] .text-emerald-700,
+[data-theme="dark"] .text-emerald-600 {
+  color: #6ee7b7 !important;
+}
+[data-theme="dark"] .border-emerald-200 {
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+/* ガントチャート・カレンダー・サマリーカードの要素最適化 */
+[data-theme="dark"] .bg-sky-50\/40 {
+  background-color: rgba(14, 165, 233, 0.08) !important;
+}
+[data-theme="dark"] .bg-rose-50\/40 {
+  background-color: rgba(244, 63, 94, 0.08) !important;
+}
+[data-theme="dark"] .border-rose-200\/90 {
+  border-color: rgba(244, 63, 94, 0.35) !important;
+}
+[data-theme="dark"] .text-slate-300 {
+  color: #525266 !important;
+}
+[data-theme="dark"] .text-blue-500,
+[data-theme="dark"] .text-blue-600 {
+  color: #60a5fa !important;
+}
+[data-theme="dark"] .text-rose-500 {
+  color: #fb7185 !important;
+}
+
+/* ポップアップ・モーダルの立体シャドウと輪郭ハイライト */
+[data-theme="dark"] .shadow-2xl,
+[data-theme="dark"] .shadow-xl {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+}
+[data-theme="dark"] .shadow-md,
+[data-theme="dark"] .shadow-sm,
+[data-theme="dark"] .shadow-xs,
+[data-theme="dark"] .shadow-2xs {
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ダークテーマ用スクロールバー */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #121218;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #2b2b3d;
+  border-radius: 4px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #3e3e56;
+}

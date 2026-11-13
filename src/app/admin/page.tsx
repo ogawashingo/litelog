@@ -550,7 +550,10 @@ export default function AdminPage() {
                               className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-2xs"
                             />
                           </div>
-                          <span className="text-[10px] text-slate-500 font-medium">
+                          <span
+                            className="text-[10px] text-slate-500 font-medium"
+                            style={{ color: theme.id === "dark" ? "#94a3b8" : undefined }}
+                          >
                             {theme.hasGradient ? "多層グラデーション" : "ソリッド（グラデなし）"}
                           </span>
                         </div>
