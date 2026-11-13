@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, Filter, Calendar, Trash2, UserCheck, Users, CheckCircle2 } from "lucide-react";
+import { Search, Filter, Calendar, Trash2, UserCheck, Users, CheckCircle2, X } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, PriorityBadge, ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -16,6 +16,8 @@ interface IssueListProps {
   onSelectIssue: (issue: Issue) => void;
   onUpdateStatus: (issueId: number, status: IssueStatus) => void;
   onUpdateAssignee?: (issueId: number, assigneeId: number | null) => void;
+  onUpdatePriority?: (issueId: number, priority: IssuePriority) => void;
+  onUpdateDueDate?: (issueId: number, dueDate: string | null) => void;
   onDeleteIssue: (issueId: number) => void;
 }
 
@@ -26,6 +28,8 @@ export default function IssueList({
   onSelectIssue,
   onUpdateStatus,
   onUpdateAssignee,
+  onUpdatePriority,
+  onUpdateDueDate,
   onDeleteIssue,
 }: IssueListProps) {
   const { users, currentUser, settings } = useUser();
@@ -43,7 +47,7 @@ export default function IssueList({
 
   // 期限日の相対表現フォーマッター（設定タイムゾーン基準）
   const formatDueDate = (dateStr: string | null) => {
-    if (!dateStr) return { text: "-", isOverdue: false, isToday: false };
+    if (!dateStr) return { text: "-", isOverdue: false, isToday: false, diffDays: null };
 
     const todayStr = getTodayDateString(settings);
     const [ty, tm, td] = todayStr.split("-").map(Number);
@@ -61,24 +65,28 @@ export default function IssueList({
         text: `${dateStr} (${Math.abs(diffDays)}日超過)`,
         isOverdue: true,
         isToday: false,
+        diffDays: Math.abs(diffDays),
       };
     } else if (diffDays === 0) {
       return {
         text: `${dateStr} (本日)`,
         isOverdue: false,
         isToday: true,
+        diffDays: 0,
       };
     } else if (diffDays === 1) {
       return {
         text: `${dateStr} (明日)`,
         isOverdue: false,
         isToday: false,
+        diffDays: 1,
       };
     } else {
       return {
         text: `${dateStr} (残${diffDays}日)`,
         isOverdue: false,
         isToday: false,
+        diffDays: diffDays,
       };
     }
   };
@@ -310,8 +318,8 @@ export default function IssueList({
               <th className="py-2.5 px-3 min-w-[240px]">件名</th>
               <th className="py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
               <th className="py-2.5 px-3 w-28 whitespace-nowrap">状態</th>
-              <th className="py-2.5 px-3 w-16 text-center whitespace-nowrap">優先度</th>
-              <th className="py-2.5 px-3 w-40 whitespace-nowrap">期限日</th>
+              <th className="py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
+              <th className="py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
               <th className="py-2.5 px-2 w-10 text-center"></th>
             </tr>
           </thead>
@@ -433,29 +441,95 @@ export default function IssueList({
                       </select>
                     </td>
 
-                    {/* 優先度 */}
+                    {/* 優先度（セレクトボックスで直接変更可能） */}
                     <td className="py-3 px-3 whitespace-nowrap text-center">
-                      <PriorityBadge priority={issue.priority} />
+                      <select
+                        value={issue.priority}
+                        onChange={(e) => {
+                          if (onUpdatePriority) {
+                            onUpdatePriority(issue.id, e.target.value as IssuePriority);
+                          }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`text-xs font-semibold rounded-md px-1.5 py-0.5 border cursor-pointer transition-colors focus:outline-hidden focus:ring-1 focus:ring-indigo-500 ${
+                          issue.priority === "high"
+                            ? "text-rose-600 border-rose-300 bg-rose-50/80 hover:bg-rose-100"
+                            : issue.priority === "medium"
+                            ? "text-amber-600 border-amber-300 bg-amber-50/80 hover:bg-amber-100"
+                            : "text-slate-600 border-slate-300 bg-slate-50/80 hover:bg-slate-100"
+                        }`}
+                        title={`優先度: ${issue.priority === "high" ? "高" : issue.priority === "medium" ? "中" : "低"}`}
+                      >
+                        <option value="high">↑ 高</option>
+                        <option value="medium">→ 中</option>
+                        <option value="low">↓ 低</option>
+                      </select>
                     </td>
 
-                    {/* 期限日 */}
+                    {/* 期限日（直接編集・クリア可能） */}
                     <td className="py-3 px-3 whitespace-nowrap text-xs">
-                      {issue.due_date ? (
-                        <div
-                          className={`flex items-center gap-1 font-medium ${
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="date"
+                          value={issue.due_date || ""}
+                          onChange={(e) => {
+                            const nextDate = e.target.value || null;
+                            if (onUpdateDueDate) {
+                              onUpdateDueDate(issue.id, nextDate);
+                            }
+                          }}
+                          onClick={(e) => {
+                            try {
+                              (e.currentTarget as HTMLInputElement).showPicker?.();
+                            } catch {
+                              // showPicker 非対応ブラウザ用フォールバック
+                            }
+                          }}
+                          className={`text-xs py-1 px-1.5 border rounded-md cursor-pointer transition-colors focus:outline-hidden focus:ring-1 focus:ring-indigo-500 ${
                             dueInfo.isOverdue && !isClosed
-                              ? "text-rose-600 font-bold"
+                              ? "border-rose-300 bg-rose-50/70 text-rose-700 font-bold"
                               : dueInfo.isToday && !isClosed
-                              ? "text-amber-600 font-bold"
-                              : "text-slate-600"
+                              ? "border-amber-300 bg-amber-50/70 text-amber-700 font-bold"
+                              : issue.due_date
+                              ? "border-slate-300 bg-white text-slate-700"
+                              : "border-dashed border-slate-300 bg-slate-50/60 text-slate-400 hover:bg-white hover:border-slate-400"
                           }`}
-                        >
-                          <Calendar className="w-3.5 h-3.5 shrink-0" />
-                          <span>{dueInfo.text}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
+                          title={issue.due_date ? `期限日: ${dueInfo.text}` : "期限日を設定"}
+                        />
+                        {issue.due_date ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                                dueInfo.isOverdue && !isClosed
+                                  ? "bg-rose-100 text-rose-700 font-bold"
+                                  : dueInfo.isToday && !isClosed
+                                  ? "bg-amber-100 text-amber-700 font-bold"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {dueInfo.isOverdue
+                                ? `${dueInfo.diffDays}日超過`
+                                : dueInfo.isToday
+                                ? "本日"
+                                : dueInfo.diffDays === 1
+                                ? "明日"
+                                : `残${dueInfo.diffDays}日`}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onUpdateDueDate) {
+                                  onUpdateDueDate(issue.id, null);
+                                }
+                              }}
+                              title="期限日を解除"
+                              className="text-slate-400 hover:text-rose-600 p-0.5 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     </td>
 
                     {/* 操作（削除） */}

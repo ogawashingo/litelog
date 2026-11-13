@@ -341,6 +341,21 @@ async function runTests() {
   if (updated.status !== "in_progress") throw new Error("ステータス変更に失敗しました");
   console.log(`✓ ステータス更新テスト成功: ${updated.status}`);
 
+  // 4-2. 優先度即時変更テスト
+  db.prepare("UPDATE issues SET priority = 'low' WHERE id = ?").run(createdId);
+  const updatedPrio = db.prepare("SELECT priority FROM issues WHERE id = ?").get(createdId);
+  if (updatedPrio.priority !== "low") throw new Error("優先度変更に失敗しました");
+  console.log(`✓ 優先度更新テスト成功: ${updatedPrio.priority}`);
+
+  // 4-3. 期限日即時更新＆クリアテスト
+  db.prepare("UPDATE issues SET due_date = '2026-12-01' WHERE id = ?").run(createdId);
+  const updatedDue = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(createdId);
+  if (updatedDue.due_date !== "2026-12-01") throw new Error("期限日変更に失敗しました");
+  db.prepare("UPDATE issues SET due_date = NULL WHERE id = ?").run(createdId);
+  const clearedDue = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(createdId);
+  if (clearedDue.due_date !== null) throw new Error("期限日クリアに失敗しました");
+  console.log("✓ 期限日即時更新＆クリアテスト成功");
+
   // 5. コメント追加テスト
   const commentRes = db.prepare(`
     INSERT INTO comments (issue_id, content) VALUES (?, ?)

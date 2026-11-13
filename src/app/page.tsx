@@ -12,7 +12,7 @@ import IssueDetailModal from "@/components/IssueDetailModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
-import { Project, Issue, Activity, IssueStatus } from "@/types";
+import { Project, Issue, Activity, IssueStatus, IssuePriority } from "@/types";
 import { getTodayDateString } from "@/lib/dateUtils";
 
 export default function DashboardPage() {
@@ -125,6 +125,48 @@ export default function DashboardPage() {
     }
   };
 
+  // 課題の優先度即時変更
+  const handleUpdatePriority = async (issueId: number, newPriority: IssuePriority) => {
+    try {
+      // 楽観的UI更新
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issueId ? { ...i, priority: newPriority } : i))
+      );
+      const res = await fetch(`/api/issues/${issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority: newPriority, actorId: currentUser?.id || null }),
+      });
+      if (res.ok) {
+        await refreshAll();
+      }
+    } catch (err) {
+      console.error("優先度変更エラー:", err);
+      fetchIssues();
+    }
+  };
+
+  // 課題の期限日即時変更
+  const handleUpdateDueDate = async (issueId: number, newDueDate: string | null) => {
+    try {
+      // 楽観的UI更新
+      setIssues((prev) =>
+        prev.map((i) => (i.id === issueId ? { ...i, due_date: newDueDate } : i))
+      );
+      const res = await fetch(`/api/issues/${issueId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueDate: newDueDate, actorId: currentUser?.id || null }),
+      });
+      if (res.ok) {
+        await refreshAll();
+      }
+    } catch (err) {
+      console.error("期限日変更エラー:", err);
+      fetchIssues();
+    }
+  };
+
   // 課題削除
   const handleDeleteIssue = async (issueId: number) => {
     try {
@@ -185,6 +227,8 @@ export default function DashboardPage() {
             onSelectIssue={handleSelectIssue}
             onUpdateStatus={handleUpdateStatus}
             onUpdateAssignee={handleUpdateAssignee}
+            onUpdatePriority={handleUpdatePriority}
+            onUpdateDueDate={handleUpdateDueDate}
             onDeleteIssue={handleDeleteIssue}
           />
         </div>
