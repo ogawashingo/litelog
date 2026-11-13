@@ -538,6 +538,32 @@ async function runTests() {
   }
   console.log(`✓ 課題コメント件数・最新プレビュー結合クエリ検証成功: 件数=${issueWithComment.comment_count}, 最新="${issueWithComment.latest_comment_content}"`);
 
+  // 5-3. 管理者による機密情報・誤爆コメント完全削除および履歴カスケード削除テスト
+  const secretCommentRes = db.prepare(`
+    INSERT INTO comments (issue_id, user_id, content) VALUES (?, 1, ?)
+  `).run(createdId, "誤ってAPIキー sk-secret-12345 を投稿");
+  const secretCommentId = secretCommentRes.lastInsertRowid;
+  // 編集履歴も作成
+  db.prepare(`
+    INSERT INTO comment_histories (comment_id, user_id, content, created_at)
+    VALUES (?, 1, '旧APIキー sk-old-00000', CURRENT_TIMESTAMP)
+  `).run(secretCommentId);
+
+  // コメント削除前の履歴存在確認
+  const secretHistBefore = db.prepare("SELECT COUNT(*) AS c FROM comment_histories WHERE comment_id = ?").get(secretCommentId);
+  if (secretHistBefore.c !== 1) throw new Error("削除前履歴が存在しません");
+
+  // 管理者による削除実行（外部キー ON DELETE CASCADE の検証）
+  db.prepare("DELETE FROM comments WHERE id = ?").run(secretCommentId);
+
+  // コメントおよび履歴が完全削除されていることを検証
+  const deletedCmt = db.prepare("SELECT * FROM comments WHERE id = ?").get(secretCommentId);
+  if (deletedCmt) throw new Error("コメントが削除されていません");
+  const secretHistAfter = db.prepare("SELECT COUNT(*) AS c FROM comment_histories WHERE comment_id = ?").get(secretCommentId);
+  if (secretHistAfter.c !== 0) throw new Error("コメント履歴がカスケード削除されていません（機密情報が残存）");
+
+  console.log("✓ 管理者限定コメント完全削除＆履歴カスケード消去テスト成功（機密情報残存なし）");
+
   // 6. アクティビティ追加テスト
   db.prepare(`
     INSERT INTO activities (issue_id, action_type, content) VALUES (?, 'created', ?)

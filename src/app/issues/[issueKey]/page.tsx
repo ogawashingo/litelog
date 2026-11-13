@@ -321,6 +321,34 @@ export default function IssueDetailPage() {
     }
   };
 
+  // コメントの完全削除（管理者Adminのみ実行可能）
+  const handleDeleteComment = async (commentId: number) => {
+    if (!issue) return;
+    if (!confirm("このコメント（および編集履歴）を完全に削除しますか？\n※この操作は取り消せません。")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/issues/${issue.id}/comments/${commentId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        if (editingCommentId === commentId) {
+          setEditingCommentId(null);
+          setEditCommentContent("");
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "コメントの削除に失敗しました");
+      }
+    } catch (err) {
+      console.error("コメント削除エラー:", err);
+      alert("コメントの削除に失敗しました");
+    }
+  };
+
   // 課題の削除
   const handleDelete = async () => {
     if (!issue) return;
@@ -833,9 +861,10 @@ export default function IssueDetailPage() {
                     <p className="text-xs text-slate-400 italic">まだコメントはありません。</p>
                   ) : (
                     comments.map((c) => {
+                      const isAdmin = currentUser?.is_admin === 1;
                       const canEdit =
                         Boolean(currentUser) &&
-                        (c.user_id === currentUser?.id || currentUser?.is_admin === 1);
+                        (c.user_id === currentUser?.id || isAdmin);
                       const isEditingThis = editingCommentId === c.id;
                       const isEdited = Boolean(
                         c.updated_at || (c.history_count && c.history_count > 0)
@@ -876,10 +905,20 @@ export default function IssueDetailPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditComment(c)}
-                                  className="text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 p-1 rounded transition-colors"
+                                  className="text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 p-1 rounded transition-colors cursor-pointer"
                                   title="コメントを編集"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {isAdmin && !isEditingThis && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(c.id)}
+                                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded transition-colors cursor-pointer"
+                                  title="コメントを完全に削除（管理者のみ）"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
                             </div>
