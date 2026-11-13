@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { createMentionNotifications } from "@/lib/notificationUtils";
 
 interface RouteParams {
   params: Promise<{ id: string; commentId: string }>;
@@ -107,6 +108,15 @@ export async function PUT(request: Request, { params }: RouteParams) {
         SET updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(issue.id);
+
+      // 4. メンション通知の作成（編集前テキストと比較し、新規にメンションされたユーザーへ通知）
+      createMentionNotifications(db, {
+        issueId: issue.id,
+        commentId: comment.id,
+        senderId: sessionUser.id,
+        text: cleanContent,
+        existingText: comment.content,
+      });
 
       db.exec("COMMIT;");
     } catch (txErr) {

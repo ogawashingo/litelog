@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { createMentionNotifications } from "@/lib/notificationUtils";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
@@ -336,6 +337,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
       if (activityLogs.length === 0 && (body.title !== undefined || body.description !== undefined)) {
         insertActivity.run(currentIssue.id, actorId, "updated", `課題 [${currentIssue.issue_key}] を更新しました`);
+      }
+
+      // メンション通知の作成（詳細説明が更新された場合、新しく追加されたメンション対象者へ通知）
+      if (body.description !== undefined) {
+        createMentionNotifications(db, {
+          issueId: currentIssue.id,
+          senderId: sessionUser.id,
+          text: String(body.description).trim(),
+          existingText: currentIssue.description || "",
+        });
       }
 
       db.exec("COMMIT;");

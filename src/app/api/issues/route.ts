@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { createMentionNotifications } from "@/lib/notificationUtils";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
@@ -190,6 +191,15 @@ export async function POST(request: Request) {
         VALUES (?, ?, 'created', ?)
       `);
       insertActivity.run(issueId, resolvedActorId, `課題 [${issueKey}] 「${String(title).trim()}」を追加しました`);
+
+      // メンション通知の作成（課題説明文にメンションが含まれている場合）
+      if (description && String(description).trim()) {
+        createMentionNotifications(db, {
+          issueId: Number(issueId),
+          senderId: resolvedActorId,
+          text: String(description).trim(),
+        });
+      }
 
       db.exec("COMMIT;");
     } catch (txErr) {

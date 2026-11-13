@@ -31,6 +31,8 @@ import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority, Project } from "@/types";
 import { setStoredProjectId } from "@/lib/projectStorage";
+import MentionTextarea from "@/components/MentionTextarea";
+import MentionText from "@/components/MentionText";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -821,17 +823,18 @@ export default function IssueDetailPage() {
                   </div>
                 </div>
                 {isEditing ? (
-                  <textarea
+                  <MentionTextarea
                     rows={6}
                     value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                    placeholder="課題の詳細や手順などを記入..."
+                    onChange={(val) => setEditDescription(val)}
+                    users={users}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
+                    placeholder="課題の詳細や手順などを記入... (@でメンバーをメンション)"
                   />
                 ) : (
-                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed min-h-[80px]">
+                  <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 text-sm text-slate-800 leading-relaxed min-h-[80px]">
                     {issue.description ? (
-                      issue.description
+                      <MentionText text={issue.description} users={users} />
                     ) : (
                       <span className="text-slate-400 italic">詳細情報はありません。</span>
                     )}
@@ -955,12 +958,13 @@ export default function IssueDetailPage() {
 
                           {isEditingThis ? (
                             <div className="space-y-2 pt-1 pl-6">
-                              <textarea
+                              <MentionTextarea
                                 rows={3}
                                 value={editCommentContent}
-                                onChange={(e) => setEditCommentContent(e.target.value)}
+                                onChange={(val) => setEditCommentContent(val)}
+                                users={users}
                                 className="w-full bg-white border border-indigo-400 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                                placeholder="コメントを修正..."
+                                placeholder="コメントを修正... (@でメンバーをメンション)"
                                 disabled={isSavingComment}
                                 autoFocus
                               />
@@ -984,9 +988,7 @@ export default function IssueDetailPage() {
                               </div>
                             </div>
                           ) : (
-                            <p className="text-slate-800 whitespace-pre-wrap pl-6 text-sm">
-                              {c.content}
-                            </p>
+                            <MentionText text={c.content} users={users} className="pl-6 text-sm text-slate-800" />
                           )}
                         </div>
                       );
@@ -997,11 +999,12 @@ export default function IssueDetailPage() {
                 {/* コメント投稿フォーム */}
                 <form onSubmit={handlePostComment} className="pt-2">
                   <div className="flex gap-2">
-                    <textarea
+                    <MentionTextarea
                       rows={2}
                       value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="コメントを入力..."
+                      onChange={(val) => setNewComment(val)}
+                      users={users}
+                      placeholder="コメントを入力... (@でメンバーをメンション)"
                       className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
                     />
                     <button

@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
 import { getJapaneseHoliday } from "./src/lib/holidayUtils.ts";
+import { parseMentions, createMentionNotifications } from "./src/lib/notificationUtils.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -216,6 +217,21 @@ function setupSchemaAndSeed(db, isProdDb = false) {
   if (!activityCols.some((col) => col.name === "user_id")) {
     db.exec("ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
   }
+
+  // 通知（メンションなど）テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sender_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'mention',
+      content TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
   // 既存の「〜にコメントを追加しました」を実際のコメント内容へマイグレーション
   db.exec(`
     UPDATE activities
@@ -1182,6 +1198,119 @@ async function runTests() {
     throw new Error(`プロジェクト未選択時のヘッダーリンク生成失敗: ${JSON.stringify(hrefsWithoutProject)}`);
   }
   console.log("✓ ヘッダーのプロジェクト選択連動ナビゲーションリンク生成テスト成功");
+
+  // === メンション通知機能の検証 ===
+  // 1. メンション解析（@login_id, @[名前], 重複除外）のテスト
+  const sampleUsers = [
+    { id: 1, login_id: "admin", name: "システム 管理者" },
+    { id: 2, login_id: "yamada", name: "山田 太郎" },
+    { id: 3, login_id: "sato", name: "佐藤 花子" },
+  ];
+  const parsed1 = parseMentions("お疲れ様です @yamada さん、この件ご確認お願いします @admin", sampleUsers);
+  if (!parsed1.includes(2) || !parsed1.includes(1) || parsed1.length !== 2) {
+    throw new Error(`メンション解析失敗: 期待=[1, 2], 実際=${JSON.stringify(parsed1)}`);
+  }
+
+  // 重複メンションの除外テスト
+  const parsedDup = parseMentions("@yamada @yamada @yamada テスト", sampleUsers);
+  if (parsedDup.length !== 1 || parsedDup[0] !== 2) {
+    throw new Error(`重複メンション除外失敗: 実際=${JSON.stringify(parsedDup)}`);
+  }
+
+  // @[表示名] メンションのテスト
+  const parsedByName = parseMentions("よろしく @[佐藤 花子] さん", sampleUsers);
+  if (!parsedByName.includes(3) || parsedByName.length !== 1) {
+    throw new Error(`表示名メンション解析失敗: 期待=[3], 実際=${JSON.stringify(parsedByName)}`);
+  }
+  console.log("✓ メンション解析ロジック検証成功（@login_id, @[表示名], 重複除外）");
+
+  // 2. コメント投稿時のメンション通知作成テスト
+  // テスト用課題とコメントを確実に作成
+  const testPrj = db.prepare("SELECT id FROM projects LIMIT 1").get();
+  let validPrjId = testPrj ? testPrj.id : null;
+  if (!validPrjId) {
+    const newPrj = db.prepare("INSERT INTO projects (key, name) VALUES ('NOTIF', '通知テスト')").run();
+    validPrjId = Number(newPrj.lastInsertRowid);
+  }
+  const notifTestIssue = db.prepare(`
+    INSERT INTO issues (project_id, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, 'NOTIF-1', 1, '通知テスト用課題', 'テスト説明', 'task', 'open', 'medium')
+  `).run(validPrjId);
+  const notifIssueId = Number(notifTestIssue.lastInsertRowid);
+
+  const notifTestComment = db.prepare(`
+    INSERT INTO comments (issue_id, user_id, content)
+    VALUES (?, ?, 'テスト用コメント')
+  `).run(notifIssueId, userYamada.id);
+  const notifCommentId = Number(notifTestComment.lastInsertRowid);
+
+  // 山田(id=userYamada.id) が 佐藤(id=userSato.id) をメンション
+  const notifIds = createMentionNotifications(db, {
+    issueId: notifIssueId,
+    commentId: notifCommentId,
+    senderId: userYamada.id,
+    text: "こんにちは @sato さん、確認をお願いします！",
+  });
+  if (notifIds.length !== 1) {
+    throw new Error(`通知作成件数不一致: 期待=1, 実際=${notifIds.length}`);
+  }
+  const createdNotif = db.prepare("SELECT * FROM notifications WHERE id = ?").get(notifIds[0]);
+  if (!createdNotif || createdNotif.user_id !== userSato.id || createdNotif.sender_id !== userYamada.id) {
+    throw new Error(`通知レコード内容不一致: ${JSON.stringify(createdNotif)}`);
+  }
+  if (createdNotif.is_read !== 0) {
+    throw new Error(`通知作成時初期ステータス不一致: 期待 is_read=0, 実際=${createdNotif.is_read}`);
+  }
+
+  // 3. 自分自身へのメンションは通知対象外テスト
+  const selfNotifs = createMentionNotifications(db, {
+    issueId: notifIssueId,
+    commentId: notifCommentId,
+    senderId: userYamada.id,
+    text: "自分宛て @yamada メモ",
+  });
+  if (selfNotifs.length !== 0) {
+    throw new Error(`自分自身へのメンションが通知されました: ${JSON.stringify(selfNotifs)}`);
+  }
+
+  // 4. 通知一覧取得・未読カウント検証
+  const unreadCountRow = db
+    .prepare("SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND is_read = 0")
+    .get(userSato.id);
+  if (unreadCountRow.count !== 1) {
+    throw new Error(`未読カウント不一致: 期待=1, 実際=${unreadCountRow.count}`);
+  }
+
+  // 5. 通知既読化テスト
+  db.prepare("UPDATE notifications SET is_read = 1 WHERE id = ?").run(createdNotif.id);
+  const updatedNotif = db.prepare("SELECT is_read FROM notifications WHERE id = ?").get(createdNotif.id);
+  if (updatedNotif.is_read !== 1) {
+    throw new Error(`通知既読化失敗: 期待=1, 実際=${updatedNotif.is_read}`);
+  }
+  console.log("✓ メンション通知生成・自己宛て除外・未読集計・既読更新テスト成功");
+
+  // 6. 課題削除時の通知カスケード削除検証
+  // 新たに課題を作成し、メンション通知を作成
+  const tempIssue = db.prepare(`
+    INSERT INTO issues (project_id, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, 'NOTIF-CASCADE', 9999, '通知テスト課題', '@sato 通知カスケード検証', 'task', 'open', 'medium')
+  `).run(validPrjId);
+  const tempIssueId = Number(tempIssue.lastInsertRowid);
+  const cascadeNotifIds = createMentionNotifications(db, {
+    issueId: tempIssueId,
+    senderId: userYamada.id,
+    text: "カスケードテスト @sato",
+  });
+  if (cascadeNotifIds.length !== 1) {
+    throw new Error("カスケード用通知作成失敗");
+  }
+  // 課題を削除
+  db.prepare("DELETE FROM issues WHERE id = ?").run(tempIssueId);
+  const remainingNotif = db.prepare("SELECT * FROM notifications WHERE id = ?").get(cascadeNotifIds[0]);
+  if (remainingNotif) {
+    throw new Error("課題削除に伴う通知のカスケード削除が失敗しました");
+  }
+  console.log("✓ 課題削除時の通知カスケード消去テスト成功（ON DELETE CASCADE）");
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

@@ -19,6 +19,7 @@ import {
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
+import NotificationDropdown from "./NotificationDropdown";
 
 interface HeaderProps {
   projects: Project[];
@@ -26,6 +27,7 @@ interface HeaderProps {
   onSelectProject: (id: number | null) => void;
   onOpenCreateIssue: () => void;
   onOpenBackup?: () => void;
+  onSelectIssue?: (issueKey: string) => void;
   activeNav?: "dashboard" | "board" | "gantt" | "admin";
 }
 
@@ -34,6 +36,7 @@ export default function Header({
   selectedProjectId,
   onSelectProject,
   onOpenCreateIssue,
+  onSelectIssue,
   activeNav,
 }: HeaderProps) {
   const pathname = usePathname();
@@ -152,7 +155,7 @@ export default function Header({
             </nav>
           </div>
 
-          {/* 右側: 課題の追加ボタン ＆ 操作ユーザー表示 ＆ モバイル用メニューボタン */}
+          {/* 右側: 課題の追加ボタン ＆ 通知ベル ＆ 操作ユーザー表示 ＆ モバイル用メニューボタン */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
             {/* 課題追加ボタン（テーマ連動） */}
             <button
@@ -162,6 +165,9 @@ export default function Header({
               <Plus className="w-3.5 h-3.5 stroke-[3] shrink-0" />
               <span className="hidden sm:inline">課題の追加</span>
             </button>
+
+            {/* メンション通知ベル */}
+            <NotificationDropdown onSelectIssue={onSelectIssue} />
 
             {/* ログイン中ユーザー表示（クリックでマイアカウント設定・ログアウト） */}
             <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2.5 border-l border-white/20 shrink-0">

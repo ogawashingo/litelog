@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { createMentionNotifications } from "@/lib/notificationUtils";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -93,6 +94,14 @@ export async function POST(request: Request, { params }: RouteParams) {
         INSERT INTO activities (issue_id, user_id, action_type, content)
         VALUES (?, ?, 'commented', ?)
       `).run(issueId, resolvedUserId, cleanContent);
+
+      // メンション通知の作成
+      createMentionNotifications(db, {
+        issueId,
+        commentId: Number(commentId),
+        senderId: resolvedUserId,
+        text: cleanContent,
+      });
 
       db.exec("COMMIT;");
     } catch (txErr) {

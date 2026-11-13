@@ -228,6 +228,21 @@ function initDb(db: DatabaseSync) {
     console.error("activities テーブルのカラムマイグレーション確認エラー:", migErr);
   }
 
+  // 通知（メンションなど）テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sender_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'mention',
+      content TEXT NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // システム設定（時刻・タイムゾーン・マイグレーションバージョン管理等）テーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -257,6 +272,8 @@ function initDb(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_comment_histories_comment_id ON comment_histories(comment_id);
     CREATE INDEX IF NOT EXISTS idx_activities_issue_id ON activities(issue_id);
     CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_notifications_issue_id ON notifications(issue_id);
   `);
 
   // 一度限りのデータマイグレーション（テーマカラー移行・アクティビティ文言移行・操作者ID補完）

@@ -8,6 +8,8 @@ import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
+import MentionTextarea from "./MentionTextarea";
+import MentionText from "./MentionText";
 import { DatePicker } from "./DatePicker";
 import CommentHistoryModal from "./CommentHistoryModal";
 import IssueHistoryModal from "./IssueHistoryModal";
@@ -52,7 +54,9 @@ export default function IssueDetailModal({
 
   // 最新の onClose コールバックを保持
   const onCloseRef = React.useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   // モーダルを開いた元の画面のURLを保持
   const originalUrlRef = React.useRef<string | null>(null);
@@ -773,11 +777,15 @@ export default function IssueDetailModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">詳細</label>
-                <textarea
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
+                </label>
+                <MentionTextarea
                   rows={5}
                   value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
+                  onChange={(val) => setEditDescription(val)}
+                  users={users}
+                  placeholder="課題の詳細・背景・補足メモを入力... (@でメンバー候補を表示)"
                   className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -993,9 +1001,9 @@ export default function IssueDetailModal({
                     )}
                   </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed min-h-[90px]">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-800 leading-relaxed min-h-[90px]">
                   {activeIssue.description ? (
-                    activeIssue.description
+                    <MentionText text={activeIssue.description} users={users} />
                   ) : (
                     <span className="text-gray-400 italic">詳細メモはありません</span>
                   )}
@@ -1146,12 +1154,13 @@ export default function IssueDetailModal({
 
                     {isEditingThis ? (
                       <div className="space-y-2 pt-1 pl-6">
-                        <textarea
+                        <MentionTextarea
                           rows={3}
                           value={editCommentContent}
-                          onChange={(e) => setEditCommentContent(e.target.value)}
+                          onChange={(val) => setEditCommentContent(val)}
+                          users={users}
                           className="w-full bg-white border border-indigo-400 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                          placeholder="コメントを修正..."
+                          placeholder="コメントを修正... (@でメンバーをメンション)"
                           disabled={isSavingComment}
                           autoFocus
                         />
@@ -1175,9 +1184,7 @@ export default function IssueDetailModal({
                         </div>
                       </div>
                     ) : (
-                      <p className="text-slate-800 whitespace-pre-wrap pl-6 text-sm">
-                        {comment.content}
-                      </p>
+                      <MentionText text={comment.content} users={users} className="pl-6 text-sm text-slate-800" />
                     )}
                   </div>
                 );
@@ -1186,15 +1193,16 @@ export default function IssueDetailModal({
 
             {/* コメント入力フォーム */}
             <form onSubmit={handlePostComment} className="space-y-2 pt-2">
-              <textarea
+              <MentionTextarea
                 rows={2}
                 placeholder={
                   currentUser
-                    ? `${currentUser.name} としてコメント・進捗を入力...`
-                    : "進捗や気づき、メモを残せます..."
+                    ? `${currentUser.name} としてコメント・進捗を入力... (@でメンバーをメンション)`
+                    : "進捗や気づき、メモを残せます... (@でメンバーをメンション)"
                 }
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
+                onChange={(val) => setNewComment(val)}
+                users={users}
                 className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
               <div className="flex justify-end">

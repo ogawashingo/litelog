@@ -6,6 +6,7 @@ import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, U
 import { Project, Issue, IssueType, IssueStatus, IssuePriority } from "@/types";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
+import MentionTextarea from "./MentionTextarea";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -295,13 +296,14 @@ export default function CreateIssueModal({
           {/* 詳細（メモ） */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1">
-              詳細
+              詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
             </label>
-            <textarea
-              placeholder="タスクの背景、達成条件、作業手順など..."
+            <MentionTextarea
+              placeholder="タスクの背景、達成条件、作業手順など... (@でメンバー候補を表示)"
               rows={4}
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(val) => setDescription(val)}
+              users={users}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>

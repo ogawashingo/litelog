@@ -172,3 +172,23 @@ export interface SystemSettings {
   showHolidays: boolean;             // 日本の祝日表示（カレンダー赤字・祝日名表示）
 }
 
+// 通知情報（メンション等）
+export interface Notification {
+  id: number;
+  user_id: number;           // 通知受信者ユーザーID
+  sender_id: number | null;  // 通知送信者（メンション者）ユーザーID
+  sender_name?: string | null;  // 送信者名（結合時）
+  sender_color?: string | null; // 送信者カラー（結合時）
+  issue_id: number;          // 関連課題ID
+  issue_key?: string;        // 関連課題キー（例: 'MYPRJ-1'）
+  issue_title?: string;      // 関連課題タイトル
+  project_name?: string;     // プロジェクト名
+  project_color?: string;    // プロジェクトカラー
+  comment_id: number | null; // コメントID（コメント経由の場合）
+  type: "mention" | string;  // 通知種別（メンションなど）
+  content: string;           // 通知本文・抜粋
+  is_read: number;           // 既読フラグ（0: 未読, 1: 既読）
+  created_at: string;        // 作成日時
+}
+
+
