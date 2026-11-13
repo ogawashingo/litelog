@@ -58,6 +58,11 @@ export interface Issue {
   assignee_name?: string | null;    // 結合時の担当者名
   assignee_color?: string | null;   // 結合時の担当者カラー
   creator_name?: string | null;     // 結合時の作成者名
+  comment_count?: number;           // コメント総数
+  latest_comment_content?: string | null;   // 最新コメント本文
+  latest_comment_created_at?: string | null;// 最新コメント投稿日時
+  latest_comment_user_name?: string | null; // 最新コメント投稿者名
+  latest_comment_user_color?: string | null;// 最新コメント投稿者カラー
   children?: Issue[];     // 親子ツリー時の子課題リスト
 }
 

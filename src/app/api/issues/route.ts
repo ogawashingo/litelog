@@ -29,12 +29,24 @@ export async function GET(request: Request) {
         parent.title AS parent_title,
         u.name AS assignee_name,
         u.color AS assignee_color,
-        creator.name AS creator_name
+        creator.name AS creator_name,
+        COALESCE(cmt_stat.comment_count, 0) AS comment_count,
+        latest_c.content AS latest_comment_content,
+        latest_c.created_at AS latest_comment_created_at,
+        cu.name AS latest_comment_user_name,
+        cu.color AS latest_comment_user_color
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN issues parent ON i.parent_id = parent.id
       LEFT JOIN users u ON i.assignee_id = u.id
       LEFT JOIN users creator ON i.created_by = creator.id
+      LEFT JOIN (
+        SELECT issue_id, COUNT(*) AS comment_count, MAX(id) AS latest_comment_id
+        FROM comments
+        GROUP BY issue_id
+      ) cmt_stat ON cmt_stat.issue_id = i.id
+      LEFT JOIN comments latest_c ON latest_c.id = cmt_stat.latest_comment_id
+      LEFT JOIN users cu ON latest_c.user_id = cu.id
       WHERE 1=1
     `;
     const params: (string | number)[] = [];

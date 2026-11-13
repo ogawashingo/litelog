@@ -19,6 +19,7 @@ import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
+import CommentPreviewBadge from "./CommentPreviewBadge";
 
 interface BoardViewProps {
   projects: Project[];
@@ -453,8 +454,8 @@ export default function BoardView({
 
                         {/* カード下部: 期限日・担当者アバター */}
                         <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 text-slate-500">
-                          {/* 期限日 */}
-                          <div className="flex items-center gap-1">
+                          {/* 期限日 ＆ コメントバッジ */}
+                          <div className="flex items-center gap-2">
                             {dueInfo ? (
                               <span className={`flex items-center gap-1 ${dueInfo.color}`}>
                                 {dueInfo.isOverdue ? (
@@ -468,6 +469,24 @@ export default function BoardView({
                               </span>
                             ) : (
                               <span className="text-slate-400 text-[10px]">期日なし</span>
+                            )}
+
+                            {/* コメント件数バッジ ＆ ホバープレビュー */}
+                            {Boolean(issue.comment_count && issue.comment_count > 0) && (
+                              <CommentPreviewBadge
+                                commentCount={issue.comment_count}
+                                latestCommentContent={issue.latest_comment_content}
+                                latestCommentCreatedAt={issue.latest_comment_created_at}
+                                latestCommentUserName={issue.latest_comment_user_name}
+                                latestCommentUserColor={issue.latest_comment_user_color}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setDetailIssue(issue);
+                                  setIsDetailOpen(true);
+                                }}
+                                placement="top"
+                              />
                             )}
                           </div>
 

@@ -408,6 +408,30 @@ async function runTests() {
   `).run(createdId, "テストコメントを投稿しました");
   console.log(`✓ コメント追加テスト成功: ID=${commentRes.lastInsertRowid}`);
 
+  // 5-2. 課題一覧API用 コメント件数・最新コメント結合取得テスト
+  const issueWithComment = db.prepare(`
+    SELECT 
+      i.*,
+      COALESCE(cmt_stat.comment_count, 0) AS comment_count,
+      latest_c.content AS latest_comment_content,
+      latest_c.created_at AS latest_comment_created_at,
+      cu.name AS latest_comment_user_name,
+      cu.color AS latest_comment_user_color
+    FROM issues i
+    LEFT JOIN (
+      SELECT issue_id, COUNT(*) AS comment_count, MAX(id) AS latest_comment_id
+      FROM comments
+      GROUP BY issue_id
+    ) cmt_stat ON cmt_stat.issue_id = i.id
+    LEFT JOIN comments latest_c ON latest_c.id = cmt_stat.latest_comment_id
+    LEFT JOIN users cu ON latest_c.user_id = cu.id
+    WHERE i.id = ?
+  `).get(createdId);
+  if (!issueWithComment || issueWithComment.comment_count !== 2 || issueWithComment.latest_comment_content !== "テストコメントを投稿しました") {
+    throw new Error(`コメント結合クエリ検証失敗: count=${issueWithComment?.comment_count}, content=${issueWithComment?.latest_comment_content}`);
+  }
+  console.log(`✓ 課題コメント件数・最新プレビュー結合クエリ検証成功: 件数=${issueWithComment.comment_count}, 最新="${issueWithComment.latest_comment_content}"`);
+
   // 6. アクティビティ追加テスト
   db.prepare(`
     INSERT INTO activities (issue_id, action_type, content) VALUES (?, 'created', ?)

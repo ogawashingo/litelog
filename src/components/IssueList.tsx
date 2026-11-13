@@ -9,6 +9,7 @@ import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { parseDbTimestamp, getTodayDateString } from "@/lib/dateUtils";
 import { DatePicker } from "./DatePicker";
+import CommentPreviewBadge from "./CommentPreviewBadge";
 
 interface IssueListProps {
   issues: Issue[];
@@ -338,7 +339,7 @@ export default function IssueList({
                 </td>
               </tr>
             ) : (
-              sortedIssues.map((issue) => {
+              sortedIssues.map((issue, index) => {
                 const dueInfo = formatDueDate(issue.due_date);
                 const isClosed = issue.status === "closed";
                 const assigneeColor = issue.assignee_color || "#4f46e5";
@@ -433,6 +434,22 @@ export default function IssueList({
                           >
                             {issue.project_name}
                           </span>
+                        )}
+                        {/* コメント件数バッジ ＆ ホバープレビュー */}
+                        {Boolean(issue.comment_count && issue.comment_count > 0) && (
+                          <CommentPreviewBadge
+                            commentCount={issue.comment_count}
+                            latestCommentContent={issue.latest_comment_content}
+                            latestCommentCreatedAt={issue.latest_comment_created_at}
+                            latestCommentUserName={issue.latest_comment_user_name}
+                            latestCommentUserColor={issue.latest_comment_user_color}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onSelectIssue(issue);
+                            }}
+                            placement={index < 2 ? "bottom" : "top"}
+                          />
                         )}
                       </div>
                     </td>
