@@ -949,21 +949,10 @@ export default function IssueDetailPage() {
                   </div>
                 )}
 
-                {/* 子課題が0件でインラインフォームも閉じてる場合の案内 */}
+                {/* 子課題が0件でインラインフォームも閉じてる場合の案内（重複する追加ボタンは置かずシンプルに表示） */}
                 {childrenIssues.length === 0 && !isAddingChild && (
-                  <div className="bg-slate-50/70 border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-500">
-                    子課題はまだありません。
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAddingChild(true);
-                        setChildError("");
-                      }}
-                      className="ml-2 text-indigo-600 hover:text-indigo-800 hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>子課題を追加</span>
-                    </button>
+                  <div className="bg-slate-50/70 border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-400">
+                    子課題はまだ登録されていません
                   </div>
                 )}
 
