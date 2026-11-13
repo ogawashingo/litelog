@@ -223,12 +223,12 @@ export default function IssueHistoryModal({
                     <div className="flex items-center gap-1.5">
                       <span className="font-semibold text-slate-800">
                         {activeTab === "title"
-                          ? "現在のタイトル"
+                          ? "タイトル"
                           : activeTab === "description"
-                          ? "現在の詳細・説明"
+                          ? "詳細・説明"
                           : activeTab === "dates"
-                          ? "現在の日程設定"
-                          : "最新版（現在）"}
+                          ? "日程設定"
+                          : "最新の設定"}
                       </span>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">
                         最新版（現在）
@@ -251,13 +251,13 @@ export default function IssueHistoryModal({
                   ) : activeTab === "dates" ? (
                     <div className="grid grid-cols-2 gap-3 pt-1">
                       <div className="bg-white p-2.5 rounded border border-emerald-200">
-                        <span className="text-[10px] font-bold text-slate-500 block">現在の開始日:</span>
+                        <span className="text-[10px] font-bold text-slate-500 block">開始日:</span>
                         <span className="text-slate-900 font-bold text-sm">
                           {currentIssue.start_date || "未設定"}
                         </span>
                       </div>
                       <div className="bg-white p-2.5 rounded border border-emerald-200">
-                        <span className="text-[10px] font-bold text-slate-500 block">現在の期限日:</span>
+                        <span className="text-[10px] font-bold text-slate-500 block">期限日:</span>
                         <span className="text-slate-900 font-bold text-sm">
                           {currentIssue.due_date || "未設定"}
                         </span>
