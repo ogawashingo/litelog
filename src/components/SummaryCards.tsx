@@ -14,6 +14,8 @@ import {
   ArrowUp,
   Hourglass,
   Zap,
+  ClipboardCopy,
+  Check,
 } from "lucide-react";
 import { Issue, IssueStatus } from "@/types";
 import { TypeBadge } from "./IssueBadge";
@@ -32,17 +34,20 @@ interface UrgentItem {
 
 interface SummaryCardsProps {
   issues: Issue[];
+  projectName?: string;
   onSelectIssue: (issue: Issue) => void;
   onUpdateStatus?: (issueId: number, status: IssueStatus) => void;
 }
 
 export default function SummaryCards({
   issues,
+  projectName,
   onSelectIssue,
   onUpdateStatus,
 }: SummaryCardsProps) {
   const { settings } = useUser();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCopiedReport, setIsCopiedReport] = useState(false);
 
   // 本日の日付文字列
   const todayStr = getTodayDateString(settings);
@@ -145,6 +150,63 @@ export default function SummaryCards({
   const unstartedCount = urgentItems.filter((i) => i.urgency === "unstarted").length;
   const todayCount = urgentItems.filter((i) => i.urgency === "today").length;
 
+  // 週次報告用テキストの生成＆クリップボードコピー
+  const handleCopyWeeklyReport = async () => {
+    const lines: string[] = [];
+    lines.push(`📋 【週次進捗・要フォロー課題サマリー】 (${todayStr})`);
+    if (projectName) {
+      lines.push(`プロジェクト: ${projectName}`);
+    }
+    lines.push("");
+    lines.push(`■ 概況`);
+    lines.push(`- 要フォロー課題: 計 ${urgentItems.length} 件`);
+    if (overdueCount > 0) lines.push(`  - 🔴 期限超過: ${overdueCount}件`);
+    if (stalledCount > 0) lines.push(`  - 🟡 停滞中(数日間沈黙): ${stalledCount}件`);
+    if (unstartedCount > 0) lines.push(`  - 🟠 未着手警告: ${unstartedCount}件`);
+    if (todayCount > 0) lines.push(`  - 📅 本日締切: ${todayCount}件`);
+    lines.push("");
+    lines.push(`■ 要確認・ボトルネック課題一覧`);
+
+    urgentItems.forEach(({ issue, urgency, badgeText }, idx) => {
+      const statusLabel =
+        urgency === "overdue"
+          ? `期限超過 (${badgeText})`
+          : urgency === "stalled"
+          ? `停滞中 (${badgeText})`
+          : urgency === "unstarted"
+          ? `未着手警告 (${badgeText})`
+          : badgeText;
+
+      const priorityLabel =
+        issue.priority === "high" ? "高" : issue.priority === "medium" ? "中" : "低";
+
+      lines.push(`${idx + 1}. [${issue.issue_key}] ${issue.title}`);
+      lines.push(`   - 状態: ${statusLabel}${issue.due_date ? ` (期限: ${issue.due_date})` : ""}`);
+      lines.push(`   - 担当: ${issue.assignee_name || "未割当"} / 優先度: ${priorityLabel}`);
+      if (issue.latest_comment_content) {
+        const commentSnippet = issue.latest_comment_content.replace(/\r?\n/g, " ").trim().slice(0, 80);
+        lines.push(
+          `   - 最新メモ (${issue.latest_comment_user_name || "メンバー"}): 「${commentSnippet}${
+            issue.latest_comment_content.length > 80 ? "..." : ""
+          }」`
+        );
+      }
+    });
+
+    lines.push("");
+    lines.push(`---`);
+    lines.push(`※ Personal Backlog より自動生成`);
+
+    const text = lines.join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsCopiedReport(true);
+      setTimeout(() => setIsCopiedReport(false), 2500);
+    } catch (err) {
+      console.error("クリップボード書き込み失敗:", err);
+    }
+  };
+
   return (
     <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-rose-200/90 overflow-hidden">
       {/* 要フォローヘッダー */}
@@ -162,32 +224,58 @@ export default function SummaryCards({
           </span>
         </div>
 
-        {/* 状態シグナルサマリーバッジ */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold">
-          {overdueCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
-              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-              期限超過: {overdueCount}件
-            </span>
-          )}
-          {stalledCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
-              <Hourglass className="w-3.5 h-3.5 text-amber-600" />
-              停滞中: {stalledCount}件
-            </span>
-          )}
-          {unstartedCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-900 border border-orange-200">
-              <Zap className="w-3.5 h-3.5 text-orange-600" />
-              未着手警告: {unstartedCount}件
-            </span>
-          )}
-          {todayCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-900 border border-yellow-200">
-              <Calendar className="w-3.5 h-3.5 text-yellow-700" />
-              本日締切: {todayCount}件
-            </span>
-          )}
+        {/* 状態シグナルサマリーバッジ & 週次報告コピー */}
+        <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {overdueCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                期限超過: {overdueCount}件
+              </span>
+            )}
+            {stalledCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                <Hourglass className="w-3.5 h-3.5 text-amber-600" />
+                停滞中: {stalledCount}件
+              </span>
+            )}
+            {unstartedCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-900 border border-orange-200">
+                <Zap className="w-3.5 h-3.5 text-orange-600" />
+                未着手警告: {unstartedCount}件
+              </span>
+            )}
+            {todayCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-900 border border-yellow-200">
+                <Calendar className="w-3.5 h-3.5 text-yellow-700" />
+                本日締切: {todayCount}件
+              </span>
+            )}
+          </div>
+
+          {/* マネージャー・コンサル向け 週次報告サマリーコピーボタン */}
+          <button
+            type="button"
+            onClick={handleCopyWeeklyReport}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border transition-all cursor-pointer font-bold shadow-2xs ${
+              isCopiedReport
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "bg-white text-rose-900 border-rose-300 hover:bg-rose-600 hover:text-white hover:border-rose-600"
+            }`}
+            title="Slackやメール・定例会議資料にそのまま貼れる週次サマリーテキストをコピーします"
+          >
+            {isCopiedReport ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>コピー完了！</span>
+              </>
+            ) : (
+              <>
+                <ClipboardCopy className="w-3.5 h-3.5 text-rose-600 group-hover:text-white" />
+                <span>週次報告用にコピー</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
