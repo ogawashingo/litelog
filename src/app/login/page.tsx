@@ -99,8 +99,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-transparent flex flex-col justify-center items-center p-4 font-sans">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-indigo-100/80 overflow-hidden">
-        {/* ヘッダーバナー（Cosmic Indigo ＆ Coral-Amber テーマ） */}
-        <div className="bg-gradient-to-br from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-6 py-7 text-white text-center relative overflow-hidden">
+        {/* ヘッダーバナー（テーマ連動） */}
+        <div className="app-header px-6 py-7 text-white text-center relative overflow-hidden">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 via-amber-400 to-violet-500 p-[2px] mx-auto mb-3 shadow-lg shadow-rose-500/25">
             <div className="w-full h-full rounded-[14px] bg-[#1e1b4b]/90 flex items-center justify-center">
               {needsSetup ? (
@@ -189,7 +189,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm rounded-lg shadow-md shadow-indigo-500/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full py-2.5 px-4 app-primary-btn text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>{isLoading ? "アカウント作成中..." : "管理者アカウントを作成して開始"}</span>
@@ -244,7 +244,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm rounded-lg shadow-md shadow-indigo-500/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="w-full py-2.5 px-4 app-primary-btn text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>{isLoading ? "ログイン中..." : "ログインする"}</span>

@@ -100,12 +100,12 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl border border-indigo-100 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-5 py-3.5 flex items-center justify-between text-white">
+        <div className="app-header px-5 py-3.5 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-amber-300" />
+            <Database className="w-5 h-5 app-nav-indicator" />
             <h3 className="font-bold text-base">データバックアップ・復元</h3>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer">

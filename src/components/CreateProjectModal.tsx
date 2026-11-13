@@ -81,12 +81,12 @@ export default function CreateProjectModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl border border-indigo-100 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-5 py-3.5 flex items-center justify-between text-white">
+        <div className="app-header px-5 py-3.5 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
-            <FolderPlus className="w-5 h-5 text-amber-300" />
+            <FolderPlus className="w-5 h-5 app-nav-indicator" />
             <h3 className="font-bold text-base">新規プロジェクトの作成</h3>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer">
@@ -161,7 +161,7 @@ export default function CreateProjectModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+              className="px-5 py-1.5 rounded-lg app-primary-btn text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? "作成中..." : "プロジェクトを作成"}
             </button>

@@ -140,11 +140,11 @@ export default function CreateIssueModal({
       onClick={onClose}
     >
       <div
-        className="bg-white sm:rounded-xl shadow-2xl border border-indigo-100 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
+        className="bg-white sm:rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* モーダルヘッダー */}
-        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between text-white shrink-0">
+        {/* モーダルヘッダー（テーマ連動） */}
+        <div className="app-header px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between text-white shrink-0">
           <div className="flex items-center gap-2">
             {/* モバイル用戻るボタン */}
             <button
@@ -156,7 +156,7 @@ export default function CreateIssueModal({
               <ArrowLeft className="w-4 h-4" />
               <span>戻る</span>
             </button>
-            <Plus className="w-5 h-5 stroke-[2.5] text-amber-300 hidden sm:block" />
+            <Plus className="w-5 h-5 stroke-[2.5] app-nav-indicator hidden sm:block" />
             <h3 className="font-bold text-base sm:text-lg">課題の追加</h3>
           </div>
           <button
@@ -384,7 +384,7 @@ export default function CreateIssueModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2 rounded-lg bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
+              className="px-6 py-2 rounded-lg app-primary-btn text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? "追加中..." : "追加する"}
             </button>

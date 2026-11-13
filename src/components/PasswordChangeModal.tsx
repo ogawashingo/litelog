@@ -158,10 +158,10 @@ export default function PasswordChangeModal({
         className="bg-white rounded-xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* モーダルヘッダー */}
-        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-6 py-4 flex items-center justify-between text-white shrink-0">
+        {/* モーダルヘッダー（テーマ連動） */}
+        <div className="app-header px-6 py-4 flex items-center justify-between text-white shrink-0">
           <div className="flex items-center gap-2">
-            <UserIcon className="w-5 h-5 text-amber-300" />
+            <UserIcon className="w-5 h-5 app-nav-indicator" />
             <h3 className="font-bold text-base">マイアカウント設定</h3>
           </div>
           <button
@@ -421,7 +421,7 @@ export default function PasswordChangeModal({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg app-primary-btn text-xs font-bold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>{isSubmitting ? "保存中..." : "設定を保存する"}</span>

@@ -206,13 +206,13 @@ export default function UserManageModal({
       onClick={onClose}
     >
       <div
-        className="bg-white sm:rounded-xl shadow-2xl border border-indigo-100 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col h-full sm:h-auto sm:max-h-[90vh]"
+        className="bg-white sm:rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col h-full sm:h-auto sm:max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* モーダルヘッダー */}
-        <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] px-6 py-4 flex items-center justify-between text-white shrink-0">
+        {/* モーダルヘッダー（テーマ連動） */}
+        <div className="app-header px-6 py-4 flex items-center justify-between text-white shrink-0">
           <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-amber-300" />
+            <Users className="w-5 h-5 app-nav-indicator" />
             <h3 className="font-bold text-lg">チームメンバー・アカウント管理</h3>
           </div>
           <button
@@ -307,7 +307,7 @@ export default function UserManageModal({
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-1.5 px-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold text-xs rounded-md shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                    className="w-full py-1.5 px-3 app-primary-btn text-white font-bold text-xs rounded-md shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isSubmitting ? "追加中..." : "＋ メンバー追加"}
                   </button>
@@ -540,7 +540,7 @@ export default function UserManageModal({
                             <button
                               type="button"
                               onClick={() => handleSaveEdit(u.id)}
-                              className="flex items-center gap-1 px-3 py-1 text-xs bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold rounded hover:from-indigo-700 hover:to-violet-700 cursor-pointer"
+                              className="flex items-center gap-1 px-3 py-1 text-xs app-primary-btn text-white font-bold rounded cursor-pointer"
                             >
                               <Check className="w-3.5 h-3.5" />
                               <span>保存</span>
