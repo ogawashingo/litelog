@@ -54,7 +54,7 @@ export default function IssueDetailPage() {
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
   const [isIssueHistoryOpen, setIsIssueHistoryOpen] = useState(false);
-  const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "all">("description");
+  const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "dates" | "all">("description");
 
   // 編集モードState
   const [isEditing, setIsEditing] = useState(false);
@@ -705,7 +705,22 @@ export default function IssueDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 pb-4 text-xs">
                 {/* 開始日 */}
                 <div>
-                  <span className="block text-slate-500 mb-1 font-medium">開始日</span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-slate-500 font-medium">開始日</span>
+                    {Boolean(issue.start_date_history_count && issue.start_date_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("dates");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                        title="クリックして開始日の変更履歴を確認"
+                      >
+                        (履歴{issue.start_date_history_count}件)
+                      </button>
+                    )}
+                  </div>
                   {isEditing ? (
                     <DatePicker
                       value={editStartDate}
@@ -722,7 +737,22 @@ export default function IssueDetailPage() {
 
                 {/* 期限日 */}
                 <div>
-                  <span className="block text-slate-500 mb-1 font-medium">期限日</span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-slate-500 font-medium">期限日</span>
+                    {Boolean(issue.due_date_history_count && issue.due_date_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("dates");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                        title="クリックして期限日の変更履歴（延期履歴）を確認"
+                      >
+                        (履歴{issue.due_date_history_count}件)
+                      </button>
+                    )}
+                  </div>
                   {isEditing ? (
                     <DatePicker
                       value={editDueDate}

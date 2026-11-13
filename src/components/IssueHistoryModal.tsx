@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { X, History, Clock, FileText, Type } from "lucide-react";
+import { X, History, Clock, FileText, Type, Calendar } from "lucide-react";
 import { formatTimestamp } from "@/lib/dateUtils";
 import { Issue, IssueHistory, SystemSettings } from "@/types";
 
@@ -9,7 +9,7 @@ interface IssueHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   issueId: number | string;
-  initialTab?: "description" | "title" | "all";
+  initialTab?: "description" | "title" | "dates" | "all";
   settings?: SystemSettings;
 }
 
@@ -19,7 +19,7 @@ function getUserInitials(name?: string | null): string {
   return name.trim().slice(0, 1);
 }
 
-// 課題変更履歴（タイトル・詳細説明の変更ログ）モーダルコンポーネント
+// 課題変更履歴（タイトル・詳細説明・期日等の変更ログ）モーダルコンポーネント
 export default function IssueHistoryModal({
   isOpen,
   onClose,
@@ -31,7 +31,7 @@ export default function IssueHistoryModal({
   const [error, setError] = useState<string | null>(null);
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(null);
   const [histories, setHistories] = useState<IssueHistory[]>([]);
-  const [activeTab, setActiveTab] = useState<"description" | "title" | "all">(initialTab);
+  const [activeTab, setActiveTab] = useState<"description" | "title" | "dates" | "all">(initialTab);
 
   useEffect(() => {
     if (!isOpen || !issueId) {
@@ -77,12 +77,19 @@ export default function IssueHistoryModal({
   // タブに応じた履歴の絞り込み
   const filteredHistories = useMemo(() => {
     if (activeTab === "all") return histories;
+    if (activeTab === "dates") {
+      return histories.filter((h) => h.field_name === "due_date" || h.field_name === "start_date");
+    }
     return histories.filter((h) => h.field_name === activeTab);
   }, [histories, activeTab]);
 
   // 各フィールドごとの履歴件数
   const descCount = useMemo(() => histories.filter((h) => h.field_name === "description").length, [histories]);
   const titleCount = useMemo(() => histories.filter((h) => h.field_name === "title").length, [histories]);
+  const dateCount = useMemo(
+    () => histories.filter((h) => h.field_name === "due_date" || h.field_name === "start_date").length,
+    [histories]
+  );
 
   if (!isOpen) return null;
 
@@ -133,6 +140,26 @@ export default function IssueHistoryModal({
               }`}
             >
               {descCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("dates")}
+            className={`px-3 py-2 border-b-2 font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+              activeTab === "dates"
+                ? "border-indigo-600 text-indigo-600 font-bold bg-white rounded-t-lg border-t border-x border-slate-200 -mb-[1px]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>期限・日程</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                dateCount > 0 ? "bg-indigo-100 text-indigo-700 font-bold" : "bg-slate-200 text-slate-600"
+              }`}
+            >
+              {dateCount}
             </span>
           </button>
 
@@ -199,6 +226,8 @@ export default function IssueHistoryModal({
                           ? "現在のタイトル"
                           : activeTab === "description"
                           ? "現在の詳細・説明"
+                          : activeTab === "dates"
+                          ? "現在の日程設定"
                           : "最新版（現在）"}
                       </span>
                       <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">
@@ -219,11 +248,36 @@ export default function IssueHistoryModal({
                     <p className="text-slate-800 whitespace-pre-wrap text-sm pt-1">
                       {currentIssue.description || "（詳細・説明はありません）"}
                     </p>
+                  ) : activeTab === "dates" ? (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div className="bg-white p-2.5 rounded border border-emerald-200">
+                        <span className="text-[10px] font-bold text-slate-500 block">現在の開始日:</span>
+                        <span className="text-slate-900 font-bold text-sm">
+                          {currentIssue.start_date || "未設定"}
+                        </span>
+                      </div>
+                      <div className="bg-white p-2.5 rounded border border-emerald-200">
+                        <span className="text-[10px] font-bold text-slate-500 block">現在の期限日:</span>
+                        <span className="text-slate-900 font-bold text-sm">
+                          {currentIssue.due_date || "未設定"}
+                        </span>
+                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-2 pt-1">
                       <div>
                         <span className="text-[10px] font-bold text-slate-500">タイトル:</span>
                         <p className="text-slate-900 font-semibold">{currentIssue.title}</p>
+                      </div>
+                      <div className="flex gap-4 text-xs">
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-500">開始日:</span>{" "}
+                          <span className="font-semibold">{currentIssue.start_date || "未設定"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-slate-500">期限日:</span>{" "}
+                          <span className="font-semibold">{currentIssue.due_date || "未設定"}</span>
+                        </div>
                       </div>
                       <div>
                         <span className="text-[10px] font-bold text-slate-500">詳細・説明:</span>
@@ -241,6 +295,18 @@ export default function IssueHistoryModal({
                 const versionNumber = filteredHistories.length - idx;
                 const isFieldDesc = h.field_name === "description";
                 const isFieldTitle = h.field_name === "title";
+                const isFieldDue = h.field_name === "due_date";
+                const isFieldStart = h.field_name === "start_date";
+
+                const fieldLabel = isFieldDesc
+                  ? "説明"
+                  : isFieldTitle
+                  ? "タイトル"
+                  : isFieldDue
+                  ? "期限日"
+                  : isFieldStart
+                  ? "開始日"
+                  : h.field_name;
 
                 return (
                   <div key={h.id} className="relative pl-6 border-l-2 border-slate-200">
@@ -258,8 +324,16 @@ export default function IssueHistoryModal({
                             {h.user_name || "メンバー"}
                           </span>
                           <span className="text-slate-400 text-[10px]">が変更</span>
-                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-200 text-slate-700 font-medium">
-                            {isFieldDesc ? "説明" : isFieldTitle ? "タイトル" : h.field_name} Ver {versionNumber} (変更前)
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              isFieldDue
+                                ? "bg-amber-100 text-amber-800 font-bold"
+                                : isFieldStart
+                                ? "bg-blue-100 text-blue-800 font-bold"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {fieldLabel} Ver {versionNumber} (変更前)
                           </span>
                         </div>
                         <div className="flex items-center gap-1 text-[11px] text-slate-400">
@@ -286,6 +360,8 @@ export default function IssueHistoryModal({
                     ? "詳細・説明の変更履歴はありません（作成時のままです）。"
                     : activeTab === "title"
                     ? "タイトルの変更履歴はありません（作成時のままです）。"
+                    : activeTab === "dates"
+                    ? "期限日・開始日の変更履歴はありません（作成時のままです）。"
                     : "過去の変更履歴はありません。"}
                 </div>
               )}

@@ -65,6 +65,8 @@ export interface Issue {
   latest_comment_user_color?: string | null;// 最新コメント投稿者カラー
   description_history_count?: number;       // 詳細説明の編集履歴件数
   title_history_count?: number;             // タイトルの変更履歴件数
+  due_date_history_count?: number;          // 期限日の変更履歴件数
+  start_date_history_count?: number;        // 開始日の変更履歴件数
   children?: Issue[];     // 親子ツリー時の子課題リスト
 }
 
@@ -92,14 +94,14 @@ export interface CommentHistory {
   created_at: string;         // 履歴作成日時
 }
 
-// 課題変更履歴情報（タイトル・詳細説明等の過去バージョン）
+// 課題変更履歴情報（タイトル・詳細説明・期日等の過去バージョン）
 export interface IssueHistory {
   id: number;
   issue_id: number;
   user_id?: number | null;    // 変更者ユーザーID
   user_name?: string | null;  // 結合時の変更者名
   user_color?: string | null; // 結合時の変更者カラー
-  field_name: "title" | "description" | string; // 変更されたフィールド名
+  field_name: "title" | "description" | "due_date" | "start_date" | string; // 変更されたフィールド名
   old_value?: string | null;  // 変更前の値
   created_at: string;         // 履歴保存日時
 }

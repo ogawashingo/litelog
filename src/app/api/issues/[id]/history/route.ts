@@ -26,6 +26,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
         i.issue_key,
         i.title,
         i.description,
+        i.start_date,
+        i.due_date,
         i.created_at,
         i.updated_at,
         u.name AS assignee_name,
@@ -38,6 +40,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       issue_key: string;
       title: string;
       description: string | null;
+      start_date: string | null;
+      due_date: string | null;
       created_at: string;
       updated_at: string | null;
       assignee_name: string | null;

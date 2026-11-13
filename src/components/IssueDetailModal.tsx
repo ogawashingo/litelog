@@ -41,7 +41,7 @@ export default function IssueDetailModal({
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
   const [isIssueHistoryOpen, setIsIssueHistoryOpen] = useState(false);
-  const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "all">("description");
+  const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "dates" | "all">("description");
   const [isEditing, setIsEditing] = useState(false);
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
 
@@ -769,7 +769,22 @@ export default function IssueDetailModal({
                 </div>
 
                 <div>
-                  <span className="text-gray-500 block mb-1 font-medium">開始日</span>
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-gray-500 font-medium">開始日</span>
+                    {Boolean(activeIssue.start_date_history_count && activeIssue.start_date_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("dates");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                        title="クリックして開始日の変更履歴を確認"
+                      >
+                        (履歴{activeIssue.start_date_history_count}件)
+                      </button>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1 font-medium text-gray-800">
                     <Calendar className="w-3.5 h-3.5 text-gray-500" />
                     <span>{activeIssue.start_date || "指定なし"}</span>
@@ -777,7 +792,22 @@ export default function IssueDetailModal({
                 </div>
 
                 <div>
-                  <span className="text-gray-500 block mb-1 font-medium">期限日</span>
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-gray-500 font-medium">期限日</span>
+                    {Boolean(activeIssue.due_date_history_count && activeIssue.due_date_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("dates");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                        title="クリックして期限日の変更履歴（延期履歴）を確認"
+                      >
+                        (履歴{activeIssue.due_date_history_count}件)
+                      </button>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1 font-medium text-gray-800">
                     <Calendar className="w-3.5 h-3.5 text-gray-500" />
                     <span>{activeIssue.due_date || "指定なし"}</span>

@@ -30,6 +30,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
         creator.name AS creator_name,
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'description') AS description_history_count,
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'due_date') AS due_date_history_count,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'start_date') AS start_date_history_count,
         COALESCE(cmt_stat.comment_count, 0) AS comment_count,
         latest_c.content AS latest_comment_content,
         latest_c.created_at AS latest_comment_created_at,
@@ -261,17 +263,25 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       const nextStart = body.startDate || null;
       updates.push("start_date = ?");
       values.push(nextStart);
+
+      // 開始日が変更された場合、変更前の値を履歴に退避
+      if ((currentIssue.start_date || null) !== nextStart) {
+        historiesToInsert.push({ field: "start_date", oldValue: currentIssue.start_date || "" });
+      }
     }
     if (body.dueDate !== undefined) {
       const nextDue = body.dueDate || null;
       updates.push("due_date = ?");
       values.push(nextDue);
+
+      // 期限日が変更された場合、変更前の値を履歴に退避
       if ((currentIssue.due_date || null) !== nextDue) {
+        historiesToInsert.push({ field: "due_date", oldValue: currentIssue.due_date || "" });
+        const oldLabel = currentIssue.due_date || "未設定";
+        const newLabel = nextDue || "未設定";
         activityLogs.push({
           type: "updated",
-          msg: nextDue
-            ? `課題 [${currentIssue.issue_key}] の期限日を「${nextDue}」に設定しました`
-            : `課題 [${currentIssue.issue_key}] の期限日を未設定にしました`,
+          msg: `課題 [${currentIssue.issue_key}] の期限日を「${oldLabel}」から「${newLabel}」に変更しました`,
         });
       }
     }
@@ -330,7 +340,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         u.color AS assignee_color,
         creator.name AS creator_name,
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'description') AS description_history_count,
-        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'due_date') AS due_date_history_count,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'start_date') AS start_date_history_count
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN issues parent ON i.parent_id = parent.id

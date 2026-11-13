@@ -448,14 +448,25 @@ async function runTests() {
   `).run(createdId, 1, origDesc);
   db.prepare("UPDATE issues SET description = ? WHERE id = ?").run("更新後詳細説明文テスト", createdId);
 
+  // 期限日の変更前を履歴保存し、更新（ステルス延期防止検証）
+  const origDueDate = curIssueForHist.due_date || "";
+  db.prepare(`
+    INSERT INTO issue_histories (issue_id, user_id, field_name, old_value, created_at)
+    VALUES (?, ?, 'due_date', ?, CURRENT_TIMESTAMP)
+  `).run(createdId, 1, origDueDate);
+  db.prepare("UPDATE issues SET due_date = '2026-12-15' WHERE id = ?").run(createdId);
+
   // 履歴テーブルの検証
   const issueHists = db.prepare("SELECT * FROM issue_histories WHERE issue_id = ? ORDER BY id ASC").all(createdId);
-  if (issueHists.length !== 2) throw new Error(`課題変更履歴件数不一致: ${issueHists.length}`);
+  if (issueHists.length !== 3) throw new Error(`課題変更履歴件数不一致: ${issueHists.length}`);
   if (issueHists[0].field_name !== "title" || issueHists[0].old_value !== origTitle) {
     throw new Error(`タイトル変更履歴不一致: ${JSON.stringify(issueHists[0])}`);
   }
   if (issueHists[1].field_name !== "description" || issueHists[1].old_value !== origDesc) {
     throw new Error(`詳細説明変更履歴不一致: ${JSON.stringify(issueHists[1])}`);
+  }
+  if (issueHists[2].field_name !== "due_date" || issueHists[2].old_value !== origDueDate) {
+    throw new Error(`期限日変更履歴不一致: ${JSON.stringify(issueHists[2])}`);
   }
 
   // 課題取得時の履歴カウント検証
@@ -463,15 +474,23 @@ async function runTests() {
     SELECT 
       i.*,
       (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'description') AS description_history_count,
-      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count
+      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count,
+      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'due_date') AS due_date_history_count,
+      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'start_date') AS start_date_history_count
     FROM issues i
     WHERE i.id = ?
   `).get(createdId);
 
-  if (issueWithHistCount.description_history_count !== 1 || issueWithHistCount.title_history_count !== 1) {
-    throw new Error(`課題履歴カウントサブクエリ検証失敗: desc=${issueWithHistCount.description_history_count}, title=${issueWithHistCount.title_history_count}`);
+  if (
+    issueWithHistCount.description_history_count !== 1 ||
+    issueWithHistCount.title_history_count !== 1 ||
+    issueWithHistCount.due_date_history_count !== 1
+  ) {
+    throw new Error(
+      `課題履歴カウントサブクエリ検証失敗: desc=${issueWithHistCount.description_history_count}, title=${issueWithHistCount.title_history_count}, due=${issueWithHistCount.due_date_history_count}`
+    );
   }
-  console.log(`✓ 課題タイトル・詳細説明変更履歴退避＆件数結合テスト成功: タイトル旧="${origTitle}", 説明旧="${origDesc}"`);
+  console.log(`✓ 課題タイトル・詳細説明・期限日変更履歴退避＆件数結合テスト成功: タイトル旧="${origTitle}", 説明旧="${origDesc}", 期限旧="${origDueDate}"`);
 
   // 5. コメント追加テスト
   const commentRes = db.prepare(`
