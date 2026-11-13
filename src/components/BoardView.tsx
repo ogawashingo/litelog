@@ -12,6 +12,8 @@ import {
   Eye,
   EyeOff,
   ChartGantt,
+  FolderTree,
+  CornerDownRight,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, PriorityBadge } from "./IssueBadge";
@@ -83,7 +85,23 @@ export default function BoardView({
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterType, setFilterType] = useState<IssueType | "all">("all");
   const [filterPriority, setFilterPriority] = useState<IssuePriority | "all">("all");
+  const [filterRelation, setFilterRelation] = useState<"all" | "parent" | "child" | "standalone">("all");
   const [showClosed, setShowClosed] = useState(true);
+
+  // 全課題における親・子の関連マップを事前構築
+  const { parentMap, childrenMap } = useMemo(() => {
+    const pMap = new Map<number, Issue>();
+    const cMap = new Map<number, Issue[]>();
+    issues.forEach((issue) => {
+      pMap.set(issue.id, issue);
+      if (issue.parent_id) {
+        const list = cMap.get(issue.parent_id) || [];
+        list.push(issue);
+        cMap.set(issue.parent_id, list);
+      }
+    });
+    return { parentMap: pMap, childrenMap: cMap };
+  }, [issues]);
 
   // ドラッグ＆ドロップ用State
   const [draggingIssueId, setDraggingIssueId] = useState<number | null>(null);
@@ -221,6 +239,17 @@ export default function BoardView({
       // 優先度フィルター
       if (filterPriority !== "all" && issue.priority !== filterPriority) return false;
 
+      // 階層フィルター（親課題 / 子課題 / 単独課題）
+      if (filterRelation === "parent") {
+        const children = childrenMap.get(issue.id) || [];
+        if (children.length === 0) return false;
+      } else if (filterRelation === "child") {
+        if (!issue.parent_id) return false;
+      } else if (filterRelation === "standalone") {
+        const children = childrenMap.get(issue.id) || [];
+        if (issue.parent_id || children.length > 0) return false;
+      }
+
       // キーワード検索（課題キー、件名、説明文、担当者名）
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -233,7 +262,57 @@ export default function BoardView({
 
       return true;
     });
-  }, [issues, showClosed, filterAssignee, currentUser, filterType, filterPriority, searchQuery]);
+  }, [
+    issues,
+    showClosed,
+    filterAssignee,
+    currentUser,
+    filterType,
+    filterPriority,
+    filterRelation,
+    childrenMap,
+    searchQuery,
+  ]);
+
+  // レーン列ごとに親子関係を考慮して並べ替えた課題マップ（親課題の直下に同列内の子課題を連ねる）
+  const columnIssuesMap = useMemo(() => {
+    const map = new Map<IssueStatus, Issue[]>();
+    BOARD_COLUMNS.forEach((col) => {
+      const list = filteredIssues.filter((i) => i.status === col.status);
+      const listIdSet = new Set(list.map((i) => i.id));
+      const result: Issue[] = [];
+      const addedSet = new Set<number>();
+
+      list.forEach((item) => {
+        if (addedSet.has(item.id)) return;
+        // 親課題、または親がこの列に不在の課題を先に追加
+        if (!item.parent_id || !listIdSet.has(item.parent_id)) {
+          result.push(item);
+          addedSet.add(item.id);
+          // 同じ列にある子課題を親の直下に連番順で配置
+          const children = (childrenMap.get(item.id) || []).filter((c) => listIdSet.has(c.id));
+          children.sort((a, b) => a.issue_number - b.issue_number);
+          children.forEach((c) => {
+            if (!addedSet.has(c.id)) {
+              result.push(c);
+              addedSet.add(c.id);
+            }
+          });
+        }
+      });
+
+      // 残りの課題（親子が複雑な場合等のフォールバック）を追加
+      list.forEach((item) => {
+        if (!addedSet.has(item.id)) {
+          result.push(item);
+          addedSet.add(item.id);
+        }
+      });
+
+      map.set(col.status, result);
+    });
+    return map;
+  }, [filteredIssues, childrenMap]);
 
   return (
     <div className="space-y-4">
@@ -349,6 +428,20 @@ export default function BoardView({
               <option value="low">低</option>
             </select>
 
+            {/* 親子階層フィルター */}
+            <select
+              value={filterRelation}
+              onChange={(e) =>
+                setFilterRelation(e.target.value as "all" | "parent" | "child" | "standalone")
+              }
+              className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">階層: すべて</option>
+              <option value="parent">親課題のみ</option>
+              <option value="child">子課題のみ</option>
+              <option value="standalone">単独課題のみ</option>
+            </select>
+
             {/* 完了タスクの表示切り替え */}
             <button
               onClick={() => setShowClosed(!showClosed)}
@@ -373,7 +466,7 @@ export default function BoardView({
             return null;
           }
 
-          const columnIssues = filteredIssues.filter((i) => i.status === col.status);
+          const columnIssues = columnIssuesMap.get(col.status) || [];
           const isOver = dragOverColumn === col.status;
 
           return (
@@ -424,6 +517,13 @@ export default function BoardView({
                     const isDragging = draggingIssueId === issue.id;
                     const dueInfo = getDueInfo(issue.due_date, issue.status === "closed");
 
+                    // 親子関係の判定
+                    const children = childrenMap.get(issue.id) || [];
+                    const isParent = children.length > 0;
+                    const isChild = Boolean(issue.parent_id);
+                    const completedChildrenCount = children.filter((c) => c.status === "closed").length;
+                    const parentIssue = issue.parent_id ? parentMap.get(issue.parent_id) : null;
+
                     return (
                       <div
                         key={issue.id}
@@ -434,27 +534,71 @@ export default function BoardView({
                           setDetailIssue(issue);
                           setIsDetailOpen(true);
                         }}
-                        className={`bg-white rounded-xl p-3 border shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-slate-200/90 hover:border-indigo-400 group relative ${
-                          isDragging ? "opacity-40 scale-95 border-indigo-500 shadow-lg" : ""
-                        }`}
+                        className={`rounded-xl p-3 border shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing hover:border-indigo-400 group relative ${
+                          isParent
+                            ? "bg-white border-l-4 border-l-indigo-600 border-indigo-100/90 shadow-indigo-50/50"
+                            : isChild
+                            ? "bg-white border-l-4 border-l-indigo-300 border-slate-200/90 ml-1.5"
+                            : "bg-white border-slate-200/90 border-l-4 border-l-transparent"
+                        } ${isDragging ? "opacity-40 scale-95 border-indigo-500 shadow-lg" : ""}`}
                       >
-                        {/* カード上部: 種別バッジ＆課題キー */}
-                        <div className="flex items-center justify-between gap-1 mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <TypeBadge type={issue.issue_type} />
-                            <a
-                              href={`/issues/${issue.issue_key}`}
+                        {/* 子課題の場合: 親課題への参照リンクピル */}
+                        {isChild && (
+                          <div className="flex items-center gap-1.5 mb-2 px-2 py-0.5 rounded-md bg-indigo-50/60 border border-indigo-100/90 text-[10px] text-slate-600 w-fit max-w-full">
+                            <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
+                            <span className="text-slate-400 font-semibold text-[9px] shrink-0">親:</span>
+                            <button
+                              type="button"
                               onClick={(e) => {
-                                if (!e.metaKey && !e.ctrlKey) {
-                                  e.preventDefault();
-                                  setDetailIssue(issue);
+                                e.stopPropagation();
+                                const p = parentIssue || issues.find((i) => i.id === issue.parent_id);
+                                if (p) {
+                                  setDetailIssue(p);
                                   setIsDetailOpen(true);
                                 }
                               }}
-                              className="font-mono text-xs font-bold text-slate-500 group-hover:text-indigo-600 transition-colors hover:underline cursor-pointer"
+                              className="font-mono font-bold text-indigo-600 hover:text-indigo-800 hover:underline truncate max-w-[170px]"
+                              title={`親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""} ${issue.parent_title || parentIssue?.title || ""}`}
                             >
-                              {issue.issue_key}
-                            </a>
+                              {issue.parent_issue_key || parentIssue?.issue_key || "親課題"}
+                              {(issue.parent_title || parentIssue?.title) ? ` ${issue.parent_title || parentIssue?.title}` : ""}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* 親課題の場合: 子課題進捗ピル */}
+                        {isParent && (
+                          <div className="flex items-center gap-1.5 mb-2 px-2 py-0.5 rounded-md bg-indigo-50/80 border border-indigo-200/80 text-[10px] text-indigo-800 w-fit max-w-full">
+                            <FolderTree className="w-3 h-3 text-indigo-600 shrink-0" />
+                            <span className="font-bold text-[10px]">親課題</span>
+                            <span className="text-indigo-600 font-medium">
+                              · 子 {children.length}件 ({completedChildrenCount}完了)
+                            </span>
+                          </div>
+                        )}
+
+                        {/* カード上部: 種別バッジ＆課題キー */}
+                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <TypeBadge type={issue.issue_type} />
+                            <div className="flex items-center gap-1 min-w-0">
+                              {isChild && (
+                                <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
+                              )}
+                              <a
+                                href={`/issues/${issue.issue_key}`}
+                                onClick={(e) => {
+                                  if (!e.metaKey && !e.ctrlKey) {
+                                    e.preventDefault();
+                                    setDetailIssue(issue);
+                                    setIsDetailOpen(true);
+                                  }
+                                }}
+                                className="font-mono text-xs font-bold text-slate-500 group-hover:text-indigo-600 transition-colors hover:underline cursor-pointer truncate"
+                              >
+                                {issue.issue_key}
+                              </a>
+                            </div>
                           </div>
                           <PriorityBadge priority={issue.priority} />
                         </div>
