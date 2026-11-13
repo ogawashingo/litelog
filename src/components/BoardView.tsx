@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import Link from "next/link";
 import {
   Plus,
   Search,
@@ -11,7 +10,6 @@ import {
   Clock,
   Eye,
   EyeOff,
-  ChartGantt,
   CornerDownRight,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
@@ -318,7 +316,7 @@ export default function BoardView({
       {/* ボードヘッダー / フィルターツールバー */}
       <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* 左側: プロジェクト選択とタイトル */}
+          {/* 左側: プロジェクト情報（タイトル・キー） */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <div
@@ -334,40 +332,6 @@ export default function BoardView({
                 )}
               </h2>
             </div>
-
-            {/* プロジェクト切り替え */}
-            {projects.length > 0 && (
-              <div className="relative">
-                <select
-                  value={currentProject?.key || ""}
-                  onChange={(e) => {
-                    if (onSelectProjectKey) {
-                      onSelectProjectKey(e.target.value);
-                    }
-                  }}
-                  className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 cursor-pointer font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">すべてのプロジェクト</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={proj.key}>
-                      [{proj.key}] {proj.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* ガントチャートへのリンク */}
-            {currentProject && (
-              <Link
-                href={`/gantt/${encodeURIComponent(currentProject.key)}`}
-                className="inline-flex items-center gap-1 text-xs text-violet-700 bg-violet-50 hover:bg-violet-100 px-2.5 py-1.5 rounded-lg font-semibold border border-violet-200 transition-colors"
-                title="ガントチャートで確認"
-              >
-                <ChartGantt className="w-3.5 h-3.5 text-violet-600" />
-                <span>ガントチャート</span>
-              </Link>
-            )}
           </div>
 
           {/* 右側: 検索・フィルター・課題追加 */}

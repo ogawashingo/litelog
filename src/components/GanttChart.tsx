@@ -3,7 +3,6 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { useSearchParams, usePathname } from "next/navigation";
 import {
   ChevronLeft,
@@ -15,7 +14,6 @@ import {
   Plus,
   Maximize2,
   Minimize2,
-  Kanban,
   GitBranch,
   CornerDownRight,
 } from "lucide-react";
@@ -664,7 +662,7 @@ export default function GanttChart({
       {/* ツールバー / フィルター・コントロールバー */}
       <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* 左側: プロジェクト選択とタイトル */}
+          {/* 左側: プロジェクト情報（タイトル・キー） */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <div
@@ -680,40 +678,6 @@ export default function GanttChart({
                 )}
               </h2>
             </div>
-
-            {/* プロジェクト切り替え */}
-            {projects.length > 0 && (
-              <div className="relative">
-                <select
-                  value={currentProject?.key || ""}
-                  onChange={(e) => {
-                    if (onSelectProjectKey) {
-                      onSelectProjectKey(e.target.value);
-                    }
-                  }}
-                  className="text-xs bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 hover:bg-slate-100 cursor-pointer font-medium focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">すべてのプロジェクト</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={proj.key}>
-                      [{proj.key}] {proj.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* ボードへのクイック切り替えボタン */}
-            {currentProject && (
-              <Link
-                href={`/board/${encodeURIComponent(currentProject.key)}`}
-                className="inline-flex items-center gap-1 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg font-semibold border border-indigo-200 transition-colors"
-                title="かんばんボードで確認"
-              >
-                <Kanban className="w-3.5 h-3.5 text-indigo-600" />
-                <span>ボード</span>
-              </Link>
-            )}
           </div>
 
           {/* 右側: 検索・フィルター・課題追加 */}
