@@ -142,6 +142,10 @@ function DashboardContent() {
       });
       if (res.ok) {
         await refreshAll();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "ステータス変更に失敗しました");
+        fetchIssues();
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);

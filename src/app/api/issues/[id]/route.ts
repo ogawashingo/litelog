@@ -180,6 +180,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       if (!VALID_STATUSES.has(String(body.status))) {
         return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
       }
+
+      // 未完了の子課題が存在する場合、親課題を完了（closed）にできないバリデーション
+      if (body.status === "closed") {
+        const unclosedChildren = db
+          .prepare("SELECT COUNT(*) AS count FROM issues WHERE parent_id = ? AND status != 'closed'")
+          .get(issueId) as { count: number } | undefined;
+
+        if (unclosedChildren && unclosedChildren.count > 0) {
+          return NextResponse.json(
+            { error: `未完了の子課題が ${unclosedChildren.count} 件存在するため、親課題を完了にすることはできません` },
+            { status: 400 }
+          );
+        }
+      }
+
       updates.push("status = ?");
       values.push(body.status);
 

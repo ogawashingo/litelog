@@ -643,6 +643,34 @@ async function runTests() {
   }
   console.log(`✓ 親子課題連携テスト成功: 親ID=${createdId} -> 子=${childKey}`);
 
+  // 10-2. 未完了の子課題が存在する場合に親課題を完了(closed)にできない制御テスト
+  const checkUnclosedChildren = (parentId) => {
+    const unclosed = db
+      .prepare("SELECT COUNT(*) AS count FROM issues WHERE parent_id = ? AND status != 'closed'")
+      .get(parentId);
+    return unclosed ? unclosed.count : 0;
+  };
+
+  // 子課題が未完了(in_progress)の状態で親課題を完了にしようとした場合
+  if (checkUnclosedChildren(createdId) === 0) {
+    throw new Error("未完了子課題が存在するはずですが、検出されませんでした");
+  }
+  console.log("✓ 未完了子課題の存在チェック成功（親課題の完了をブロック）");
+
+  // 子課題を「closed（完了）」に変更
+  db.prepare("UPDATE issues SET status = 'closed' WHERE id = ?").run(childId);
+  if (checkUnclosedChildren(createdId) !== 0) {
+    throw new Error("子課題完了後にもかかわらず未完了子課題が検出されました");
+  }
+
+  // 全子課題が完了したため、親課題を「closed」に更新可能
+  db.prepare("UPDATE issues SET status = 'closed' WHERE id = ?").run(createdId);
+  const updatedParent = db.prepare("SELECT status FROM issues WHERE id = ?").get(createdId);
+  if (!updatedParent || updatedParent.status !== "closed") {
+    throw new Error("子課題完了後の親課題完了ステータス更新に失敗しました");
+  }
+  console.log("✓ 子課題全件完了時の親課題クローズ完了テスト成功");
+
   // 11. 親課題削除時の子課題ON DELETE SET NULLおよび後始末
   db.prepare("DELETE FROM issues WHERE id = ?").run(createdId);
   const afterDelete = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);

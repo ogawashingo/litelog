@@ -107,7 +107,8 @@ export default function ProjectBoardPage() {
       });
 
       if (!res.ok) {
-        console.error("ステータス更新APIエラー");
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "ステータス更新に失敗しました");
         await refreshAll();
       }
     } catch (err) {

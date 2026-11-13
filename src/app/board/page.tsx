@@ -64,11 +64,15 @@ export default function BoardIndexPage() {
       setIssues((prev) =>
         prev.map((i) => (i.id === issueId ? { ...i, status: newStatus } : i))
       );
-      await fetch(`/api/issues/${issueId}`, {
+      const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "ステータスの更新に失敗しました");
+      }
       const issueRes = await fetch("/api/issues");
       if (issueRes.ok) {
         setIssues(await issueRes.json());

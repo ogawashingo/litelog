@@ -1,7 +1,7 @@
 // 課題詳細・編集・コメント追加モーダルコンポーネント
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
@@ -174,9 +174,21 @@ export default function IssueDetailModal({
   // 表示に使うアクティブな課題オブジェクト（ローカルで最新化されたものを優先）
   const activeIssue = currentIssue || issue;
 
+  // 未完了の子課題件数および存在判定（親課題の完了制御用）
+  const unclosedChildrenCount = useMemo(
+    () => childrenIssues.filter((c) => c.status !== "closed").length,
+    [childrenIssues]
+  );
+  const hasUnclosedChildren = unclosedChildrenCount > 0;
+
   // 課題の更新を保存
   const handleSaveEdit = async () => {
     if (!editTitle.trim()) return;
+
+    if (editStatus === "closed" && hasUnclosedChildren) {
+      alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -225,6 +237,18 @@ export default function IssueDetailModal({
         }
         await refreshUsers();
         onUpdated();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "課題の更新に失敗しました");
+        // 最新データを再取得してロールバック
+        const detailRes = await fetch(`/api/issues/${issue.id}`);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          if (detailData.issue) {
+            setCurrentIssue(detailData.issue);
+            setEditStatus(detailData.issue.status);
+          }
+        }
       }
     } catch (err) {
       console.error("更新エラー:", err);
@@ -235,6 +259,12 @@ export default function IssueDetailModal({
 
   // ステータス即時変更
   const handleQuickStatusChange = async (newStatus: IssueStatus) => {
+    if (newStatus === "closed" && hasUnclosedChildren) {
+      alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+      return;
+    }
+
+    const previousStatus = activeIssue.status;
     try {
       setCurrentIssue((prev) => (prev ? { ...prev, status: newStatus } : null));
       setEditStatus(newStatus);
@@ -249,9 +279,16 @@ export default function IssueDetailModal({
       if (res.ok) {
         await refreshUsers();
         onUpdated();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "ステータス変更に失敗しました");
+        setCurrentIssue((prev) => (prev ? { ...prev, status: previousStatus } : null));
+        setEditStatus(previousStatus);
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
+      setCurrentIssue((prev) => (prev ? { ...prev, status: previousStatus } : null));
+      setEditStatus(previousStatus);
     }
   };
 
@@ -569,8 +606,15 @@ export default function IssueDetailModal({
                     <option value="open">未対応</option>
                     <option value="in_progress">処理中</option>
                     <option value="resolved">処理済み</option>
-                    <option value="closed">完了</option>
+                    <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
+                      完了{hasUnclosedChildren ? " (未完了の子課題あり)" : ""}
+                    </option>
                   </select>
+                  {hasUnclosedChildren && (
+                    <p className="text-[10px] text-amber-600 mt-1 leading-tight">
+                      ※未完了の子課題あり（{unclosedChildrenCount}件）
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -719,8 +763,18 @@ export default function IssueDetailModal({
                     <option value="open">未対応</option>
                     <option value="in_progress">処理中</option>
                     <option value="resolved">処理済み</option>
-                    <option value="closed">完了</option>
+                    <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
+                      完了{hasUnclosedChildren ? " (未完了あり)" : ""}
+                    </option>
                   </select>
+                  {hasUnclosedChildren && (
+                    <span
+                      className="text-[10px] text-amber-600 block mt-1 leading-tight"
+                      title={`未完了の子課題が ${unclosedChildrenCount} 件存在するため、すべて完了するまで完了にできません`}
+                    >
+                      子課題未完了({unclosedChildrenCount})
+                    </span>
+                  )}
                 </div>
 
                 {/* 担当者即時変更セレクター */}

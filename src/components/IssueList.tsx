@@ -343,6 +343,11 @@ export default function IssueList({
                 const dueInfo = formatDueDate(issue.due_date);
                 const isClosed = issue.status === "closed";
                 const assigneeColor = issue.assignee_color || "#4f46e5";
+                // 未完了の子課題件数を判定
+                const unclosedChildrenCount = issues.filter(
+                  (child) => child.parent_id === issue.id && child.status !== "closed"
+                ).length;
+                const hasUnclosedChildren = unclosedChildrenCount > 0;
 
                 return (
                   <tr
@@ -489,18 +494,28 @@ export default function IssueList({
                     <td className="py-3 px-3 whitespace-nowrap">
                       <select
                         value={issue.status}
-                        onChange={(e) => onUpdateStatus(issue.id, e.target.value as IssueStatus)}
+                        onChange={(e) => {
+                          const nextStatus = e.target.value as IssueStatus;
+                          if (nextStatus === "closed" && hasUnclosedChildren) {
+                            alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                            return;
+                          }
+                          onUpdateStatus(issue.id, nextStatus);
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         className={`text-xs font-semibold rounded-full px-2 py-0.5 border cursor-pointer transition-colors ${
                           ISSUE_STATUS_CONFIG[issue.status].bg
                         } ${ISSUE_STATUS_CONFIG[issue.status].text} ${
                           ISSUE_STATUS_CONFIG[issue.status].border
                         } focus:outline-hidden focus:ring-1 focus:ring-indigo-500`}
+                        title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あるため完了にできません` : undefined}
                       >
                         <option value="open">未対応</option>
                         <option value="in_progress">処理中</option>
                         <option value="resolved">処理済み</option>
-                        <option value="closed">完了</option>
+                        <option value="closed" disabled={hasUnclosedChildren}>
+                          完了{hasUnclosedChildren ? " (未完了あり)" : ""}
+                        </option>
                       </select>
                     </td>
 

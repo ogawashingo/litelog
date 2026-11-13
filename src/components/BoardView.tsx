@@ -140,6 +140,18 @@ export default function BoardView({
       return;
     }
 
+    // 未完了の子課題が存在する場合、親課題を完了レーンへ移動できないように制御
+    if (newStatus === "closed") {
+      const unclosedChildren = issues.filter(
+        (i) => i.parent_id === issueId && i.status !== "closed"
+      );
+      if (unclosedChildren.length > 0) {
+        alert(`未完了の子課題が ${unclosedChildren.length} 件存在するため、親課題を完了にすることはできません。`);
+        setDraggingIssueId(null);
+        return;
+      }
+    }
+
     setDraggingIssueId(null);
     await onUpdateStatus(issueId, newStatus);
   };

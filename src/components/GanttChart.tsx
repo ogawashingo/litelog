@@ -443,13 +443,29 @@ export default function GanttChart({
 
   // 課題の状態即時変更
   const handleQuickStatusChange = async (issueId: number, newStatus: IssueStatus) => {
+    if (newStatus === "closed") {
+      const unclosedChildren = issues.filter(
+        (i) => i.parent_id === issueId && i.status !== "closed"
+      );
+      if (unclosedChildren.length > 0) {
+        alert(`未完了の子課題が ${unclosedChildren.length} 件存在するため、親課題を完了にすることはできません。`);
+        return;
+      }
+    }
+
     try {
-      await fetch(`/api/issues/${issueId}`, {
+      const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
       });
-      onRefresh();
+      if (res.ok) {
+        onRefresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "ステータス変更に失敗しました");
+        onRefresh();
+      }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
     }
@@ -967,6 +983,8 @@ export default function GanttChart({
                   const isOverdue =
                     !isClosed && issue.due_date && issue.due_date < todayStr;
                   const isCollapsed = collapsedParentIds.has(issue.id);
+                  const unclosedChildren = childrenIssues.filter((c) => c.status !== "closed");
+                  const hasUnclosedChildren = unclosedChildren.length > 0;
 
                   return (
                     <div
@@ -1074,11 +1092,14 @@ export default function GanttChart({
                             handleQuickStatusChange(issue.id, e.target.value as IssueStatus)
                           }
                           className="w-full text-[11px] font-semibold bg-white border border-slate-300 rounded px-1 py-0.5 text-slate-700 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildren.length} 件あるため完了にできません` : undefined}
                         >
                           <option value="open">未対応</option>
                           <option value="in_progress">処理中</option>
                           <option value="resolved">処理済み</option>
-                          <option value="closed">完了</option>
+                          <option value="closed" disabled={hasUnclosedChildren}>
+                            完了{hasUnclosedChildren ? " (不可)" : ""}
+                          </option>
                         </select>
                       </div>
 
