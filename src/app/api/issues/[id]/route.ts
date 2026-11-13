@@ -11,11 +11,12 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// 課題詳細の取得（コメント一覧含む）
+// 課題詳細の取得（コメント一覧含む、数値IDまたは課題キーに対応）
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const db = getDb();
+    const isNumeric = /^\d+$/.test(id);
 
     const issue = db.prepare(`
       SELECT 
@@ -32,12 +33,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN issues parent ON i.parent_id = parent.id
       LEFT JOIN users u ON i.assignee_id = u.id
       LEFT JOIN users creator ON i.created_by = creator.id
-      WHERE i.id = ?
-    `).get(Number(id));
+      WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
+    `).get(isNumeric ? Number(id) : id) as Record<string, unknown> | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
     }
+
+    const targetIssueId = Number(issue.id);
 
     // 子課題一覧を取得
     const children = db.prepare(`
@@ -52,7 +55,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN users u ON i.assignee_id = u.id
       WHERE i.parent_id = ?
       ORDER BY i.issue_number ASC
-    `).all(Number(id));
+    `).all(targetIssueId);
 
     // コメント取得（投稿者情報も結合）
     const comments = db.prepare(`
@@ -64,7 +67,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.issue_id = ?
       ORDER BY c.created_at ASC
-    `).all(Number(id));
+    `).all(targetIssueId);
 
     return NextResponse.json({ issue, children, comments });
   } catch (error) {
@@ -73,7 +76,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 }
 
-// 課題の更新（要ログインセッション）
+// 課題の更新（要ログインセッション、数値IDまたは課題キーに対応）
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
@@ -82,11 +85,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const issueId = Number(id);
+    const isNumeric = /^\d+$/.test(id);
     const db = getDb();
     const body = await request.json();
 
-    const currentIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(issueId) as {
+    const currentIssue = db.prepare(
+      `SELECT * FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
+    ).get(isNumeric ? Number(id) : id) as {
       id: number;
       issue_key: string;
       title: string;
@@ -102,6 +107,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
     }
 
+    const issueId = currentIssue.id;
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
     const activityLogs: { type: string; msg: string }[] = [];
@@ -289,7 +295,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 }
 
-// 課題の削除（要ログインセッション）
+// 課題の削除（要ログインセッション、数値IDまたは課題キーに対応）
 export async function DELETE(_request: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
@@ -298,11 +304,13 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const issueId = Number(id);
+    const isNumeric = /^\d+$/.test(id);
     const db = getDb();
     const actorId = sessionUser.id;
 
-    const currentIssue = db.prepare("SELECT * FROM issues WHERE id = ?").get(issueId) as {
+    const currentIssue = db.prepare(
+      `SELECT * FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
+    ).get(isNumeric ? Number(id) : id) as {
       id: number;
       issue_key: string;
       title: string;
@@ -311,6 +319,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     if (!currentIssue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
     }
+
+    const issueId = currentIssue.id;
 
     db.exec("BEGIN;");
     try {

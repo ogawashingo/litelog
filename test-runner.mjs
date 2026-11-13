@@ -348,6 +348,33 @@ async function runTests() {
   const createdId = res.lastInsertRowid;
   console.log(`✓ 課題作成テスト成功: ID=${createdId}, KEY=${newKey}`);
 
+  // 3-2. 課題キーによる個別検索検証（一意URL対応用）
+  const fetchedByKey = db.prepare(`
+    SELECT i.*, p.name AS project_name
+    FROM issues i
+    JOIN projects p ON i.project_id = p.id
+    WHERE i.issue_key = ?
+  `).get(newKey);
+  if (!fetchedByKey || fetchedByKey.id !== createdId) {
+    throw new Error(`課題キーによる検索に失敗しました: key=${newKey}`);
+  }
+  console.log(`✓ 課題キー一意検索テスト成功: KEY=${newKey} -> ID=${fetchedByKey.id}`);
+
+  // 3-3. 課題キーをキーとしたコメント追加と結合取得テスト
+  db.prepare(`
+    INSERT INTO comments (issue_id, user_id, content)
+    VALUES (?, ?, ?)
+  `).run(fetchedByKey.id, null, "一意URL連携確認コメント");
+  const commentsByKey = db.prepare(`
+    SELECT c.* FROM comments c
+    JOIN issues i ON c.issue_id = i.id
+    WHERE i.issue_key = ?
+  `).all(newKey);
+  if (commentsByKey.length === 0) {
+    throw new Error("課題キー経由のコメント取得に失敗しました");
+  }
+  console.log(`✓ 課題キー連動コメント取得テスト成功: KEY=${newKey} コメント数=${commentsByKey.length}`);
+
   // 4. ステータス変更テスト
   db.prepare("UPDATE issues SET status = 'in_progress' WHERE id = ?").run(createdId);
   const updated = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);

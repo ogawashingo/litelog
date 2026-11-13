@@ -388,19 +388,31 @@ export default function IssueList({
 
                     {/* キー */}
                     <td className="py-3 px-3 whitespace-nowrap">
-                      <button
-                        onClick={() => onSelectIssue(issue)}
+                      <a
+                        href={`/issues/${issue.issue_key}`}
+                        onClick={(e) => {
+                          if (!e.metaKey && !e.ctrlKey) {
+                            e.preventDefault();
+                            onSelectIssue(issue);
+                          }
+                        }}
                         className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-xs font-mono cursor-pointer"
                       >
                         {issue.issue_key}
-                      </button>
+                      </a>
                     </td>
 
                     {/* 件名 */}
                     <td className="py-3 px-3 min-w-[240px]">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <button
-                          onClick={() => onSelectIssue(issue)}
+                        <a
+                          href={`/issues/${issue.issue_key}`}
+                          onClick={(e) => {
+                            if (!e.metaKey && !e.ctrlKey) {
+                              e.preventDefault();
+                              onSelectIssue(issue);
+                            }
+                          }}
                           title={issue.title}
                           className={`text-left font-medium hover:text-indigo-700 transition-colors max-w-full cursor-pointer ${
                             isClosed ? "text-slate-500" : "text-slate-900"
@@ -413,7 +425,7 @@ export default function IssueList({
                           >
                             {issue.title}
                           </span>
-                        </button>
+                        </a>
                         {issue.project_name && (
                           <span
                             title={issue.project_name}

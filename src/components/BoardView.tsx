@@ -429,9 +429,19 @@ export default function BoardView({
                         <div className="flex items-center justify-between gap-1 mb-1.5">
                           <div className="flex items-center gap-1.5">
                             <TypeBadge type={issue.issue_type} />
-                            <span className="font-mono text-xs font-bold text-slate-500 group-hover:text-indigo-600 transition-colors">
+                            <a
+                              href={`/issues/${issue.issue_key}`}
+                              onClick={(e) => {
+                                if (!e.metaKey && !e.ctrlKey) {
+                                  e.preventDefault();
+                                  setDetailIssue(issue);
+                                  setIsDetailOpen(true);
+                                }
+                              }}
+                              className="font-mono text-xs font-bold text-slate-500 group-hover:text-indigo-600 transition-colors hover:underline cursor-pointer"
+                            >
                               {issue.issue_key}
-                            </span>
+                            </a>
                           </div>
                           <PriorityBadge priority={issue.priority} />
                         </div>

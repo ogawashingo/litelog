@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch } from "lucide-react";
+import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -33,6 +33,52 @@ export default function IssueDetailModal({
   const [newComment, setNewComment] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCopiedUrl, setIsCopiedUrl] = useState(false);
+
+  // モーダルオープン時のURL同期（ブラウザアドレスバーを /issues/MYPRJ-30 に更新）
+  useEffect(() => {
+    if (!isOpen || !issue) return;
+
+    // 開いた時点の元のURLを保存
+    const originalUrl = window.location.pathname + window.location.search;
+    const targetUrl = `/issues/${issue.issue_key}`;
+
+    if (window.location.pathname !== targetUrl) {
+      window.history.pushState(
+        { modalIssueKey: issue.issue_key, returnUrl: originalUrl },
+        "",
+        targetUrl
+      );
+    }
+
+    // ブラウザの戻る操作でモーダルを閉じる
+    const handlePopState = () => {
+      onClose();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      // モーダル終了時にURLが課題URLのままなら元のURLに戻す
+      if (window.location.pathname === targetUrl) {
+        window.history.replaceState(null, "", originalUrl);
+      }
+    };
+  }, [isOpen, issue?.issue_key, onClose]);
+
+  // 課題URLをクリップボードにコピー
+  const handleCopyLink = async () => {
+    if (!issue) return;
+    try {
+      const fullUrl = `${window.location.origin}/issues/${issue.issue_key}`;
+      await navigator.clipboard.writeText(fullUrl);
+      setIsCopiedUrl(true);
+      setTimeout(() => setIsCopiedUrl(false), 2000);
+    } catch (err) {
+      console.error("URLコピー失敗:", err);
+    }
+  };
 
   // 編集用フォームState
   const [editTitle, setEditTitle] = useState("");
@@ -230,6 +276,30 @@ export default function IssueDetailModal({
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* URLコピーボタン */}
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded border transition-colors cursor-pointer ${
+                isCopiedUrl
+                  ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+              }`}
+              title="課題の一意URLをコピー"
+            >
+              {isCopiedUrl ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>コピー完了</span>
+                </>
+              ) : (
+                <>
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  <span>URLコピー</span>
+                </>
+              )}
+            </button>
+
             {!isEditing ? (
               <button
                 onClick={() => setIsEditing(true)}

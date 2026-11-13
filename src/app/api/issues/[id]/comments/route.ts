@@ -7,11 +7,21 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// コメント一覧取得
+// コメント一覧取得（数値IDまたは課題キーに対応）
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
     const db = getDb();
+    const isNumeric = /^\d+$/.test(id);
+
+    const issue = db.prepare(
+      `SELECT id FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
+    ).get(isNumeric ? Number(id) : id) as { id: number } | undefined;
+
+    if (!issue) {
+      return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
+    }
+
     const comments = db.prepare(`
       SELECT 
         c.*,
@@ -21,7 +31,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.issue_id = ?
       ORDER BY c.created_at ASC
-    `).all(Number(id));
+    `).all(issue.id);
     return NextResponse.json(comments);
   } catch (error) {
     console.error("コメント取得エラー:", error);
@@ -29,7 +39,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
 }
 
-// コメント追加（要ログインセッション）
+// コメント追加（要ログインセッション、数値IDまたは課題キーに対応）
 export async function POST(request: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
@@ -38,7 +48,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const issueId = Number(id);
+    const isNumeric = /^\d+$/.test(id);
     const db = getDb();
     const body = await request.json();
     const { content } = body;
@@ -47,7 +57,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "コメント内容は必須です" }, { status: 400 });
     }
 
-    const issue = db.prepare("SELECT * FROM issues WHERE id = ?").get(issueId) as {
+    const issue = db.prepare(
+      `SELECT * FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
+    ).get(isNumeric ? Number(id) : id) as {
       id: number;
       issue_key: string;
     } | undefined;
@@ -55,6 +67,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
     }
+
+    const issueId = issue.id;
 
     // 投稿者はサーバー側セッションユーザーを信頼源とする
     const resolvedUserId = sessionUser.id;
