@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight } from "lucide-react";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -10,6 +10,8 @@ import { getUserInitials } from "./UserManageModal";
 import { parseDbTimestamp, getTodayDateString } from "@/lib/dateUtils";
 import { DatePicker } from "./DatePicker";
 import CommentPreviewBadge from "./CommentPreviewBadge";
+import { getIssueAlert } from "@/lib/issueAlerts";
+import IssueAlertBadge from "./IssueAlertBadge";
 
 interface IssueListProps {
   issues: Issue[];
@@ -47,6 +49,8 @@ export default function IssueList({
   const [withParentRelation, setWithParentRelation] = useState<boolean>(true);
   // ダッシュボードでは完了済み（closed）のタスクはデフォルトで非表示
   const [showClosed, setShowClosed] = useState(false);
+  // 問題・要フォロー（遅延・停滞・未着手警告等）のみ絞り込みフラグ
+  const [filterAlertOnly, setFilterAlertOnly] = useState(false);
 
   // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
   const isShowingClosed = selectedStatus === "closed" || showClosed;
@@ -107,6 +111,10 @@ export default function IssueList({
     if (!isShowingClosed && issue.status === "closed") {
       return false;
     }
+    // 要フォロー（アラート発生課題）のみフィルター
+    if (filterAlertOnly && getIssueAlert(issue, settings) === null) {
+      return false;
+    }
     // 担当者フィルター
     if (assigneeFilter === "me") {
       if (!currentUser || issue.assignee_id !== currentUser.id) return false;
@@ -136,6 +144,14 @@ export default function IssueList({
     }
     return true;
   });
+
+  // 「要フォロー」バッジ件数（未完了かつ問題アラートあり）
+  const followupIssuesCount = useMemo(() => {
+    return issues.filter((i) => {
+      if (i.status === "closed") return false;
+      return getIssueAlert(i, settings) !== null;
+    }).length;
+  }, [issues, settings]);
 
   // 「自分の担当」バッジ件数（完了非表示設定に連動）
   const myIssuesCount = currentUser
@@ -219,22 +235,31 @@ export default function IssueList({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-slate-800 text-base">
-              {assigneeFilter === "me" && currentUser
+              {filterAlertOnly
+                ? "🚨 問題・要フォロー課題"
+                : assigneeFilter === "me" && currentUser
                 ? `${currentUser.name} の担当課題`
                 : "課題一覧"}
             </h3>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+              filterAlertOnly
+                ? "bg-rose-100 text-rose-800"
+                : "bg-indigo-100 text-indigo-800"
+            }`}>
               {displayedIssues.length} 件
             </span>
           </div>
 
-          {/* ワンクリック切替ピル */}
+          {/* ワンクリック切替ピル（全員 / 自分の担当 / 要フォロー） */}
           <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-xs">
             <button
               type="button"
-              onClick={() => setAssigneeFilter("all")}
+              onClick={() => {
+                setFilterAlertOnly(false);
+                setAssigneeFilter("all");
+              }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                assigneeFilter === "all"
+                !filterAlertOnly && assigneeFilter === "all"
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -244,15 +269,33 @@ export default function IssueList({
             </button>
             <button
               type="button"
-              onClick={() => setAssigneeFilter("me")}
+              onClick={() => {
+                setFilterAlertOnly(false);
+                setAssigneeFilter("me");
+              }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                assigneeFilter === "me"
+                !filterAlertOnly && assigneeFilter === "me"
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
               <span>自分の担当 ({myIssuesCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterAlertOnly((prev) => !prev)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                filterAlertOnly
+                  ? "bg-rose-600 text-white shadow-2xs"
+                  : followupIssuesCount > 0
+                  ? "text-rose-700 hover:bg-rose-100/60"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="期限超過・停滞・未着手警告など問題が発生している課題のみを抽出します"
+            >
+              <AlertTriangle className={`w-3.5 h-3.5 ${filterAlertOnly ? "text-white" : "text-rose-600"}`} />
+              <span>要フォロー ({followupIssuesCount})</span>
             </button>
           </div>
         </div>
@@ -416,6 +459,7 @@ export default function IssueList({
                 const dueInfo = formatDueDate(issue.due_date);
                 const isClosed = issue.status === "closed";
                 const assigneeColor = issue.assignee_color || "#4f46e5";
+                const issueAlert = getIssueAlert(issue, settings);
 
                 // 親子判定
                 const isChild = Boolean(issue.parent_id);
@@ -425,18 +469,35 @@ export default function IssueList({
                 const hasUnclosedChildren = unclosedChildrenCount > 0;
                 const completedChildrenCount = childrenOfThis.length - unclosedChildrenCount;
 
+                // 左端ボーダーおよび行の背景色（重大な問題がある課題を最優先で視覚強調）
+                const borderClass = isClosed
+                  ? "border-l-4 border-transparent"
+                  : issueAlert?.level === "critical"
+                  ? "border-l-4 border-rose-500 bg-rose-50/20 hover:bg-rose-50/40"
+                  : issueAlert?.level === "warning"
+                  ? "border-l-4 border-amber-500 bg-amber-50/20 hover:bg-amber-50/40"
+                  : issueAlert?.level === "caution"
+                  ? "border-l-4 border-purple-500 bg-purple-50/15 hover:bg-purple-50/35"
+                  : isParent
+                  ? "border-l-4 border-indigo-600"
+                  : isChild
+                  ? "border-l-4 border-indigo-200/50"
+                  : "border-l-4 border-transparent";
+
                 return (
                   <tr
                     key={issue.id}
                     className={`transition-colors group ${
                       isClosed
                         ? "bg-slate-50/60 text-slate-400 hover:bg-slate-100/60"
-                        : isParent
+                        : isParent && !issueAlert
                         ? "bg-indigo-50/30 hover:bg-indigo-50/60"
-                        : isChild
+                        : isChild && !issueAlert
                         ? "bg-white hover:bg-indigo-50/20"
-                        : "hover:bg-indigo-50/40"
-                    } ${isParent ? "border-l-4 border-indigo-600" : isChild ? "border-l-4 border-indigo-200/50" : "border-l-4 border-transparent"}`}
+                        : !issueAlert
+                        ? "hover:bg-indigo-50/40"
+                        : ""
+                    } ${borderClass}`}
                   >
                     {/* 種別（セレクトボックスで直接変更可能） */}
                     <td className="py-3 px-3 whitespace-nowrap">
@@ -498,6 +559,10 @@ export default function IssueList({
                     {/* 件名 */}
                     <td className="py-3 px-3 min-w-[240px]">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {/* 問題アラートバッジ（遅延・停滞・未着手警告等） */}
+                        {issueAlert && (
+                          <IssueAlertBadge alert={issueAlert} size="sm" />
+                        )}
                         <a
                           href={`/issues/${issue.issue_key}`}
                           onClick={(e) => {
