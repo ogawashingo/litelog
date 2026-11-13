@@ -69,10 +69,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
       ORDER BY i.issue_number ASC
     `).all(targetIssueId);
 
-    // コメント取得（投稿者情報も結合）
+    // コメント取得（投稿者情報・編集履歴件数も結合）
     const comments = db.prepare(`
       SELECT 
         c.*,
+        (SELECT COUNT(*) FROM comment_histories ch WHERE ch.comment_id = c.id) AS history_count,
         u.name AS user_name,
         u.color AS user_color
       FROM comments c

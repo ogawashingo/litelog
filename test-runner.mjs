@@ -170,13 +170,27 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       content TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME
     );
   `);
   const commentCols = db.prepare("PRAGMA table_info(comments)").all();
   if (!commentCols.some((col) => col.name === "user_id")) {
     db.exec("ALTER TABLE comments ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
   }
+  if (!commentCols.some((col) => col.name === "updated_at")) {
+    db.exec("ALTER TABLE comments ADD COLUMN updated_at DATETIME;");
+  }
+  // コメント編集履歴テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS comment_histories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
   db.exec(`
     CREATE TABLE IF NOT EXISTS activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -297,6 +311,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
     CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id);
     CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_comment_histories_comment_id ON comment_histories(comment_id);
     CREATE INDEX IF NOT EXISTS idx_activities_issue_id ON activities(issue_id);
     CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
   `);
@@ -406,7 +421,42 @@ async function runTests() {
   const commentRes = db.prepare(`
     INSERT INTO comments (issue_id, content) VALUES (?, ?)
   `).run(createdId, "テストコメントを投稿しました");
-  console.log(`✓ コメント追加テスト成功: ID=${commentRes.lastInsertRowid}`);
+  const commentId = commentRes.lastInsertRowid;
+  console.log(`✓ コメント追加テスト成功: ID=${commentId}`);
+
+  // 5-1. コメント編集および変更ログ（comment_histories）保存テスト
+  const origComment = db.prepare("SELECT * FROM comments WHERE id = ?").get(commentId);
+  // 変更前の本文を comment_histories に保存
+  db.prepare(`
+    INSERT INTO comment_histories (comment_id, user_id, content, created_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+  `).run(commentId, 1, origComment.content);
+  // コメント本文を更新
+  db.prepare(`
+    UPDATE comments
+    SET content = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run("テストコメントを編集しました（修正後）", commentId);
+
+  // 編集結果の検証
+  const editedComment = db.prepare(`
+    SELECT 
+      c.*,
+      (SELECT COUNT(*) FROM comment_histories ch WHERE ch.comment_id = c.id) AS history_count
+    FROM comments c
+    WHERE c.id = ?
+  `).get(commentId);
+
+  if (!editedComment || editedComment.content !== "テストコメントを編集しました（修正後）" || editedComment.history_count !== 1 || !editedComment.updated_at) {
+    throw new Error(`コメント編集・変更ログ検証失敗: ${JSON.stringify(editedComment)}`);
+  }
+
+  // 変更ログテーブルの履歴確認
+  const histories = db.prepare("SELECT * FROM comment_histories WHERE comment_id = ?").all(commentId);
+  if (histories.length !== 1 || histories[0].content !== "テストコメントを投稿しました") {
+    throw new Error(`コメント履歴テーブルの内容不一致: ${JSON.stringify(histories)}`);
+  }
+  console.log(`✓ コメント編集・変更ログ退避＆履歴取得テスト成功: 編集前="${histories[0].content}" -> 編集後="${editedComment.content}" (履歴件数: ${editedComment.history_count})`);
 
   // 5-2. 課題一覧API用 コメント件数・最新コメント結合取得テスト
   const issueWithComment = db.prepare(`
@@ -427,7 +477,7 @@ async function runTests() {
     LEFT JOIN users cu ON latest_c.user_id = cu.id
     WHERE i.id = ?
   `).get(createdId);
-  if (!issueWithComment || issueWithComment.comment_count !== 2 || issueWithComment.latest_comment_content !== "テストコメントを投稿しました") {
+  if (!issueWithComment || issueWithComment.comment_count !== 2 || issueWithComment.latest_comment_content !== "テストコメントを編集しました（修正後）") {
     throw new Error(`コメント結合クエリ検証失敗: count=${issueWithComment?.comment_count}, content=${issueWithComment?.latest_comment_content}`);
   }
   console.log(`✓ 課題コメント件数・最新プレビュー結合クエリ検証成功: 件数=${issueWithComment.comment_count}, 最新="${issueWithComment.latest_comment_content}"`);

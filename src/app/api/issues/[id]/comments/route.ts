@@ -25,6 +25,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const comments = db.prepare(`
       SELECT 
         c.*,
+        (SELECT COUNT(*) FROM comment_histories ch WHERE ch.comment_id = c.id) AS history_count,
         u.name AS user_name,
         u.color AS user_color
       FROM comments c
@@ -102,6 +103,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const created = db.prepare(`
       SELECT 
         c.*,
+        (SELECT COUNT(*) FROM comment_histories ch WHERE ch.comment_id = c.id) AS history_count,
         u.name AS user_name,
         u.color AS user_color
       FROM comments c

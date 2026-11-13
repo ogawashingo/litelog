@@ -22,6 +22,7 @@ import {
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
+import CommentHistoryModal from "@/components/CommentHistoryModal";
 import { TypeBadge, StatusBadge, PriorityBadge } from "@/components/IssueBadge";
 import { DatePicker } from "@/components/DatePicker";
 import { useUser } from "@/components/UserContext";
@@ -47,6 +48,10 @@ export default function IssueDetailPage() {
   // コメント投稿State
   const [newComment, setNewComment] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState("");
+  const [isSavingComment, setIsSavingComment] = useState(false);
+  const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
 
   // 編集モードState
   const [isEditing, setIsEditing] = useState(false);
@@ -269,6 +274,47 @@ export default function IssueDetailPage() {
       console.error("コメント投稿失敗:", err);
     } finally {
       setIsPostingComment(false);
+    }
+  };
+
+  // コメント編集開始
+  const handleStartEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditCommentContent(comment.content);
+  };
+
+  // コメント編集キャンセル
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditCommentContent("");
+  };
+
+  // コメント編集の保存
+  const handleSaveEditComment = async (commentId: number) => {
+    if (!issue || !editCommentContent.trim() || isSavingComment) return;
+
+    try {
+      setIsSavingComment(true);
+      const res = await fetch(`/api/issues/${issue.id}/comments/${commentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editCommentContent.trim() }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setComments((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
+        setEditingCommentId(null);
+        setEditCommentContent("");
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "コメントの更新に失敗しました");
+      }
+    } catch (err) {
+      console.error("コメント更新エラー:", err);
+      alert("コメントの更新に失敗しました");
+    } finally {
+      setIsSavingComment(false);
     }
   };
 
@@ -751,32 +797,97 @@ export default function IssueDetailPage() {
                   {comments.length === 0 ? (
                     <p className="text-xs text-slate-400 italic">まだコメントはありません。</p>
                   ) : (
-                    comments.map((c) => (
-                      <div
-                        key={c.id}
-                        className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-xs space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between text-slate-500">
-                          <div className="flex items-center gap-1.5">
-                            <div
-                              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                              style={{ backgroundColor: c.user_color || "#4f46e5" }}
-                            >
-                              {getUserInitials(c.user_name || "名無")}
+                    comments.map((c) => {
+                      const canEdit =
+                        Boolean(currentUser) &&
+                        (c.user_id === currentUser?.id || currentUser?.is_admin === 1);
+                      const isEditingThis = editingCommentId === c.id;
+                      const isEdited = Boolean(
+                        c.updated_at || (c.history_count && c.history_count > 0)
+                      );
+
+                      return (
+                        <div
+                          key={c.id}
+                          className="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 text-xs space-y-2"
+                        >
+                          <div className="flex items-center justify-between text-slate-500">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div
+                                className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                                style={{ backgroundColor: c.user_color || "#4f46e5" }}
+                              >
+                                {getUserInitials(c.user_name || "名無")}
+                              </div>
+                              <span className="font-semibold text-slate-700">
+                                {c.user_name || "名無し"}
+                              </span>
+                              {isEdited && (
+                                <button
+                                  type="button"
+                                  onClick={() => setHistoryModalCommentId(c.id)}
+                                  className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
+                                  title="クリックして編集履歴を確認"
+                                >
+                                  (編集済み{c.history_count ? ` · ${c.history_count}件` : ""})
+                                </button>
+                              )}
                             </div>
-                            <span className="font-semibold text-slate-700">
-                              {c.user_name || "名無し"}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-400">
+                                {formatTimestamp(c.created_at, settings, true)}
+                              </span>
+                              {canEdit && !isEditingThis && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditComment(c)}
+                                  className="text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 p-1 rounded transition-colors"
+                                  title="コメントを編集"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-[11px] text-slate-400">
-                            {formatTimestamp(c.created_at)}
-                          </span>
+
+                          {isEditingThis ? (
+                            <div className="space-y-2 pt-1 pl-6">
+                              <textarea
+                                rows={3}
+                                value={editCommentContent}
+                                onChange={(e) => setEditCommentContent(e.target.value)}
+                                className="w-full bg-white border border-indigo-400 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                                placeholder="コメントを修正..."
+                                disabled={isSavingComment}
+                                autoFocus
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={handleCancelEditComment}
+                                  disabled={isSavingComment}
+                                  className="px-2.5 py-1 text-slate-600 hover:bg-slate-200/70 rounded text-xs transition-colors"
+                                >
+                                  キャンセル
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditComment(c.id)}
+                                  disabled={isSavingComment || !editCommentContent.trim()}
+                                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
+                                >
+                                  {isSavingComment ? "保存中..." : "保存"}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-slate-800 whitespace-pre-wrap pl-6 text-sm">
+                              {c.content}
+                            </p>
+                          )}
                         </div>
-                        <p className="text-slate-800 whitespace-pre-wrap pl-6 text-sm">
-                          {c.content}
-                        </p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
@@ -824,6 +935,17 @@ export default function IssueDetailPage() {
         onClose={() => setIsBackupOpen(false)}
         onRestored={() => fetchIssueDetail()}
       />
+
+      {/* コメント編集履歴モーダル */}
+      {issue && (
+        <CommentHistoryModal
+          isOpen={historyModalCommentId !== null}
+          onClose={() => setHistoryModalCommentId(null)}
+          issueId={issue.id}
+          commentId={historyModalCommentId}
+          settings={settings}
+        />
+      )}
     </div>
   );
 }

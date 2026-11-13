@@ -165,7 +165,8 @@ function initDb(db: DatabaseSync) {
       issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       content TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME
     );
   `);
 
@@ -175,9 +176,23 @@ function initDb(db: DatabaseSync) {
     if (!commentCols.some((col) => col.name === "user_id")) {
       db.exec("ALTER TABLE comments ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
     }
+    if (!commentCols.some((col) => col.name === "updated_at")) {
+      db.exec("ALTER TABLE comments ADD COLUMN updated_at DATETIME;");
+    }
   } catch (migErr) {
     console.error("comments テーブルのカラムマイグレーション確認エラー:", migErr);
   }
+
+  // コメント編集履歴テーブル（過去バージョンの保持）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS comment_histories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 
   // 最近の更新・アクティビティテーブル
   db.exec(`
@@ -226,6 +241,7 @@ function initDb(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
     CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id);
     CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_comment_histories_comment_id ON comment_histories(comment_id);
     CREATE INDEX IF NOT EXISTS idx_activities_issue_id ON activities(issue_id);
     CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
   `);

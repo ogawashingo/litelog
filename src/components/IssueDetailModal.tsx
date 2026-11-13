@@ -9,6 +9,7 @@ import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
 import { DatePicker } from "./DatePicker";
+import CommentHistoryModal from "./CommentHistoryModal";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -34,6 +35,10 @@ export default function IssueDetailModal({
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentContent, setEditCommentContent] = useState("");
+  const [isSavingComment, setIsSavingComment] = useState(false);
+  const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
 
@@ -324,6 +329,48 @@ export default function IssueDetailModal({
       console.error("コメント投稿失敗:", err);
     } finally {
       setIsPostingComment(false);
+    }
+  };
+
+  // コメント編集開始
+  const handleStartEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditCommentContent(comment.content);
+  };
+
+  // コメント編集キャンセル
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditCommentContent("");
+  };
+
+  // コメント編集の保存
+  const handleSaveEditComment = async (commentId: number) => {
+    if (!editCommentContent.trim() || isSavingComment) return;
+
+    try {
+      setIsSavingComment(true);
+      const res = await fetch(`/api/issues/${issue.id}/comments/${commentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editCommentContent.trim() }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setComments((prev) => prev.map((c) => (c.id === commentId ? updated : c)));
+        setEditingCommentId(null);
+        setEditCommentContent("");
+        onUpdated();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "コメントの更新に失敗しました");
+      }
+    } catch (err) {
+      console.error("コメント更新エラー:", err);
+      alert("コメントの更新に失敗しました");
+    } finally {
+      setIsSavingComment(false);
     }
   };
 
@@ -771,11 +818,18 @@ export default function IssueDetailModal({
               {comments.map((comment) => {
                 const authorName = comment.user_name || "メンバー";
                 const authorColor = comment.user_color || "#4f46e5";
+                const canEdit =
+                  Boolean(currentUser) &&
+                  (comment.user_id === currentUser?.id || currentUser?.is_admin === 1);
+                const isEditingThis = editingCommentId === comment.id;
+                const isEdited = Boolean(
+                  comment.updated_at || (comment.history_count && comment.history_count > 0)
+                );
 
                 return (
-                  <div key={comment.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+                  <div key={comment.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-2">
                     <div className="flex items-center justify-between text-slate-500">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span
                           style={{ backgroundColor: authorColor }}
                           className="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[10px]"
@@ -783,14 +837,69 @@ export default function IssueDetailModal({
                           {getUserInitials(authorName)}
                         </span>
                         <span className="font-semibold text-slate-800">{authorName}</span>
+                        {isEdited && (
+                          <button
+                            type="button"
+                            onClick={() => setHistoryModalCommentId(comment.id)}
+                            className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
+                            title="クリックして編集履歴を確認"
+                          >
+                            (編集済み{comment.history_count ? ` · ${comment.history_count}件` : ""})
+                          </button>
+                        )}
                       </div>
-                      <span className="text-[10px]">
-                        {formatTimestamp(comment.created_at, settings, true)}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400">
+                          {formatTimestamp(comment.created_at, settings, true)}
+                        </span>
+                        {canEdit && !isEditingThis && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditComment(comment)}
+                            className="text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 p-1 rounded transition-colors"
+                            title="コメントを編集"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-slate-800 whitespace-pre-wrap pl-6 text-sm">
-                      {comment.content}
-                    </p>
+
+                    {isEditingThis ? (
+                      <div className="space-y-2 pt-1 pl-6">
+                        <textarea
+                          rows={3}
+                          value={editCommentContent}
+                          onChange={(e) => setEditCommentContent(e.target.value)}
+                          className="w-full bg-white border border-indigo-400 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                          placeholder="コメントを修正..."
+                          disabled={isSavingComment}
+                          autoFocus
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCancelEditComment}
+                            disabled={isSavingComment}
+                            className="px-2.5 py-1 text-slate-600 hover:bg-slate-200/70 rounded text-xs transition-colors"
+                          >
+                            キャンセル
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditComment(comment.id)}
+                            disabled={isSavingComment || !editCommentContent.trim()}
+                            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium transition-colors shadow-2xs disabled:opacity-50"
+                          >
+                            {isSavingComment ? "保存中..." : "保存"}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-slate-800 whitespace-pre-wrap pl-6 text-sm">
+                        {comment.content}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -835,6 +944,15 @@ export default function IssueDetailModal({
           </div>
         </div>
       </div>
+
+      {/* コメント編集履歴モーダル */}
+      <CommentHistoryModal
+        isOpen={historyModalCommentId !== null}
+        onClose={() => setHistoryModalCommentId(null)}
+        issueId={issue.id}
+        commentId={historyModalCommentId}
+        settings={settings}
+      />
     </div>
   );
 }

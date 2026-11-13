@@ -33,18 +33,20 @@ export async function GET() {
     const projects = db.prepare("SELECT * FROM projects").all();
     const issues = db.prepare("SELECT * FROM issues").all();
     const comments = db.prepare("SELECT * FROM comments").all();
+    const commentHistories = db.prepare("SELECT * FROM comment_histories").all();
     const activities = db.prepare("SELECT * FROM activities").all();
     const settings = db
       .prepare("SELECT key, value, updated_at FROM settings WHERE key NOT IN ('session_secret', 'schema_migration_version')")
       .all();
 
     const backupData = {
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
       users,
       projects,
       issues,
       comments,
+      commentHistories,
       activities,
       settings,
     };
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = await request.json();
-    const { users, projects, issues, comments, activities, settings } = body;
+    const { users, projects, issues, comments, commentHistories, activities, settings } = body;
 
     if (!Array.isArray(projects) || !Array.isArray(issues)) {
       return NextResponse.json({ error: "有効なバックアップデータ形式ではありません" }, { status: 400 });
@@ -98,6 +100,7 @@ export async function POST(request: Request) {
     try {
       // 既存データをクリア
       db.exec("DELETE FROM activities;");
+      db.exec("DELETE FROM comment_histories;");
       db.exec("DELETE FROM comments;");
       db.exec("DELETE FROM issues;");
       db.exec("DELETE FROM projects;");
@@ -198,12 +201,36 @@ export async function POST(request: Request) {
 
       if (Array.isArray(comments)) {
         const insertComment = db.prepare(`
-          INSERT INTO comments (id, issue_id, user_id, content, created_at)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO comments (id, issue_id, user_id, content, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
         `);
         for (const c of comments) {
           const userId = c.user_id && validUserIds.has(c.user_id) ? c.user_id : null;
-          insertComment.run(c.id, c.issue_id, userId, c.content, c.created_at || new Date().toISOString());
+          insertComment.run(
+            c.id,
+            c.issue_id,
+            userId,
+            c.content,
+            c.created_at || new Date().toISOString(),
+            c.updated_at || null
+          );
+        }
+      }
+
+      if (Array.isArray(commentHistories)) {
+        const insertHistory = db.prepare(`
+          INSERT INTO comment_histories (id, comment_id, user_id, content, created_at)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        for (const h of commentHistories) {
+          const userId = h.user_id && validUserIds.has(h.user_id) ? h.user_id : null;
+          insertHistory.run(
+            h.id,
+            h.comment_id,
+            userId,
+            h.content,
+            h.created_at || new Date().toISOString()
+          );
         }
       }
 

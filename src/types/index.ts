@@ -75,6 +75,19 @@ export interface Comment {
   user_color?: string | null; // 結合時の投稿者カラー
   content: string;
   created_at: string;
+  updated_at?: string | null; // 最終更新日時
+  history_count?: number;     // 編集履歴の件数
+}
+
+// コメント編集履歴情報
+export interface CommentHistory {
+  id: number;
+  comment_id: number;
+  user_id?: number | null;    // 当時の投稿者/変更者ユーザーID
+  user_name?: string | null;  // 結合時のユーザー名
+  user_color?: string | null; // 結合時のユーザーカラー
+  content: string;            // 変更前のコメント本文
+  created_at: string;         // 履歴作成日時
 }
 
 // アクティビティ（最近の更新）情報
