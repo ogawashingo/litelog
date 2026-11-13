@@ -5,6 +5,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { getJapaneseHoliday } from "./src/lib/holidayUtils.ts";
 import { parseMentions, createMentionNotifications } from "./src/lib/notificationUtils.ts";
+import { AVATAR_COLORS, AVATAR_COLOR_VALUES, getAvatarColorLabel } from "./src/lib/avatarColors.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -1311,6 +1312,38 @@ async function runTests() {
     throw new Error("課題削除に伴う通知のカスケード削除が失敗しました");
   }
   console.log("✓ 課題削除時の通知カスケード消去テスト成功（ON DELETE CASCADE）");
+
+  // 7. アバター＆テーマカラーパターン拡充検証テスト
+  if (!Array.isArray(AVATAR_COLORS) || AVATAR_COLORS.length < 20) {
+    throw new Error(`カラーパレットの種類数が不足しています: ${AVATAR_COLORS.length}件`);
+  }
+  const hexSet = new Set();
+  for (const c of AVATAR_COLORS) {
+    if (!c.value || !/^#[0-9a-fA-F]{6}$/.test(c.value)) {
+      throw new Error(`無効なカラーHEX値です: ${c.value}`);
+    }
+    if (!c.label || typeof c.label !== "string") {
+      throw new Error(`カラーのラベル名が不正です: ${JSON.stringify(c)}`);
+    }
+    if (!c.group || typeof c.group !== "string") {
+      throw new Error(`カラーのグループ名が不正です: ${JSON.stringify(c)}`);
+    }
+    const lower = c.value.toLowerCase();
+    if (hexSet.has(lower)) {
+      throw new Error(`カラーHEX値が重複しています: ${c.value}`);
+    }
+    hexSet.add(lower);
+  }
+  if (!AVATAR_COLOR_VALUES.includes("#4f46e5")) {
+    throw new Error("初期デフォルトカラー #4f46e5 が含まれていません");
+  }
+  if (getAvatarColorLabel("#4f46e5") !== "コズミックインディゴ") {
+    throw new Error(`カラーラベル取得不一致: ${getAvatarColorLabel("#4f46e5")}`);
+  }
+  if (getAvatarColorLabel("#123456") !== "カスタム (#123456)") {
+    throw new Error(`カスタムカラーラベル取得不一致: ${getAvatarColorLabel("#123456")}`);
+  }
+  console.log(`✓ チームメンバー・アカウント管理用カラーパターン拡充テスト成功 (${AVATAR_COLORS.length}色・重複なし・ラベル定義完全)`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

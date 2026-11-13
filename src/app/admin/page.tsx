@@ -31,6 +31,7 @@ import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
+import { getAvatarColorLabel } from "@/lib/avatarColors";
 import {
   Project,
   SystemSettings,
@@ -1209,7 +1210,8 @@ export default function AdminPage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <div
                           style={{ backgroundColor: u.color || "#4f46e5" }}
-                          className="w-6 h-6 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0"
+                          className="w-6 h-6 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs"
+                          title={`${u.name}さんのテーマカラー: ${getAvatarColorLabel(u.color)}`}
                         >
                           {getUserInitials(u.name)}
                         </div>

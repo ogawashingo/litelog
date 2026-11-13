@@ -5,18 +5,8 @@ import React, { useState, useEffect } from "react";
 import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut, Calendar } from "lucide-react";
 import { User, WeekStartDay } from "@/types";
 import { getUserInitials } from "./UserManageModal";
-
-// プリセットアバターカラー（オリジナリティのあるコズミック＆コーラルパレット）
-const AVATAR_COLORS = [
-  "#4f46e5", // コズミックインディゴ
-  "#3b82f6", // ブルー
-  "#8b5cf6", // バイオレット
-  "#ec4899", // ローズピンク
-  "#f59e0b", // コーラルアンバー
-  "#ef4444", // クリムゾンレッド
-  "#06b6d4", // シアン
-  "#d946ef", // フューシャ
-];
+import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
+import AvatarColorPicker from "./AvatarColorPicker";
 
 interface PasswordChangeModalProps {
   isOpen: boolean;
@@ -35,7 +25,7 @@ export default function PasswordChangeModal({
 }: PasswordChangeModalProps) {
   // プロフィール（表示名・テーマ色・カレンダー設定）用State
   const [name, setName] = useState("");
-  const [color, setColor] = useState(AVATAR_COLORS[0]);
+  const [color, setColor] = useState(AVATAR_COLOR_VALUES[0]);
   const [weekStart, setWeekStart] = useState<WeekStartDay>("monday");
   const [showHolidays, setShowHolidays] = useState(true);
 
@@ -53,7 +43,7 @@ export default function PasswordChangeModal({
   useEffect(() => {
     if (isOpen && currentUser) {
       setName(currentUser.name || "");
-      setColor(currentUser.color || AVATAR_COLORS[0]);
+      setColor(currentUser.color || AVATAR_COLOR_VALUES[0]);
       setWeekStart(currentUser.week_start || "monday");
       setShowHolidays(
         currentUser.show_holidays !== undefined
@@ -239,36 +229,13 @@ export default function PasswordChangeModal({
               <Palette className="w-3.5 h-3.5 text-indigo-600" />
               <span>アイコンの色（テーマカラー）</span>
             </label>
-            <div className="flex items-center gap-2 flex-wrap bg-gray-50 p-3 rounded-lg border border-gray-200">
-              {AVATAR_COLORS.map((col) => (
-                <button
-                  key={col}
-                  type="button"
-                  onClick={() => setColor(col)}
-                  style={{ backgroundColor: col }}
-                  className={`w-7 h-7 rounded-full transition-all cursor-pointer flex items-center justify-center ${
-                    color === col
-                      ? "scale-110 ring-2 ring-offset-2 ring-indigo-600 shadow-xs"
-                      : "opacity-75 hover:opacity-100 hover:scale-105"
-                  }`}
-                  title={`カラー: ${col}`}
-                >
-                  {color === col && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                </button>
-              ))}
-              {/* カスタムカラーピッカー */}
-              <label
-                className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-gray-600 hover:text-gray-900 cursor-pointer bg-white px-2 py-1 rounded border border-gray-300 shadow-2xs"
-                title="自由な色を選択"
-              >
-                <input
-                  type="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  className="w-4 h-4 rounded border-0 p-0 cursor-pointer bg-transparent"
-                />
-                <span>カスタム</span>
-              </label>
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <AvatarColorPicker
+                selectedColor={color}
+                onChange={setColor}
+                mode="inline"
+                size="md"
+              />
             </div>
           </div>
 

@@ -2,8 +2,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar } from "lucide-react";
+import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette } from "lucide-react";
 import { User, WeekStartDay } from "@/types";
+import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
+import AvatarColorPicker from "./AvatarColorPicker";
 
 interface UserManageModalProps {
   isOpen: boolean;
@@ -14,18 +16,6 @@ interface UserManageModalProps {
   onUpdated: () => Promise<void>;
   onOpenPasswordChange?: () => void;
 }
-
-// プリセットアバターカラー（緑を排除したコズミックカラーパレット）
-const AVATAR_COLORS = [
-  "#4f46e5", // コズミックインディゴ
-  "#3b82f6", // ブルー
-  "#8b5cf6", // バイオレット
-  "#ec4899", // ピンク
-  "#f59e0b", // アンバー
-  "#ef4444", // ローズレッド
-  "#0284c7", // スカイブルー
-  "#ea580c", // コーラルオレンジ
-];
 
 // 名前からアバター表示用の頭文字（1〜2文字）を取得
 export function getUserInitials(name?: string | null): string {
@@ -54,7 +44,7 @@ export default function UserManageModal({
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("メンバー");
   const [newIsAdmin, setNewIsAdmin] = useState(false);
-  const [newColor, setNewColor] = useState(AVATAR_COLORS[0]);
+  const [newColor, setNewColor] = useState(AVATAR_COLOR_VALUES[0]);
   const [newWeekStart, setNewWeekStart] = useState<WeekStartDay>("monday");
   const [newShowHolidays, setNewShowHolidays] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,8 +107,8 @@ export default function UserManageModal({
       setNewIsAdmin(false);
       setNewWeekStart("monday");
       setNewShowHolidays(true);
-      const nextColorIdx = (users.length + 1) % AVATAR_COLORS.length;
-      setNewColor(AVATAR_COLORS[nextColorIdx]);
+      const nextColorIdx = (users.length + 1) % AVATAR_COLOR_VALUES.length;
+      setNewColor(AVATAR_COLOR_VALUES[nextColorIdx]);
       await onUpdated();
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
@@ -327,22 +317,13 @@ export default function UserManageModal({
               {/* アバターカラー ＆ Admin権限付与チェック */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500 font-medium">テーマ色:</span>
-                  <div className="flex items-center gap-1.5">
-                    {AVATAR_COLORS.map((col) => (
-                      <button
-                        key={col}
-                        type="button"
-                        onClick={() => setNewColor(col)}
-                        style={{ backgroundColor: col }}
-                        className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
-                          newColor === col
-                            ? "scale-125 ring-2 ring-offset-1 ring-slate-700"
-                            : "opacity-75 hover:opacity-100"
-                        }`}
-                      />
-                    ))}
-                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium shrink-0">テーマ色:</span>
+                  <AvatarColorPicker
+                    selectedColor={newColor}
+                    onChange={setNewColor}
+                    mode="popover"
+                    size="sm"
+                  />
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -492,17 +473,13 @@ export default function UserManageModal({
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1.5">
-                              {AVATAR_COLORS.map((col) => (
-                                <button
-                                  key={col}
-                                  type="button"
-                                  onClick={() => setEditColor(col)}
-                                  style={{ backgroundColor: col }}
-                                  className={`w-5 h-5 rounded-full cursor-pointer ${
-                                    editColor === col ? "ring-2 ring-offset-1 ring-slate-800" : "opacity-70"
-                                  }`}
-                                />
-                              ))}
+                              <span className="text-[10px] text-slate-500 font-medium shrink-0">色:</span>
+                              <AvatarColorPicker
+                                selectedColor={editColor}
+                                onChange={setEditColor}
+                                mode="popover"
+                                size="sm"
+                              />
                             </div>
                             <label className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 cursor-pointer">
                               <input
