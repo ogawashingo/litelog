@@ -483,9 +483,10 @@ export default function BoardView({
                               <span className="text-slate-400 text-[10px]">期日なし</span>
                             )}
 
-                            {/* コメント件数バッジ ＆ ホバープレビュー */}
+                            {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}
                             {Boolean(issue.comment_count && issue.comment_count > 0) && (
                               <CommentPreviewBadge
+                                issueId={issue.id}
                                 commentCount={issue.comment_count}
                                 latestCommentContent={issue.latest_comment_content}
                                 latestCommentCreatedAt={issue.latest_comment_created_at}
