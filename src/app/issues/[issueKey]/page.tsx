@@ -18,6 +18,7 @@ import {
   AlertCircle,
   MessageSquare,
   LayoutDashboard,
+  Plus,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -77,7 +78,16 @@ export default function IssueDetailPage() {
 
   // ヘッダー用モーダルState
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
+  const [createIssueDefaultParentId, setCreateIssueDefaultParentId] = useState<number | null>(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+
+  // 子課題クイック追加State
+  const [isAddingChild, setIsAddingChild] = useState(false);
+  const [childTitle, setChildTitle] = useState("");
+  const [childType, setChildType] = useState<IssueType>("task");
+  const [childAssigneeId, setChildAssigneeId] = useState<string>("");
+  const [isSubmittingChild, setIsSubmittingChild] = useState(false);
+  const [childError, setChildError] = useState("");
 
   // プロジェクト一覧取得
   useEffect(() => {
@@ -371,6 +381,46 @@ export default function IssueDetailPage() {
     }
   };
 
+  // 子課題のクイック追加
+  const handleAddChildIssue = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!issue || !childTitle.trim() || isSubmittingChild) return;
+
+    try {
+      setIsSubmittingChild(true);
+      setChildError("");
+      const res = await fetch("/api/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: issue.project_id,
+          parentId: issue.id,
+          title: childTitle.trim(),
+          issueType: childType,
+          assigneeId: childAssigneeId ? Number(childAssigneeId) : null,
+          actorId: currentUser?.id || null,
+          status: "open",
+          priority: "medium",
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "子課題の作成に失敗しました");
+      }
+
+      // 入力欄をクリアして子課題一覧を再取得（フォームは開いたままにして連続追加可能に）
+      setChildTitle("");
+      await fetchIssueDetail();
+      await refreshUsers();
+    } catch (err: unknown) {
+      console.error("子課題作成エラー:", err);
+      setChildError(err instanceof Error ? err.message : "子課題の作成に失敗しました");
+    } finally {
+      setIsSubmittingChild(false);
+    }
+  };
+
   const currentAssignee = users.find((u) => u.id === Number(editAssigneeId));
 
   // 該当プロジェクトのプロジェクトキー
@@ -393,7 +443,10 @@ export default function IssueDetailPage() {
             }
           }
         }}
-        onOpenCreateIssue={() => setIsCreateIssueOpen(true)}
+        onOpenCreateIssue={() => {
+          setCreateIssueDefaultParentId(null);
+          setIsCreateIssueOpen(true);
+        }}
         onOpenBackup={() => setIsBackupOpen(true)}
       />
 
@@ -842,13 +895,30 @@ export default function IssueDetailPage() {
                 )}
               </div>
 
-              {/* 子課題一覧 */}
-              {childrenIssues.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-slate-100">
+              {/* 子課題セクション */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
                     <span>子課題 ({childrenIssues.length})</span>
                   </h3>
+                  {!isAddingChild && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingChild(true);
+                        setChildError("");
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>子課題を追加</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 子課題一覧 */}
+                {childrenIssues.length > 0 && (
                   <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden text-xs">
                     {childrenIssues.map((child) => (
                       <Link
@@ -877,8 +947,115 @@ export default function IssueDetailPage() {
                       </Link>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* 子課題が0件でインラインフォームも閉じてる場合の案内 */}
+                {childrenIssues.length === 0 && !isAddingChild && (
+                  <div className="bg-slate-50/70 border border-dashed border-slate-200 rounded-xl p-4 text-center text-xs text-slate-500">
+                    子課題はまだありません。
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingChild(true);
+                        setChildError("");
+                      }}
+                      className="ml-2 text-indigo-600 hover:text-indigo-800 hover:underline font-medium inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>子課題を追加</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* 子課題インライン追加フォーム */}
+                {isAddingChild && (
+                  <form
+                    onSubmit={handleAddChildIssue}
+                    className="p-3.5 bg-slate-50 border border-indigo-200 rounded-xl space-y-3 text-xs shadow-xs"
+                  >
+                    <div className="font-semibold text-slate-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-indigo-700">
+                        <Plus className="w-3.5 h-3.5" />
+                        子課題のクイック追加
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCreateIssueDefaultParentId(issue.id);
+                          setIsCreateIssueOpen(true);
+                        }}
+                        className="text-slate-500 hover:text-indigo-600 hover:underline text-[11px] font-normal cursor-pointer"
+                      >
+                        詳細を入力して作成...
+                      </button>
+                    </div>
+
+                    {childError && (
+                      <div className="p-2 bg-red-50 text-red-600 border border-red-200 rounded text-xs">
+                        {childError}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <select
+                        value={childType}
+                        onChange={(e) => setChildType(e.target.value as IssueType)}
+                        className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shrink-0"
+                      >
+                        <option value="task">タスク</option>
+                        <option value="bug">バグ</option>
+                        <option value="request">要望</option>
+                        <option value="other">その他</option>
+                      </select>
+
+                      <input
+                        type="text"
+                        value={childTitle}
+                        onChange={(e) => setChildTitle(e.target.value)}
+                        placeholder="子課題のタイトルを入力... (Enterで追加)"
+                        autoFocus
+                        disabled={isSubmittingChild}
+                        className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      />
+
+                      <select
+                        value={childAssigneeId}
+                        onChange={(e) => setChildAssigneeId(e.target.value)}
+                        className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shrink-0"
+                      >
+                        <option value="">担当者なし</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={String(u.id)}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingChild(false);
+                          setChildTitle("");
+                          setChildError("");
+                        }}
+                        disabled={isSubmittingChild}
+                        className="px-3 py-1.5 text-slate-600 hover:text-slate-800 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                      >
+                        閉じる
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingChild || !childTitle.trim()}
+                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {isSubmittingChild ? "追加中..." : "追加"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
 
               {/* コメントセクション */}
               <div className="space-y-4 pt-4 border-t border-slate-100">
@@ -1026,11 +1203,16 @@ export default function IssueDetailPage() {
       {/* 新規課題作成モーダル */}
       <CreateIssueModal
         isOpen={isCreateIssueOpen}
-        onClose={() => setIsCreateIssueOpen(false)}
+        onClose={() => {
+          setIsCreateIssueOpen(false);
+          setCreateIssueDefaultParentId(null);
+        }}
         projects={projects}
         selectedProjectId={issue?.project_id || null}
+        defaultParentId={createIssueDefaultParentId}
         onCreated={() => {
           setIsCreateIssueOpen(false);
+          setCreateIssueDefaultParentId(null);
           fetchIssueDetail();
         }}
       />
