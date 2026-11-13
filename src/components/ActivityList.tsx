@@ -11,7 +11,6 @@ import {
   Edit3,
   ChevronUp,
   ChevronDown,
-  Filter,
   ExternalLink,
 } from "lucide-react";
 import { Activity, Issue, Project } from "@/types";
@@ -102,8 +101,6 @@ export default function ActivityList({
   const { settings } = useUser();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
-  // プロジェクト表示設定フィルター（"sync" = ダッシュボード選択に連動、"all" = すべて、または projectId 文字列）
-  const [projectFilter, setProjectFilter] = useState<string>("sync");
   const [loadingIssueId, setLoadingIssueId] = useState<number | null>(null);
 
   // アクションタイプ別のアイコンと本家Backlog風アクションバッジ設定
@@ -148,20 +145,13 @@ export default function ActivityList({
     }
   };
 
-  // 表示設定に応じたアクティビティの絞り込み
+  // ダッシュボード選択プロジェクトに応じたアクティビティの絞り込み（未選択時は全件表示）
   const filteredActivities = useMemo(() => {
-    const effectiveProjectId =
-      projectFilter === "sync"
-        ? selectedProjectId
-        : projectFilter === "all"
-        ? null
-        : Number(projectFilter);
+    if (!selectedProjectId) return activities;
 
-    if (!effectiveProjectId) return activities;
-
-    const targetProj = projects.find((p) => p.id === effectiveProjectId);
+    const targetProj = projects.find((p) => p.id === selectedProjectId);
     return activities.filter((act) => {
-      if (act.project_id === effectiveProjectId) return true;
+      if (act.project_id === selectedProjectId) return true;
       // 削除済み課題などで project_id が NULL の場合はキープレフィックスで判定
       if (!act.project_id && targetProj) {
         const { issueKey } = parseActivityDetails(act);
@@ -171,7 +161,7 @@ export default function ActivityList({
       }
       return false;
     });
-  }, [activities, projectFilter, selectedProjectId, projects]);
+  }, [activities, selectedProjectId, projects]);
 
   // 日付（YYYY年M月D日(曜日)）ごとにアクティビティをグルーピング
   const groupedTimeline = useMemo(() => {
@@ -234,7 +224,7 @@ export default function ActivityList({
 
   return (
     <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden">
-      {/* ウィジェットヘッダー（本家Backlog風の折りたたみトグル＆表示設定フィルター付き） */}
+      {/* ウィジェットヘッダー（本家Backlog風の折りたたみトグル付き） */}
       <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
@@ -255,31 +245,6 @@ export default function ActivityList({
             {filteredActivities.length}
           </span>
         </div>
-
-        {/* 右側: 表示設定（プロジェクト絞り込み） */}
-        {projects.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-            <select
-              value={projectFilter}
-              onChange={(e) => setProjectFilter(e.target.value)}
-              aria-label="最近の更新の表示対象プロジェクト"
-              className="bg-white border border-slate-300 rounded px-2 py-1 text-[11px] text-slate-700 font-medium focus:outline-hidden focus:ring-1 focus:ring-indigo-500 cursor-pointer max-w-[160px] truncate"
-            >
-              <option value="sync">
-                {selectedProjectId ? "選択中プロジェクト" : "すべてのプロジェクト"}
-              </option>
-              {selectedProjectId !== null && (
-                <option value="all">すべてのプロジェクトを表示</option>
-              )}
-              {projects.map((proj) => (
-                <option key={proj.id} value={String(proj.id)}>
-                  [{proj.key}] {proj.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       {/* タイムライン本体 */}
