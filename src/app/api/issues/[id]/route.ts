@@ -28,6 +28,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
         u.name AS assignee_name,
         u.color AS assignee_color,
         creator.name AS creator_name,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'description') AS description_history_count,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count,
         COALESCE(cmt_stat.comment_count, 0) AS comment_count,
         latest_c.content AS latest_comment_content,
         latest_c.created_at AS latest_comment_created_at,
@@ -108,6 +110,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       id: number;
       issue_key: string;
       title: string;
+      description: string | null;
       status: string;
       priority: string;
       assignee_id: number | null;
@@ -124,6 +127,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const updates: string[] = [];
     const values: (string | number | null)[] = [];
     const activityLogs: { type: string; msg: string }[] = [];
+    const historiesToInsert: { field: string; oldValue: string }[] = [];
     const actorId =
       sessionUser.id ||
       (body.actorId ? Number(body.actorId) : null) ||
@@ -132,15 +136,36 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       null;
 
     if (body.title !== undefined) {
-      if (!String(body.title).trim()) {
+      const cleanTitle = String(body.title).trim();
+      if (!cleanTitle) {
         return NextResponse.json({ error: "課題名は空にできません" }, { status: 400 });
       }
       updates.push("title = ?");
-      values.push(String(body.title).trim());
+      values.push(cleanTitle);
+
+      // タイトルが変更された場合、変更前のタイトルを履歴に退避
+      if (cleanTitle !== currentIssue.title) {
+        historiesToInsert.push({ field: "title", oldValue: currentIssue.title });
+        activityLogs.push({
+          type: "updated",
+          msg: `課題 [${currentIssue.issue_key}] のタイトルを「${currentIssue.title}」から「${cleanTitle}」に変更しました`,
+        });
+      }
     }
     if (body.description !== undefined) {
+      const cleanDesc = String(body.description).trim();
+      const currentDesc = (currentIssue.description || "").trim();
       updates.push("description = ?");
-      values.push(String(body.description).trim());
+      values.push(cleanDesc);
+
+      // 詳細説明が変更された場合、変更前の説明文を履歴に退避
+      if (cleanDesc !== currentDesc) {
+        historiesToInsert.push({ field: "description", oldValue: currentIssue.description || "" });
+        activityLogs.push({
+          type: "updated",
+          msg: `課題 [${currentIssue.issue_key}] の詳細説明を更新しました`,
+        });
+      }
     }
     if (body.issueType !== undefined) {
       if (!VALID_ISSUE_TYPES.has(String(body.issueType))) {
@@ -263,6 +288,17 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       const sql = `UPDATE issues SET ${updates.join(", ")} WHERE id = ?`;
       db.prepare(sql).run(...values);
 
+      // 課題変更履歴（タイトル・詳細説明の変更前バージョン）の保存
+      if (historiesToInsert.length > 0) {
+        const insertHistory = db.prepare(`
+          INSERT INTO issue_histories (issue_id, user_id, field_name, old_value, created_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `);
+        for (const h of historiesToInsert) {
+          insertHistory.run(currentIssue.id, actorId, h.field, h.oldValue);
+        }
+      }
+
       // アクティビティ履歴の記録
       const insertActivity = db.prepare(`
         INSERT INTO activities (issue_id, user_id, action_type, content)
@@ -292,7 +328,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         parent.title AS parent_title,
         u.name AS assignee_name,
         u.color AS assignee_color,
-        creator.name AS creator_name
+        creator.name AS creator_name,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'description') AS description_history_count,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN issues parent ON i.parent_id = parent.id

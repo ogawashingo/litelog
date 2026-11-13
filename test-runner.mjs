@@ -191,6 +191,17 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // 課題変更履歴テーブル（タイトル・詳細説明等の過去バージョン保持）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS issue_histories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      field_name TEXT NOT NULL,
+      old_value TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
   db.exec(`
     CREATE TABLE IF NOT EXISTS activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -310,6 +321,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     CREATE INDEX IF NOT EXISTS idx_issues_project_status_updated ON issues(project_id, status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
     CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_issue_histories_issue_id ON issue_histories(issue_id);
     CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id);
     CREATE INDEX IF NOT EXISTS idx_comment_histories_comment_id ON comment_histories(comment_id);
     CREATE INDEX IF NOT EXISTS idx_activities_issue_id ON activities(issue_id);
@@ -416,6 +428,50 @@ async function runTests() {
   const clearedDue = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(createdId);
   if (clearedDue.due_date !== null) throw new Error("期限日クリアに失敗しました");
   console.log("✓ 期限日即時更新＆クリアテスト成功");
+
+  // 4-5. 課題タイトル・詳細説明の更新および変更履歴（issue_histories）保存テスト
+  const curIssueForHist = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);
+  const origTitle = curIssueForHist.title;
+  const origDesc = curIssueForHist.description || "";
+
+  // タイトルの変更前を履歴保存し、更新
+  db.prepare(`
+    INSERT INTO issue_histories (issue_id, user_id, field_name, old_value, created_at)
+    VALUES (?, ?, 'title', ?, CURRENT_TIMESTAMP)
+  `).run(createdId, 1, origTitle);
+  db.prepare("UPDATE issues SET title = ? WHERE id = ?").run("更新後タイトルテスト", createdId);
+
+  // 詳細説明の変更前を履歴保存し、更新
+  db.prepare(`
+    INSERT INTO issue_histories (issue_id, user_id, field_name, old_value, created_at)
+    VALUES (?, ?, 'description', ?, CURRENT_TIMESTAMP)
+  `).run(createdId, 1, origDesc);
+  db.prepare("UPDATE issues SET description = ? WHERE id = ?").run("更新後詳細説明文テスト", createdId);
+
+  // 履歴テーブルの検証
+  const issueHists = db.prepare("SELECT * FROM issue_histories WHERE issue_id = ? ORDER BY id ASC").all(createdId);
+  if (issueHists.length !== 2) throw new Error(`課題変更履歴件数不一致: ${issueHists.length}`);
+  if (issueHists[0].field_name !== "title" || issueHists[0].old_value !== origTitle) {
+    throw new Error(`タイトル変更履歴不一致: ${JSON.stringify(issueHists[0])}`);
+  }
+  if (issueHists[1].field_name !== "description" || issueHists[1].old_value !== origDesc) {
+    throw new Error(`詳細説明変更履歴不一致: ${JSON.stringify(issueHists[1])}`);
+  }
+
+  // 課題取得時の履歴カウント検証
+  const issueWithHistCount = db.prepare(`
+    SELECT 
+      i.*,
+      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'description') AS description_history_count,
+      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count
+    FROM issues i
+    WHERE i.id = ?
+  `).get(createdId);
+
+  if (issueWithHistCount.description_history_count !== 1 || issueWithHistCount.title_history_count !== 1) {
+    throw new Error(`課題履歴カウントサブクエリ検証失敗: desc=${issueWithHistCount.description_history_count}, title=${issueWithHistCount.title_history_count}`);
+  }
+  console.log(`✓ 課題タイトル・詳細説明変更履歴退避＆件数結合テスト成功: タイトル旧="${origTitle}", 説明旧="${origDesc}"`);
 
   // 5. コメント追加テスト
   const commentRes = db.prepare(`

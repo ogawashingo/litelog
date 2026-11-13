@@ -10,6 +10,7 @@ import { getUserInitials } from "./UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
 import { DatePicker } from "./DatePicker";
 import CommentHistoryModal from "./CommentHistoryModal";
+import IssueHistoryModal from "./IssueHistoryModal";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -39,6 +40,8 @@ export default function IssueDetailModal({
   const [editCommentContent, setEditCommentContent] = useState("");
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
+  const [isIssueHistoryOpen, setIsIssueHistoryOpen] = useState(false);
+  const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "all">("description");
   const [isEditing, setIsEditing] = useState(false);
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
 
@@ -655,9 +658,24 @@ export default function IssueDetailModal({
                     <span className="truncate max-w-sm">{activeIssue.parent_title}</span>
                   </div>
                 )}
-                <h2 className="text-xl font-bold text-slate-900 leading-snug">
-                  {activeIssue.title}
-                </h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-slate-900 leading-snug">
+                    {activeIssue.title}
+                  </h2>
+                  {Boolean(activeIssue.title_history_count && activeIssue.title_history_count > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueHistoryTab("title");
+                        setIsIssueHistoryOpen(true);
+                      }}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
+                      title="クリックしてタイトルの変更履歴を確認"
+                    >
+                      (変更履歴 · {activeIssue.title_history_count}件)
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* 属性グリッド（状態、担当者、優先度、開始日、期限日、登録日時） */}
@@ -752,9 +770,26 @@ export default function IssueDetailModal({
 
               {/* 詳細・メモ内容 */}
               <div>
-                <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                  詳細説明
-                </h4>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      詳細説明
+                    </h4>
+                    {Boolean(activeIssue.description_history_count && activeIssue.description_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("description");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
+                        title="クリックして詳細説明の変更履歴を確認"
+                      >
+                        (編集済み · {activeIssue.description_history_count}件)
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed min-h-[90px]">
                   {activeIssue.description ? (
                     activeIssue.description
@@ -951,6 +986,15 @@ export default function IssueDetailModal({
         onClose={() => setHistoryModalCommentId(null)}
         issueId={issue.id}
         commentId={historyModalCommentId}
+        settings={settings}
+      />
+
+      {/* 課題変更履歴モーダル */}
+      <IssueHistoryModal
+        isOpen={isIssueHistoryOpen}
+        onClose={() => setIsIssueHistoryOpen(false)}
+        issueId={issue.id}
+        initialTab={issueHistoryTab}
         settings={settings}
       />
     </div>

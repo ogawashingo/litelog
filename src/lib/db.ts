@@ -194,6 +194,18 @@ function initDb(db: DatabaseSync) {
     );
   `);
 
+  // 課題変更履歴テーブル（タイトル・詳細説明等の過去バージョン保持）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS issue_histories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      field_name TEXT NOT NULL,
+      old_value TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // 最近の更新・アクティビティテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS activities (
@@ -240,6 +252,7 @@ function initDb(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_issues_project_status_updated ON issues(project_id, status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
     CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_issue_histories_issue_id ON issue_histories(issue_id);
     CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id);
     CREATE INDEX IF NOT EXISTS idx_comment_histories_comment_id ON comment_histories(comment_id);
     CREATE INDEX IF NOT EXISTS idx_activities_issue_id ON activities(issue_id);

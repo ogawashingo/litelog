@@ -23,6 +23,7 @@ import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import CommentHistoryModal from "@/components/CommentHistoryModal";
+import IssueHistoryModal from "@/components/IssueHistoryModal";
 import { TypeBadge, StatusBadge, PriorityBadge } from "@/components/IssueBadge";
 import { DatePicker } from "@/components/DatePicker";
 import { useUser } from "@/components/UserContext";
@@ -52,6 +53,8 @@ export default function IssueDetailPage() {
   const [editCommentContent, setEditCommentContent] = useState("");
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
+  const [isIssueHistoryOpen, setIsIssueHistoryOpen] = useState(false);
+  const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "all">("description");
 
   // 編集モードState
   const [isEditing, setIsEditing] = useState(false);
@@ -538,7 +541,22 @@ export default function IssueDetailPage() {
                   />
                 </div>
               ) : (
-                <h1 className="text-xl font-bold text-slate-900 leading-snug">{issue.title}</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold text-slate-900 leading-snug">{issue.title}</h1>
+                  {Boolean(issue.title_history_count && issue.title_history_count > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueHistoryTab("title");
+                        setIsIssueHistoryOpen(true);
+                      }}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
+                      title="クリックしてタイトルの変更履歴を確認"
+                    >
+                      (変更履歴 · {issue.title_history_count}件)
+                    </button>
+                  )}
+                </div>
               )}
 
               {/* メタ情報グリッド */}
@@ -723,7 +741,24 @@ export default function IssueDetailPage() {
 
               {/* 詳細説明 */}
               <div>
-                <h3 className="text-xs font-bold text-slate-700 mb-2">詳細・メモ</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-slate-700">詳細・メモ</h3>
+                    {Boolean(issue.description_history_count && issue.description_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("description");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
+                        title="クリックして詳細説明の変更履歴を確認"
+                      >
+                        (編集済み · {issue.description_history_count}件)
+                      </button>
+                    )}
+                  </div>
+                </div>
                 {isEditing ? (
                   <textarea
                     rows={6}
@@ -943,6 +978,17 @@ export default function IssueDetailPage() {
           onClose={() => setHistoryModalCommentId(null)}
           issueId={issue.id}
           commentId={historyModalCommentId}
+          settings={settings}
+        />
+      )}
+
+      {/* 課題変更履歴モーダル */}
+      {issue && (
+        <IssueHistoryModal
+          isOpen={isIssueHistoryOpen}
+          onClose={() => setIsIssueHistoryOpen(false)}
+          issueId={issue.id}
+          initialTab={issueHistoryTab}
           settings={settings}
         />
       )}

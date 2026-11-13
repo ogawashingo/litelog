@@ -32,6 +32,7 @@ export async function GET() {
       .all();
     const projects = db.prepare("SELECT * FROM projects").all();
     const issues = db.prepare("SELECT * FROM issues").all();
+    const issueHistories = db.prepare("SELECT * FROM issue_histories").all();
     const comments = db.prepare("SELECT * FROM comments").all();
     const commentHistories = db.prepare("SELECT * FROM comment_histories").all();
     const activities = db.prepare("SELECT * FROM activities").all();
@@ -40,11 +41,12 @@ export async function GET() {
       .all();
 
     const backupData = {
-      version: 4,
+      version: 5,
       exportedAt: new Date().toISOString(),
       users,
       projects,
       issues,
+      issueHistories,
       comments,
       commentHistories,
       activities,
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = await request.json();
-    const { users, projects, issues, comments, commentHistories, activities, settings } = body;
+    const { users, projects, issues, issueHistories, comments, commentHistories, activities, settings } = body;
 
     if (!Array.isArray(projects) || !Array.isArray(issues)) {
       return NextResponse.json({ error: "有効なバックアップデータ形式ではありません" }, { status: 400 });
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
       db.exec("DELETE FROM activities;");
       db.exec("DELETE FROM comment_histories;");
       db.exec("DELETE FROM comments;");
+      db.exec("DELETE FROM issue_histories;");
       db.exec("DELETE FROM issues;");
       db.exec("DELETE FROM projects;");
 
@@ -196,6 +199,24 @@ export async function POST(request: Request) {
       for (const i of issues) {
         if (i.parent_id) {
           updateParent.run(i.parent_id, i.id);
+        }
+      }
+
+      if (Array.isArray(issueHistories)) {
+        const insertIssueHist = db.prepare(`
+          INSERT INTO issue_histories (id, issue_id, user_id, field_name, old_value, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        for (const ih of issueHistories) {
+          const userId = ih.user_id && validUserIds.has(ih.user_id) ? ih.user_id : null;
+          insertIssueHist.run(
+            ih.id,
+            ih.issue_id,
+            userId,
+            ih.field_name,
+            ih.old_value !== undefined ? ih.old_value : null,
+            ih.created_at || new Date().toISOString()
+          );
         }
       }
 
