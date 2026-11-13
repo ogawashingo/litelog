@@ -538,34 +538,10 @@ export default function BoardView({
                           isParent
                             ? "bg-white border-l-4 border-l-indigo-600 border-indigo-100/90 shadow-indigo-50/50"
                             : isChild
-                            ? "bg-white border-l-4 border-l-indigo-300 border-slate-200/90 ml-1.5"
+                            ? "bg-white border-l-4 border-l-indigo-300 border-slate-200/90"
                             : "bg-white border-slate-200/90 border-l-4 border-l-transparent"
                         } ${isDragging ? "opacity-40 scale-95 border-indigo-500 shadow-lg" : ""}`}
                       >
-                        {/* 子課題の場合: 親課題への参照リンクピル */}
-                        {isChild && (
-                          <div className="flex items-center gap-1.5 mb-2 px-2 py-0.5 rounded-md bg-indigo-50/60 border border-indigo-100/90 text-[10px] text-slate-600 w-fit max-w-full">
-                            <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span className="text-slate-400 font-semibold text-[9px] shrink-0">親:</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const p = parentIssue || issues.find((i) => i.id === issue.parent_id);
-                                if (p) {
-                                  setDetailIssue(p);
-                                  setIsDetailOpen(true);
-                                }
-                              }}
-                              className="font-mono font-bold text-indigo-600 hover:text-indigo-800 hover:underline truncate max-w-[170px]"
-                              title={`親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""} ${issue.parent_title || parentIssue?.title || ""}`}
-                            >
-                              {issue.parent_issue_key || parentIssue?.issue_key || "親課題"}
-                              {(issue.parent_title || parentIssue?.title) ? ` ${issue.parent_title || parentIssue?.title}` : ""}
-                            </button>
-                          </div>
-                        )}
-
                         {/* 親課題の場合: 子課題進捗ピル */}
                         {isParent && (
                           <div className="flex items-center gap-1.5 mb-2 px-2 py-0.5 rounded-md bg-indigo-50/80 border border-indigo-200/80 text-[10px] text-indigo-800 w-fit max-w-full">
@@ -583,7 +559,10 @@ export default function BoardView({
                             <TypeBadge type={issue.issue_type} />
                             <div className="flex items-center gap-1 min-w-0">
                               {isChild && (
-                                <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
+                                <CornerDownRight
+                                  className="w-3 h-3 text-indigo-500 shrink-0"
+                                  title={`親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""}`}
+                                />
                               )}
                               <a
                                 href={`/issues/${issue.issue_key}`}
@@ -594,6 +573,11 @@ export default function BoardView({
                                     setIsDetailOpen(true);
                                   }
                                 }}
+                                title={
+                                  isChild
+                                    ? `親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""} ${issue.parent_title || parentIssue?.title || ""}`
+                                    : undefined
+                                }
                                 className="font-mono text-xs font-bold text-slate-500 group-hover:text-indigo-600 transition-colors hover:underline cursor-pointer truncate"
                               >
                                 {issue.issue_key}
