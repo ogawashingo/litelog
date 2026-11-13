@@ -27,6 +27,8 @@ export default function IssueDetailModal({
 }: IssueDetailModalProps) {
   const { users, currentUser, refreshUsers, settings } = useUser();
 
+  // モーダル内部で最新の課題状態を保持（保存・即時変更時に即座に反映）
+  const [currentIssue, setCurrentIssue] = useState<Issue | null>(issue);
   const [comments, setComments] = useState<Comment[]>([]);
   const [childrenIssues, setChildrenIssues] = useState<Issue[]>([]);
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
@@ -118,6 +120,7 @@ export default function IssueDetailModal({
   useEffect(() => {
     if (!issue || !isOpen) return;
 
+    setCurrentIssue(issue);
     setEditTitle(issue.title);
     setEditDescription(issue.description || "");
     setEditStatus(issue.status);
@@ -129,10 +132,15 @@ export default function IssueDetailModal({
     setEditDueDate(issue.due_date || "");
     setIsEditing(false);
 
-    // 課題詳細（コメントや子課題含む）の取得
+    // 課題詳細（コメントや子課題含む）の最新情報をAPIから取得して同期
     fetch(`/api/issues/${issue.id}`)
       .then((res) => res.json())
       .then((data) => {
+        if (data.issue) {
+          setCurrentIssue(data.issue);
+          setEditPriority(data.issue.priority);
+          setEditStatus(data.issue.status);
+        }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
         }
@@ -155,12 +163,33 @@ export default function IssueDetailModal({
 
   if (!isOpen || !issue) return null;
 
+  // 表示に使うアクティブな課題オブジェクト（ローカルで最新化されたものを優先）
+  const activeIssue = currentIssue || issue;
+
   // 課題の更新を保存
   const handleSaveEdit = async () => {
     if (!editTitle.trim()) return;
 
     try {
       setIsSaving(true);
+      // 楽観的UI更新
+      setCurrentIssue((prev) =>
+        prev
+          ? {
+              ...prev,
+              title: editTitle.trim(),
+              description: editDescription.trim(),
+              status: editStatus,
+              priority: editPriority,
+              issue_type: editType,
+              assignee_id: editAssigneeId ? Number(editAssigneeId) : null,
+              parent_id: editParentId ? Number(editParentId) : null,
+              start_date: editStartDate || null,
+              due_date: editDueDate || null,
+            }
+          : null
+      );
+
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -180,6 +209,12 @@ export default function IssueDetailModal({
 
       if (res.ok) {
         setIsEditing(false);
+        // DB最新レコードで再同期
+        const detailRes = await fetch(`/api/issues/${issue.id}`);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          if (detailData.issue) setCurrentIssue(detailData.issue);
+        }
         await refreshUsers();
         onUpdated();
       }
@@ -193,6 +228,8 @@ export default function IssueDetailModal({
   // ステータス即時変更
   const handleQuickStatusChange = async (newStatus: IssueStatus) => {
     try {
+      setCurrentIssue((prev) => (prev ? { ...prev, status: newStatus } : null));
+      setEditStatus(newStatus);
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -202,7 +239,6 @@ export default function IssueDetailModal({
         }),
       });
       if (res.ok) {
-        setEditStatus(newStatus);
         await refreshUsers();
         onUpdated();
       }
@@ -211,19 +247,49 @@ export default function IssueDetailModal({
     }
   };
 
-  // 担当者即時変更
-  const handleQuickAssigneeChange = async (newAssigneeIdStr: string) => {
+  // 優先度即時変更（モーダル上で直接変更可能）
+  const handleQuickPriorityChange = async (newPriority: IssuePriority) => {
     try {
+      // 楽観的UI即時反映
+      setCurrentIssue((prev) => (prev ? { ...prev, priority: newPriority } : null));
+      setEditPriority(newPriority);
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          assigneeId: newAssigneeIdStr ? Number(newAssigneeIdStr) : null,
+          priority: newPriority,
           actorId: currentUser?.id || null,
         }),
       });
       if (res.ok) {
-        setEditAssigneeId(newAssigneeIdStr);
+        await refreshUsers();
+        onUpdated();
+      }
+    } catch (err) {
+      console.error("優先度変更エラー:", err);
+    }
+  };
+
+  // 担当者即時変更
+  const handleQuickAssigneeChange = async (newAssigneeIdStr: string) => {
+    try {
+      const targetAssigneeId = newAssigneeIdStr ? Number(newAssigneeIdStr) : null;
+      setCurrentIssue((prev) => (prev ? { ...prev, assignee_id: targetAssigneeId } : null));
+      setEditAssigneeId(newAssigneeIdStr);
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assigneeId: targetAssigneeId,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        const detailRes = await fetch(`/api/issues/${issue.id}`);
+        if (detailRes.ok) {
+          const detailData = await detailRes.json();
+          if (detailData.issue) setCurrentIssue(detailData.issue);
+        }
         await refreshUsers();
         onUpdated();
       }
@@ -306,13 +372,13 @@ export default function IssueDetailModal({
               <span>戻る</span>
             </button>
 
-            <TypeBadge type={isEditing ? editType : issue.issue_type} />
+            <TypeBadge type={isEditing ? editType : activeIssue.issue_type} />
             <span className="font-bold text-gray-800 text-xs sm:text-sm tracking-wide shrink-0">
-              {issue.issue_key}
+              {activeIssue.issue_key}
             </span>
-            {issue.project_name && (
+            {activeIssue.project_name && (
               <span className="text-[11px] sm:text-xs bg-white border border-gray-200 px-1.5 sm:px-2 py-0.5 rounded text-gray-600 truncate max-w-[90px] sm:max-w-none">
-                {issue.project_name}
+                {activeIssue.project_name}
               </span>
             )}
           </div>
@@ -534,16 +600,16 @@ export default function IssueDetailModal({
             <>
               {/* タイトル ＆ 親課題バッジ */}
               <div>
-                {issue.parent_id && issue.parent_issue_key && (
+                {activeIssue.parent_id && activeIssue.parent_issue_key && (
                   <div className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-xs text-slate-700 font-medium">
                     <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
                     <span className="text-slate-500">親課題:</span>
-                    <span className="font-bold text-indigo-700">[{issue.parent_issue_key}]</span>
-                    <span className="truncate max-w-sm">{issue.parent_title}</span>
+                    <span className="font-bold text-indigo-700">[{activeIssue.parent_issue_key}]</span>
+                    <span className="truncate max-w-sm">{activeIssue.parent_title}</span>
                   </div>
                 )}
                 <h2 className="text-xl font-bold text-slate-900 leading-snug">
-                  {issue.title}
+                  {activeIssue.title}
                 </h2>
               </div>
 
@@ -553,7 +619,7 @@ export default function IssueDetailModal({
                 <div>
                   <span className="text-slate-500 block mb-1 font-medium">状態</span>
                   <select
-                    value={editStatus}
+                    value={activeIssue.status}
                     onChange={(e) => handleQuickStatusChange(e.target.value as IssueStatus)}
                     className="bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
                   >
@@ -575,7 +641,7 @@ export default function IssueDetailModal({
                       {getUserInitials(currentAssignee?.name)}
                     </div>
                     <select
-                      value={editAssigneeId}
+                      value={activeIssue.assignee_id ? String(activeIssue.assignee_id) : ""}
                       onChange={(e) => handleQuickAssigneeChange(e.target.value)}
                       className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-medium text-slate-800 cursor-pointer focus:ring-1 focus:ring-indigo-500 max-w-[110px] truncate"
                     >
@@ -589,16 +655,31 @@ export default function IssueDetailModal({
                   </div>
                 </div>
 
+                {/* 優先度即時変更セレクター */}
                 <div>
-                  <span className="text-gray-500 block mb-1 font-medium">優先度</span>
-                  <PriorityBadge priority={issue.priority} />
+                  <span className="text-slate-500 block mb-1 font-medium">優先度</span>
+                  <select
+                    value={activeIssue.priority}
+                    onChange={(e) => handleQuickPriorityChange(e.target.value as IssuePriority)}
+                    className={`bg-white border rounded px-1.5 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500 transition-colors ${
+                      activeIssue.priority === "high"
+                        ? "text-rose-600 border-rose-300 bg-rose-50/80"
+                        : activeIssue.priority === "medium"
+                        ? "text-amber-600 border-amber-300 bg-amber-50/80"
+                        : "text-slate-600 border-slate-300 bg-slate-50/80"
+                    }`}
+                  >
+                    <option value="high">↑ 高</option>
+                    <option value="medium">→ 中</option>
+                    <option value="low">↓ 低</option>
+                  </select>
                 </div>
 
                 <div>
                   <span className="text-gray-500 block mb-1 font-medium">開始日</span>
                   <div className="flex items-center gap-1 font-medium text-gray-800">
                     <Calendar className="w-3.5 h-3.5 text-gray-500" />
-                    <span>{issue.start_date || "指定なし"}</span>
+                    <span>{activeIssue.start_date || "指定なし"}</span>
                   </div>
                 </div>
 
@@ -606,7 +687,7 @@ export default function IssueDetailModal({
                   <span className="text-gray-500 block mb-1 font-medium">期限日</span>
                   <div className="flex items-center gap-1 font-medium text-gray-800">
                     <Calendar className="w-3.5 h-3.5 text-gray-500" />
-                    <span>{issue.due_date || "指定なし"}</span>
+                    <span>{activeIssue.due_date || "指定なし"}</span>
                   </div>
                 </div>
 
@@ -614,10 +695,10 @@ export default function IssueDetailModal({
                   <span className="text-gray-500 block mb-1 font-medium">登録日時</span>
                   <div
                     className="flex items-center gap-1 text-gray-600"
-                    title={`登録: ${formatTimestamp(issue.created_at, settings, true)}\n更新: ${formatTimestamp(issue.updated_at, settings, true)}`}
+                    title={`登録: ${formatTimestamp(activeIssue.created_at, settings, true)}\n更新: ${formatTimestamp(activeIssue.updated_at, settings, true)}`}
                   >
                     <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    <span className="truncate">{formatTimestamp(issue.created_at, settings, true)}</span>
+                    <span className="truncate">{formatTimestamp(activeIssue.created_at, settings, true)}</span>
                   </div>
                 </div>
               </div>
@@ -628,8 +709,8 @@ export default function IssueDetailModal({
                   詳細説明
                 </h4>
                 <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed min-h-[90px]">
-                  {issue.description ? (
-                    issue.description
+                  {activeIssue.description ? (
+                    activeIssue.description
                   ) : (
                     <span className="text-gray-400 italic">詳細メモはありません</span>
                   )}

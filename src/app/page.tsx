@@ -53,6 +53,12 @@ export default function DashboardPage() {
       if (res.ok) {
         const data = await res.json();
         setIssues(data);
+        // モーダル表示中の課題があれば最新データで同期
+        setSelectedIssue((prev) => {
+          if (!prev) return null;
+          const updated = (data as Issue[]).find((i) => i.id === prev.id);
+          return updated || prev;
+        });
       }
     } catch (err) {
       console.error("課題取得失敗:", err);

@@ -201,6 +201,28 @@ export default function IssueDetailPage() {
     }
   };
 
+  // 優先度即時変更
+  const handleQuickPriorityChange = async (newPriority: IssuePriority) => {
+    if (!issue) return;
+    try {
+      setIssue((prev) => (prev ? { ...prev, priority: newPriority } : null));
+      setEditPriority(newPriority);
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priority: newPriority,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        await refreshUsers();
+      }
+    } catch (err) {
+      console.error("優先度変更エラー:", err);
+    }
+  };
+
   // 担当者即時変更
   const handleQuickAssigneeChange = async (newAssigneeIdStr: string) => {
     if (!issue) return;
@@ -517,7 +539,21 @@ export default function IssueDetailPage() {
                       <option value="low">低</option>
                     </select>
                   ) : (
-                    <PriorityBadge priority={issue.priority} />
+                    <select
+                      value={issue.priority}
+                      onChange={(e) => handleQuickPriorityChange(e.target.value as IssuePriority)}
+                      className={`w-full border rounded px-2 py-1 font-semibold text-xs cursor-pointer focus:ring-1 focus:ring-indigo-500 transition-colors ${
+                        issue.priority === "high"
+                          ? "text-rose-600 border-rose-300 bg-rose-50/80"
+                          : issue.priority === "medium"
+                          ? "text-amber-600 border-amber-300 bg-amber-50/80"
+                          : "text-slate-600 border-slate-300 bg-slate-50/80"
+                      }`}
+                    >
+                      <option value="high">↑ 高</option>
+                      <option value="medium">→ 中</option>
+                      <option value="low">↓ 低</option>
+                    </select>
                   )}
                 </div>
 
