@@ -169,17 +169,17 @@ export default function IssueDetailModal({
       .catch((err) => console.error("親課題候補取得失敗:", err));
   }, [issue, isOpen]);
 
-  if (!isOpen || !issue) return null;
-
-  // 表示に使うアクティブな課題オブジェクト（ローカルで最新化されたものを優先）
-  const activeIssue = currentIssue || issue;
-
-  // 未完了の子課題件数および存在判定（親課題の完了制御用）
+  // 未完了の子課題件数および存在判定（親課題の完了制御用：早期リターンより前で宣言してRules of Hooksを遵守）
   const unclosedChildrenCount = useMemo(
     () => childrenIssues.filter((c) => c.status !== "closed").length,
     [childrenIssues]
   );
   const hasUnclosedChildren = unclosedChildrenCount > 0;
+
+  if (!isOpen || !issue) return null;
+
+  // 表示に使うアクティブな課題オブジェクト（ローカルで最新化されたものを優先）
+  const activeIssue = currentIssue || issue;
 
   // 課題の更新を保存
   const handleSaveEdit = async () => {
