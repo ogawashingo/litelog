@@ -489,25 +489,74 @@ body {
   border-color: rgba(16, 185, 129, 0.35) !important;
 }
 
-/* ガントチャート・カレンダー・サマリーカードの要素最適化 */
+/* ガントチャート・カレンダーの土日・祝日および各要素の視認性最適化 */
+/* 土曜日のヘッダー背景（深みのあるダークブルー） */
+[data-theme="dark"] .bg-blue-50,
+[data-theme="dark"] .bg-blue-50\/50,
+[data-theme="dark"] .bg-blue-50\/70,
+[data-theme="dark"] .bg-blue-50\/80 {
+  background-color: rgba(30, 58, 138, 0.3) !important;
+}
+
+/* 土曜日のタイムライン列背景（うっすらとしたクールブルー） */
+[data-theme="dark"] .bg-blue-50\/30,
+[data-theme="dark"] .bg-blue-50\/40,
 [data-theme="dark"] .bg-sky-50\/40 {
-  background-color: rgba(14, 165, 233, 0.08) !important;
+  background-color: rgba(30, 58, 138, 0.12) !important;
 }
+
+/* 日曜・祝日のヘッダー背景（深みのあるダークワイン・ローズ） */
+[data-theme="dark"] .bg-rose-50,
+[data-theme="dark"] .bg-rose-50\/50,
+[data-theme="dark"] .bg-rose-50\/70,
+[data-theme="dark"] .bg-rose-50\/80 {
+  background-color: rgba(136, 19, 55, 0.32) !important;
+}
+
+/* 日曜・祝日のタイムライン列背景（うっすらとしたウォームローズ） */
+[data-theme="dark"] .bg-rose-50\/30,
 [data-theme="dark"] .bg-rose-50\/40 {
-  background-color: rgba(244, 63, 94, 0.08) !important;
+  background-color: rgba(136, 19, 55, 0.12) !important;
 }
+
+/* 土曜日の文字色（暗い背景でも鮮烈に読める高輝度スカイブルー） */
+[data-theme="dark"] .text-blue-500,
+[data-theme="dark"] .text-blue-600,
+[data-theme="dark"] .text-blue-700 {
+  color: #38bdf8 !important;
+  font-weight: 700;
+}
+
+/* 日曜・祝日の文字色（暗い背景でも鮮烈に読める高輝度コーラルローズ） */
+[data-theme="dark"] .text-rose-500,
+[data-theme="dark"] .text-rose-600,
+[data-theme="dark"] .text-rose-700 {
+  color: #fb7185 !important;
+  font-weight: 700;
+}
+
+/* カレンダー等の土日ホバー背景 */
+[data-theme="dark"] .hover\:bg-blue-50:hover {
+  background-color: rgba(30, 58, 138, 0.45) !important;
+}
+[data-theme="dark"] .hover\:bg-rose-50:hover {
+  background-color: rgba(136, 19, 55, 0.45) !important;
+}
+
+/* 今日のヘッダーセル（ガントチャートの本日列ヘッダー: bg-indigo-100/80） */
+[data-theme="dark"] .bg-indigo-100\/80 {
+  background-color: rgba(99, 102, 241, 0.35) !important;
+}
+[data-theme="dark"] .text-indigo-900,
+[data-theme="dark"] .text-indigo-700 {
+  color: #c7d2fe !important;
+}
+
 [data-theme="dark"] .border-rose-200\/90 {
   border-color: rgba(244, 63, 94, 0.35) !important;
 }
 [data-theme="dark"] .text-slate-300 {
   color: #525266 !important;
-}
-[data-theme="dark"] .text-blue-500,
-[data-theme="dark"] .text-blue-600 {
-  color: #60a5fa !important;
-}
-[data-theme="dark"] .text-rose-500 {
-  color: #fb7185 !important;
 }
 
 /* ポップアップ・モーダルの立体シャドウと輪郭ハイライト */
