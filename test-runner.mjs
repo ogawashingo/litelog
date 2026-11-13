@@ -500,9 +500,29 @@ async function runTests() {
   insertSetting.run("hour12", "false");
   insertSetting.run("activityTimeStyle", "both");
   insertSetting.run("timeOffsetMinutes", "0");
+  insertSetting.run("theme", "cosmic");
 
   const tzRow = db.prepare("SELECT value FROM settings WHERE key = 'timezone'").get();
   if (!tzRow || !tzRow.value) throw new Error("settingsテーブルのtimezone取得に失敗しました");
+
+  // デザイン・カラーテーマ（シック・モノクロ＆オレンジ、北欧フォレスト等）の保存・更新検証
+  const updateTheme = db.prepare(`
+    INSERT INTO settings (key, value, updated_at)
+    VALUES ('theme', ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `);
+  updateTheme.run("monochrome");
+  const themeRow = db.prepare("SELECT value FROM settings WHERE key = 'theme'").get();
+  if (!themeRow || themeRow.value !== "monochrome") {
+    throw new Error("デザインカラーテーマの更新・取得に失敗しました");
+  }
+  // デフォルトのコズミックに戻す検証
+  updateTheme.run("cosmic");
+  const restoredThemeRow = db.prepare("SELECT value FROM settings WHERE key = 'theme'").get();
+  if (!restoredThemeRow || restoredThemeRow.value !== "cosmic") {
+    throw new Error("デザインカラーテーマの復元に失敗しました");
+  }
+  console.log("✓ デザインカラーテーマ設定（モノクロ＆オレンジ、コズミック等）保存・更新検証成功");
 
   // SQLiteのUTC文字列 "2026-11-12 03:53:22" をUTCとしてパースし、Asia/Tokyo (UTC+9) で "2026/11/12 12:53:22" になることを検証
   const rawSqliteUtc = "2026-11-12 03:53:22";

@@ -32,7 +32,7 @@ export default function Header({
   const { users, currentUser, logout, openUserManageModal, openPasswordChangeModal } = useUser();
 
   return (
-    <header className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] text-white shadow-lg border-b border-indigo-400/20 sticky top-0 z-30">
+    <header className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           {/* 左側: オリジナルロゴとナビゲーション（ダッシュボード / ボード / ガント / 管理） */}
@@ -42,28 +42,28 @@ export default function Header({
               href="/"
               className="flex items-center gap-2.5 cursor-pointer select-none group whitespace-nowrap"
             >
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500 via-amber-500 to-violet-500 p-[1.5px] shadow-md group-hover:scale-105 transition-transform">
-                <div className="w-full h-full bg-[#1e1b4b]/90 rounded-[10px] flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-amber-300" />
+              <div className="w-8 h-8 rounded-xl app-logo-box p-[1.5px] shadow-md group-hover:scale-105 transition-transform">
+                <div className="w-full h-full app-logo-inner rounded-[10px] flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 app-logo-icon" />
                 </div>
               </div>
-              <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-indigo-100 to-amber-200 bg-clip-text text-transparent">
+              <span className="font-extrabold text-base tracking-tight app-logo-text bg-clip-text text-transparent">
                 Personal Backlog
               </span>
             </Link>
 
             {/* ナビゲーションメニュー */}
-            <nav className="hidden md:flex items-center gap-1 pl-3 border-l border-indigo-300/20">
+            <nav className="hidden md:flex items-center gap-1 pl-3 border-l border-white/20">
               {/* ダッシュボードタブ */}
               <Link
                 href="/"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isDashboard
-                    ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
-                    : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
+                    ? "app-nav-active text-white font-semibold shadow-2xs"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <LayoutDashboard className="w-3.5 h-3.5 text-amber-300" />
+                <LayoutDashboard className="w-3.5 h-3.5 app-nav-indicator" />
                 <span>ダッシュボード</span>
               </Link>
 
@@ -72,11 +72,11 @@ export default function Header({
                 href="/board"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isBoard
-                    ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
-                    : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
+                    ? "app-nav-active text-white font-semibold shadow-2xs"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <Kanban className="w-3.5 h-3.5 text-rose-300" />
+                <Kanban className="w-3.5 h-3.5 app-nav-indicator" />
                 <span>ボード</span>
               </Link>
 
@@ -85,11 +85,11 @@ export default function Header({
                 href="/gantt"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isGantt
-                    ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
-                    : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
+                    ? "app-nav-active text-white font-semibold shadow-2xs"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <ChartGantt className="w-3.5 h-3.5 text-sky-300" />
+                <ChartGantt className="w-3.5 h-3.5 app-nav-indicator" />
                 <span>ガントチャート</span>
               </Link>
 
@@ -99,22 +99,22 @@ export default function Header({
                   href="/admin"
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                     isAdmin
-                      ? "bg-white/15 text-white font-semibold shadow-2xs ring-1 ring-white/25"
-                      : "text-indigo-100/80 hover:bg-white/10 hover:text-white"
+                      ? "app-nav-active text-white font-semibold shadow-2xs"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <Settings className="w-3.5 h-3.5 text-violet-300" />
+                  <Settings className="w-3.5 h-3.5 app-nav-indicator" />
                   <span>管理ページ</span>
                 </Link>
               )}
 
               {/* プロジェクト切り替えセレクトボックス */}
               <div className="relative flex items-center ml-1.5">
-                <FolderGit2 className="w-3.5 h-3.5 text-indigo-200 absolute left-2.5 pointer-events-none" />
+                <FolderGit2 className="w-3.5 h-3.5 text-white/70 absolute left-2.5 pointer-events-none" />
                 <select
                   value={selectedProjectId || ""}
                   onChange={(e) => onSelectProject(e.target.value ? Number(e.target.value) : null)}
-                  className="bg-indigo-950/60 hover:bg-indigo-950/80 text-white text-xs rounded-lg pl-7 pr-3 py-1.5 max-w-[160px] lg:max-w-[200px] truncate border border-indigo-300/25 focus:outline-hidden focus:ring-2 focus:ring-amber-400/50 transition-colors cursor-pointer"
+                  className="app-header-select hover:bg-white/10 text-white text-xs rounded-lg pl-7 pr-3 py-1.5 max-w-[160px] lg:max-w-[200px] truncate focus:outline-hidden focus:ring-2 focus:ring-amber-400/50 transition-colors cursor-pointer"
                 >
                   <option value="" className="text-slate-900 bg-white">
                     {isBoard || isGantt ? "すべてのプロジェクト" : "すべての課題"}
@@ -131,10 +131,10 @@ export default function Header({
 
           {/* 右側: 課題の追加ボタン ＆ メンバー管理 ＆ 操作ユーザー表示 */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* 課題追加ボタン（コーラルローズ〜アンバーの鮮やかなグラデーション） */}
+            {/* 課題追加ボタン（テーマ連動） */}
             <button
               onClick={onOpenCreateIssue}
-              className="flex items-center gap-1 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white px-3.5 py-1.5 rounded-lg font-bold text-xs shadow-md shadow-rose-950/30 transition-all transform active:scale-95 whitespace-nowrap shrink-0 cursor-pointer border border-white/20"
+              className="flex items-center gap-1 app-primary-btn px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all transform active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5 stroke-[3] shrink-0" />
               <span className="hidden sm:inline">課題の追加</span>
@@ -146,12 +146,12 @@ export default function Header({
               title="チームメンバーの追加・管理"
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer"
             >
-              <Users className="w-3.5 h-3.5 text-indigo-200 shrink-0" />
+              <Users className="w-3.5 h-3.5 text-white/80 shrink-0" />
               <span className="hidden lg:inline">メンバー ({users.length})</span>
             </button>
 
             {/* ログイン中ユーザー表示（クリックでマイアカウント設定） ＆ ログアウトボタン */}
-            <div className="flex items-center gap-2 pl-2 border-l border-indigo-300/20 shrink-0">
+            <div className="flex items-center gap-2 pl-2 border-l border-white/20 shrink-0">
               {currentUser ? (
                 <>
                   <button
@@ -163,7 +163,7 @@ export default function Header({
                     <div className="relative shrink-0">
                       <div
                         style={{ backgroundColor: currentUser.color || "#4f46e5" }}
-                        className="w-7 h-7 rounded-full border-2 border-indigo-200/70 group-hover:border-amber-300 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0 transition-colors"
+                        className="w-7 h-7 rounded-full border-2 border-white/40 group-hover:border-amber-300 flex items-center justify-center font-bold text-[11px] text-white shadow-xs shrink-0 transition-colors"
                       >
                         {getUserInitials(currentUser.name)}
                       </div>
@@ -185,13 +185,13 @@ export default function Header({
                           className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
                             currentUser.is_admin
                               ? "bg-amber-300 text-amber-950"
-                              : "bg-indigo-400/25 text-indigo-100"
+                              : "bg-white/20 text-white"
                           }`}
                         >
                           {currentUser.is_admin ? "Admin" : "一般"}
                         </span>
                       </div>
-                      <span className="text-[10px] text-indigo-200 font-mono whitespace-nowrap">
+                      <span className="text-[10px] text-white/70 font-mono whitespace-nowrap">
                         ID: {currentUser.login_id}
                       </span>
                     </div>
@@ -201,7 +201,7 @@ export default function Header({
                     type="button"
                     onClick={logout}
                     title="ログアウトして別IDでログイン"
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-950/50 hover:bg-rose-600/80 border border-indigo-300/25 hover:border-rose-300/40 text-white text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-rose-600/80 border border-white/20 hover:border-rose-300/40 text-white text-xs font-semibold transition-all cursor-pointer whitespace-nowrap shrink-0"
                   >
                     <LogOut className="w-3.5 h-3.5 shrink-0" />
                     <span className="hidden md:inline">ログアウト</span>

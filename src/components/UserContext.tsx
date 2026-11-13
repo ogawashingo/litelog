@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { User, SystemSettings } from "@/types";
+import { User, SystemSettings, ThemeId } from "@/types";
 import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/dateUtils";
 import UserManageModal from "./UserManageModal";
 import PasswordChangeModal from "./PasswordChangeModal";
@@ -27,6 +27,9 @@ interface UserContextValue {
   settings: SystemSettings;
   refreshSettings: () => Promise<void>;
   updateSettings: (next: Partial<SystemSettings>) => Promise<SystemSettings>;
+  previewTheme: ThemeId | null;
+  setPreviewTheme: (theme: ThemeId | null) => void;
+  currentTheme: ThemeId;
 }
 
 const UserContext = createContext<UserContextValue>({
@@ -43,6 +46,9 @@ const UserContext = createContext<UserContextValue>({
   settings: DEFAULT_SYSTEM_SETTINGS,
   refreshSettings: async () => {},
   updateSettings: async () => DEFAULT_SYSTEM_SETTINGS,
+  previewTheme: null,
+  setPreviewTheme: () => {},
+  currentTheme: "cosmic",
 });
 
 const STORAGE_KEY = "backlog_current_user_id";
@@ -57,6 +63,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SYSTEM_SETTINGS);
+  const [previewTheme, setPreviewTheme] = useState<ThemeId | null>(null);
+
+  // 現在有効なテーマ（プレビュー指定があればそれを優先）
+  const currentTheme: ThemeId = previewTheme || settings.theme || "cosmic";
+
+  // HTMLのroot要素にテーマ用データ属性を反映
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-theme", currentTheme);
+    }
+  }, [currentTheme]);
 
   const refreshSettings = useCallback(async () => {
     try {
@@ -240,6 +257,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         settings,
         refreshSettings,
         updateSettings,
+        previewTheme,
+        setPreviewTheme,
+        currentTheme,
       }}
     >
       {children}

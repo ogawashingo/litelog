@@ -112,6 +112,15 @@ export type DateTimeFormatType =
 // アクティビティの時刻表示スタイル
 export type ActivityTimeStyle = "both" | "absolute" | "relative";
 
+// デザインカラーテーマ識別子
+export type ThemeId =
+  | "cosmic"      // コズミック・グラデーション（デフォルト / 華やかグラデーション）
+  | "monochrome"  // シック・モノクロ＆オレンジ（グラデなし・黒白オレンジミニマル）
+  | "forest"      // 北欧フォレスト＆ミント（グラデなし・深緑＆ミント）
+  | "navy"        // モダン・ネイビー＆シアン（グラデなし・端正な濃紺＆シアン）
+  | "sunset"      // サンセット・コーラル＆アンバー（夕暮れウォームグラデーション）
+  | "dark";       // ミッドナイト・サイバーダーク（ダークモード）
+
 // システム時刻・表示設定（管理ページ設定）
 export interface SystemSettings {
   timezone: string;                  // 例: 'Asia/Tokyo', 'UTC', 'local' 等
@@ -119,5 +128,6 @@ export interface SystemSettings {
   hour12: boolean;                   // true: 12時間表記, false: 24時間表記
   activityTimeStyle: ActivityTimeStyle; // 最近の更新の時刻表示形式
   timeOffsetMinutes: number;         // 手動時刻補正オフセット（分単位、デフォルト 0）
+  theme: ThemeId;                    // デザインカラーテーマ
 }
 

@@ -11,6 +11,7 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   hour12: false,
   activityTimeStyle: "both",
   timeOffsetMinutes: 0,
+  theme: "cosmic",
 };
 
 // 管理ページで選択可能なタイムゾーン一覧

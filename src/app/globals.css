@@ -1,17 +1,211 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f3f4f9;
-  --foreground: #1e1b4b;
+/* 共通テーマ変数（デフォルト: コズミック・グラデーション） */
+:root,
+[data-theme="cosmic"] {
+  --theme-header-bg: linear-gradient(to right, #1e1b4b, #312e81, #4c1d95);
+  --theme-header-border: rgba(129, 140, 248, 0.2);
+  --theme-header-select-bg: rgba(30, 27, 75, 0.65);
+  --theme-header-select-border: rgba(165, 180, 252, 0.25);
+  --theme-primary-btn-bg: linear-gradient(to right, #f43f5e, #f59e0b);
+  --theme-primary-btn-hover: linear-gradient(to right, #e11d48, #d97706);
+  --theme-primary-btn-shadow: rgba(76, 5, 25, 0.35);
+  --theme-primary-btn-border: rgba(255, 255, 255, 0.25);
+  --theme-primary-btn-text: #ffffff;
+  --theme-logo-box-bg: linear-gradient(to bottom right, #f43f5e, #f59e0b, #8b5cf6);
+  --theme-logo-inner-bg: rgba(30, 27, 75, 0.9);
+  --theme-logo-icon-color: #fcd34d;
+  --theme-logo-text-gradient: linear-gradient(to right, #ffffff, #e0e7ff, #fde68a);
+  --theme-nav-active-bg: rgba(255, 255, 255, 0.15);
+  --theme-nav-active-ring: rgba(255, 255, 255, 0.25);
+  --theme-nav-indicator: #fcd34d;
+  --theme-body-bg: #f3f4f9;
+  --theme-body-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.07) 0px, transparent 50%),
+                      radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.07) 0px, transparent 50%),
+                      radial-gradient(at 50% 100%, rgba(244, 63, 94, 0.04) 0px, transparent 50%);
+  --theme-body-text: #0f172a;
+  --theme-accent: #6366f1;
+  --theme-accent-light: #e0e7ff;
+}
+
+/* シック・モノクロ＆オレンジ（グラデーションなし・ソリッドミニマル） */
+[data-theme="monochrome"] {
+  --theme-header-bg: #18181b;
+  --theme-header-border: #27272a;
+  --theme-header-select-bg: #27272a;
+  --theme-header-select-border: #3f3f46;
+  --theme-primary-btn-bg: #ea580c;
+  --theme-primary-btn-hover: #c2410c;
+  --theme-primary-btn-shadow: rgba(234, 88, 12, 0.25);
+  --theme-primary-btn-border: #f97316;
+  --theme-primary-btn-text: #ffffff;
+  --theme-logo-box-bg: #ea580c;
+  --theme-logo-inner-bg: #18181b;
+  --theme-logo-icon-color: #fb923c;
+  --theme-logo-text-gradient: linear-gradient(to right, #ffffff, #f4f4f5);
+  --theme-nav-active-bg: #27272a;
+  --theme-nav-active-ring: rgba(234, 88, 12, 0.6);
+  --theme-nav-indicator: #fb923c;
+  --theme-body-bg: #f4f4f5;
+  --theme-body-image: none;
+  --theme-body-text: #18181b;
+  --theme-accent: #ea580c;
+  --theme-accent-light: #ffedd5;
+}
+
+/* 北欧フォレスト＆ミント（グラデーションなし・落ち着いた自然体） */
+[data-theme="forest"] {
+  --theme-header-bg: #064e3b;
+  --theme-header-border: rgba(52, 211, 153, 0.25);
+  --theme-header-select-bg: #065f46;
+  --theme-header-select-border: rgba(52, 211, 153, 0.35);
+  --theme-primary-btn-bg: #059669;
+  --theme-primary-btn-hover: #047857;
+  --theme-primary-btn-shadow: rgba(5, 150, 105, 0.25);
+  --theme-primary-btn-border: #34d399;
+  --theme-primary-btn-text: #ffffff;
+  --theme-logo-box-bg: #059669;
+  --theme-logo-inner-bg: #064e3b;
+  --theme-logo-icon-color: #6ee7b7;
+  --theme-logo-text-gradient: linear-gradient(to right, #ffffff, #a7f3d0);
+  --theme-nav-active-bg: rgba(255, 255, 255, 0.15);
+  --theme-nav-active-ring: rgba(52, 211, 153, 0.4);
+  --theme-nav-indicator: #6ee7b7;
+  --theme-body-bg: #f0fdf4;
+  --theme-body-image: none;
+  --theme-body-text: #064e3b;
+  --theme-accent: #059669;
+  --theme-accent-light: #d1fae5;
+}
+
+/* モダン・ネイビー＆シアン（グラデーションなし・王道ビジネス） */
+[data-theme="navy"] {
+  --theme-header-bg: #0f172a;
+  --theme-header-border: rgba(56, 189, 248, 0.25);
+  --theme-header-select-bg: #1e293b;
+  --theme-header-select-border: rgba(56, 189, 248, 0.3);
+  --theme-primary-btn-bg: #0284c7;
+  --theme-primary-btn-hover: #0369a1;
+  --theme-primary-btn-shadow: rgba(2, 132, 199, 0.25);
+  --theme-primary-btn-border: #38bdf8;
+  --theme-primary-btn-text: #ffffff;
+  --theme-logo-box-bg: #0284c7;
+  --theme-logo-inner-bg: #0f172a;
+  --theme-logo-icon-color: #38bdf8;
+  --theme-logo-text-gradient: linear-gradient(to right, #ffffff, #7dd3fc);
+  --theme-nav-active-bg: rgba(255, 255, 255, 0.15);
+  --theme-nav-active-ring: rgba(56, 189, 248, 0.4);
+  --theme-nav-indicator: #38bdf8;
+  --theme-body-bg: #f8fafc;
+  --theme-body-image: none;
+  --theme-body-text: #0f172a;
+  --theme-accent: #0284c7;
+  --theme-accent-light: #e0f2fe;
+}
+
+/* サンセット・コーラル＆アンバー（夕暮れウォームグラデーション） */
+[data-theme="sunset"] {
+  --theme-header-bg: linear-gradient(to right, #831843, #9a3412, #c2410c);
+  --theme-header-border: rgba(251, 146, 60, 0.25);
+  --theme-header-select-bg: rgba(131, 24, 67, 0.65);
+  --theme-header-select-border: rgba(251, 146, 60, 0.3);
+  --theme-primary-btn-bg: linear-gradient(to right, #e11d48, #ea580c);
+  --theme-primary-btn-hover: linear-gradient(to right, #be123c, #c2410c);
+  --theme-primary-btn-shadow: rgba(225, 29, 72, 0.3);
+  --theme-primary-btn-border: rgba(255, 255, 255, 0.25);
+  --theme-primary-btn-text: #ffffff;
+  --theme-logo-box-bg: linear-gradient(to bottom right, #f43f5e, #ea580c);
+  --theme-logo-inner-bg: rgba(131, 24, 67, 0.9);
+  --theme-logo-icon-color: #fcd34d;
+  --theme-logo-text-gradient: linear-gradient(to right, #ffffff, #fed7aa, #fef08a);
+  --theme-nav-active-bg: rgba(255, 255, 255, 0.15);
+  --theme-nav-active-ring: rgba(251, 146, 60, 0.4);
+  --theme-nav-indicator: #fcd34d;
+  --theme-body-bg: #fff7ed;
+  --theme-body-image: radial-gradient(at 0% 0%, rgba(244, 63, 94, 0.05) 0px, transparent 50%),
+                      radial-gradient(at 100% 100%, rgba(249, 115, 22, 0.05) 0px, transparent 50%);
+  --theme-body-text: #431407;
+  --theme-accent: #ea580c;
+  --theme-accent-light: #ffedd5;
+}
+
+/* ミッドナイト・サイバーダーク（ダークモード） */
+[data-theme="dark"] {
+  --theme-header-bg: #09090b;
+  --theme-header-border: #27272a;
+  --theme-header-select-bg: #18181b;
+  --theme-header-select-border: #3f3f46;
+  --theme-primary-btn-bg: linear-gradient(to right, #6366f1, #8b5cf6);
+  --theme-primary-btn-hover: linear-gradient(to right, #4f46e5, #7c3aed);
+  --theme-primary-btn-shadow: rgba(99, 102, 241, 0.3);
+  --theme-primary-btn-border: rgba(255, 255, 255, 0.15);
+  --theme-primary-btn-text: #ffffff;
+  --theme-logo-box-bg: linear-gradient(to bottom right, #6366f1, #a855f7);
+  --theme-logo-inner-bg: #09090b;
+  --theme-logo-icon-color: #c084fc;
+  --theme-logo-text-gradient: linear-gradient(to right, #ffffff, #c7d2fe, #e9d5ff);
+  --theme-nav-active-bg: #27272a;
+  --theme-nav-active-ring: rgba(99, 102, 241, 0.5);
+  --theme-nav-indicator: #c084fc;
+  --theme-body-bg: #09090b;
+  --theme-body-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.07) 0px, transparent 50%),
+                      radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.07) 0px, transparent 50%);
+  --theme-body-text: #f4f4f5;
+  --theme-accent: #6366f1;
+  --theme-accent-light: #1e1b4b;
 }
 
 body {
-  background-color: var(--background);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.07) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.07) 0px, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(244, 63, 94, 0.04) 0px, transparent 50%);
+  background-color: var(--theme-body-bg);
+  background-image: var(--theme-body-image);
   background-attachment: fixed;
-  color: var(--foreground);
+  color: var(--theme-body-text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  min-height: 100vh;
+}
+
+/* テーマ連動カスタムユーティリティクラス */
+.app-header {
+  background: var(--theme-header-bg);
+  border-bottom: 1px solid var(--theme-header-border);
+}
+
+.app-header-select {
+  background-color: var(--theme-header-select-bg);
+  border: 1px solid var(--theme-header-select-border);
+}
+
+.app-primary-btn {
+  background: var(--theme-primary-btn-bg);
+  border: 1px solid var(--theme-primary-btn-border);
+  color: var(--theme-primary-btn-text);
+  box-shadow: 0 4px 12px var(--theme-primary-btn-shadow);
+}
+.app-primary-btn:hover {
+  background: var(--theme-primary-btn-hover);
+}
+
+.app-logo-box {
+  background: var(--theme-logo-box-bg);
+}
+
+.app-logo-inner {
+  background: var(--theme-logo-inner-bg);
+}
+
+.app-logo-icon {
+  color: var(--theme-logo-icon-color);
+}
+
+.app-logo-text {
+  background-image: var(--theme-logo-text-gradient);
+}
+
+.app-nav-active {
+  background-color: var(--theme-nav-active-bg);
+  outline: 1px solid var(--theme-nav-active-ring);
+}
+
+.app-nav-indicator {
+  color: var(--theme-nav-indicator);
 }

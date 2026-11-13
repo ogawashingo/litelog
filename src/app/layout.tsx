@@ -15,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className="antialiased bg-[#f3f4f9] text-slate-900 font-sans"
+        className="antialiased font-sans transition-colors duration-150"
       >
         <UserProvider>{children}</UserProvider>
       </body>

@@ -22,6 +22,8 @@ import {
   Trash2,
   AlertTriangle,
   X,
+  Palette,
+  Eye,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -34,6 +36,7 @@ import {
   SystemSettings,
   DateTimeFormatType,
   ActivityTimeStyle,
+  ThemeId,
 } from "@/types";
 import {
   DEFAULT_SYSTEM_SETTINGS,
@@ -41,6 +44,7 @@ import {
   formatTimestamp,
   formatActivityTimestamp,
 } from "@/lib/dateUtils";
+import { THEME_LIST, getThemeConfig } from "@/lib/themeConfig";
 import versionData from "@/lib/version.json";
 
 export default function AdminPage() {
@@ -53,6 +57,8 @@ export default function AdminPage() {
     settings,
     updateSettings,
     refreshUsers,
+    previewTheme,
+    setPreviewTheme,
   } = useUser();
 
   // 一般ユーザーがURL直打ちで /admin にアクセスした場合はダッシュボードへリダイレクト
@@ -66,6 +72,10 @@ export default function AdminPage() {
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+
+  // デザイン・カラーテーマ選択用State
+  const [selectedTheme, setSelectedTheme] = useState<ThemeId>(settings.theme || "cosmic");
+  const [isSavingTheme, setIsSavingTheme] = useState(false);
 
   // プロジェクト名変更・削除用State（Admin専用）
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
@@ -86,7 +96,41 @@ export default function AdminPage() {
   // コンテキストの設定が読み込まれたらドラフトに同期
   useEffect(() => {
     setDraftSettings(settings);
+    setSelectedTheme(settings.theme || "cosmic");
   }, [settings]);
+
+  // テーマカードクリック時のリアルタイム試着プレビュー
+  const handleSelectTheme = (themeId: ThemeId) => {
+    setSelectedTheme(themeId);
+    setPreviewTheme(themeId);
+  };
+
+  // 選択中テーマのワークスペース全体への永続保存（Admin専用）
+  const handleSaveTheme = async () => {
+    if (!currentUser?.is_admin) {
+      setSaveMessage("デザインテーマの保存は管理者（Admin権限）のみ実行できます");
+      return;
+    }
+    setIsSavingTheme(true);
+    setSaveMessage(null);
+    try {
+      const updated = await updateSettings({ theme: selectedTheme });
+      setPreviewTheme(null);
+      const conf = getThemeConfig(updated.theme);
+      setSaveMessage(`デザインテーマを「${conf.name}」に変更・保存しました！`);
+      setTimeout(() => setSaveMessage(null), 5000);
+    } catch {
+      setSaveMessage("デザインテーマの保存に失敗しました");
+    } finally {
+      setIsSavingTheme(false);
+    }
+  };
+
+  // 試着プレビューの解除（元に戻す）
+  const handleResetThemePreview = () => {
+    setSelectedTheme(settings.theme || "cosmic");
+    setPreviewTheme(null);
+  };
 
   // 1秒ごとにプレビュー時計を更新
   useEffect(() => {
@@ -384,6 +428,200 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* デザイン・カラーテーマ設定カード */}
+        <section className="bg-white rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
+          <div className="bg-slate-50/80 border-b border-indigo-100/60 px-6 py-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Palette className="w-5 h-5 text-indigo-600" />
+              <h2 className="font-bold text-slate-800 text-base">デザイン・カラーテーマ設定</h2>
+            </div>
+            <span className="text-xs text-slate-500">
+              カードをクリックすると画面全体がリアルタイムで試着プレビューされます
+            </span>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* テーマ選択カード一覧 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {THEME_LIST.map((theme) => {
+                const isSelected = selectedTheme === theme.id;
+                const isCurrentSaved = settings.theme === theme.id;
+                const isPreviewing = previewTheme === theme.id;
+
+                return (
+                  <div
+                    key={theme.id}
+                    onClick={() => handleSelectTheme(theme.id)}
+                    className={`relative rounded-xl border-2 p-4 cursor-pointer transition-all duration-150 flex flex-col justify-between group hover:shadow-md ${
+                      isSelected
+                        ? "border-indigo-600 bg-indigo-50/20 shadow-xs ring-2 ring-indigo-200"
+                        : "border-slate-200 hover:border-slate-300 bg-white"
+                    }`}
+                  >
+                    {/* カード上部: テーマ名 & バッジ */}
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-900 text-sm">{theme.name}</span>
+                            {isSelected && (
+                              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-mono">
+                            {theme.englishName}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {theme.badge && (
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                                theme.id === "monochrome"
+                                  ? "bg-orange-50 text-orange-700 border-orange-200"
+                                  : theme.hasGradient
+                                  ? "bg-violet-50 text-violet-700 border-violet-200"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              }`}
+                            >
+                              {theme.badge}
+                            </span>
+                          )}
+                          {isCurrentSaved && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                              現在保存中
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ビジュアルプレビューボックス */}
+                      <div
+                        style={{ backgroundColor: theme.palette.background }}
+                        className="rounded-lg p-2.5 mb-3 border border-slate-200/80 shadow-2xs space-y-2 select-none overflow-hidden"
+                      >
+                        {/* ミニヘッダー */}
+                        <div
+                          style={{
+                            background: theme.palette.header,
+                            borderBottom: `1px solid ${theme.palette.headerBorder}`,
+                          }}
+                          className="h-8 rounded-md px-2.5 flex items-center justify-between text-white shadow-2xs"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <div
+                              style={{ background: theme.palette.primaryBtn }}
+                              className="w-4 h-4 rounded flex items-center justify-center text-[8px]"
+                            >
+                              ★
+                            </div>
+                            <span className="text-[10px] font-extrabold tracking-tight">
+                              Backlog
+                            </span>
+                          </div>
+                          <div
+                            style={{ background: theme.palette.primaryBtn }}
+                            className="px-1.5 py-0.5 rounded text-[9px] font-bold shadow-2xs"
+                          >
+                            + 追加
+                          </div>
+                        </div>
+
+                        {/* ミニカード＆パレットチップ */}
+                        <div className="flex items-center justify-between gap-1 pt-0.5 px-0.5">
+                          <div className="flex items-center gap-1">
+                            <span
+                              style={{ backgroundColor: theme.palette.accent }}
+                              title="メインアクセント"
+                              className="w-3.5 h-3.5 rounded-full border border-black/10 shadow-2xs"
+                            />
+                            <span
+                              style={{ backgroundColor: theme.palette.subAccent }}
+                              title="サブアクセント"
+                              className="w-3.5 h-3.5 rounded-full border border-black/10 shadow-2xs"
+                            />
+                            <span
+                              style={{ backgroundColor: theme.palette.background }}
+                              title="背景色"
+                              className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-2xs"
+                            />
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-medium">
+                            {theme.hasGradient ? "多層グラデーション" : "ソリッド（グラデなし）"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {theme.description}
+                      </p>
+                    </div>
+
+                    {/* カード下部: 選択ボタン */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-indigo-600 font-semibold flex items-center gap-1">
+                        <Eye className="w-3.5 h-3.5" />
+                        {isPreviewing ? "リアルタイム試着中" : "クリックで試着"}
+                      </span>
+                      {isSelected ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded-md">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          選択中
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-slate-400 group-hover:text-slate-600">
+                          選択する
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* テーマ保存・プレビュー操作フッター */}
+            <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span>選択中のテーマ:</span>
+                  <span className="text-indigo-600 font-extrabold">
+                    {getThemeConfig(selectedTheme).name}
+                  </span>
+                  {previewTheme && previewTheme !== settings.theme && (
+                    <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                      試着プレビュー中
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  「このデザインを保存する」をクリックすると、ワークスペース全体の標準デザインとして反映されます。
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {previewTheme && (
+                  <button
+                    type="button"
+                    onClick={handleResetThemePreview}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-medium text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>試着を解除</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveTheme}
+                  disabled={isSavingTheme}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  <Check className="w-4 h-4 stroke-[2.5]" />
+                  <span>{isSavingTheme ? "保存中..." : "このデザインを保存する"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* メインカード: 時刻・タイムゾーン設定 */}
         <form
           onSubmit={handleSaveSettings}
@@ -401,7 +639,7 @@ export default function AdminPage() {
 
           <div className="p-6 space-y-6">
             {/* リアルタイム時刻＆変換プレビューパネル */}
-            <div className="bg-gradient-to-r from-[#1e1b4b] via-[#312e81] to-[#4c1d95] text-white rounded-xl p-5 shadow-inner">
+            <div className="app-header text-white rounded-xl p-5 shadow-inner">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                 {/* 現在の表示時刻 */}
                 <div className="space-y-1">
