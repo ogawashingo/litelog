@@ -24,6 +24,8 @@ interface UserContextValue {
   refreshUsers: () => Promise<void>;
   openUserManageModal: () => void;
   openPasswordChangeModal: () => void;
+  updateUserWeekStart: (userId: number, weekStart: WeekStartDay) => Promise<boolean>;
+  effectiveWeekStart: WeekStartDay;
   settings: SystemSettings;
   refreshSettings: () => Promise<void>;
   updateSettings: (next: Partial<SystemSettings>) => Promise<SystemSettings>;
@@ -43,6 +45,8 @@ const UserContext = createContext<UserContextValue>({
   refreshUsers: async () => {},
   openUserManageModal: () => {},
   openPasswordChangeModal: () => {},
+  updateUserWeekStart: async () => false,
+  effectiveWeekStart: "monday",
   settings: DEFAULT_SYSTEM_SETTINGS,
   refreshSettings: async () => {},
   updateSettings: async () => DEFAULT_SYSTEM_SETTINGS,
@@ -264,6 +268,45 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const currentUser = users.find((u) => u.id === currentUserId) || null;
 
+  // 有効なカレンダー週開始曜日（ログイン中ユーザーの個人設定 > システム設定 > デフォルト）
+  const effectiveWeekStart: WeekStartDay =
+    currentUser?.week_start || settings.weekStart || "monday";
+
+  // 個別ユーザーのカレンダー週開始設定を更新
+  const updateUserWeekStart = useCallback(
+    async (userId: number, nextWeekStart: WeekStartDay): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/users/${userId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ weekStart: nextWeekStart }),
+        });
+        if (res.ok) {
+          const updatedUser: User = await res.json();
+          setUsers((prev) =>
+            prev.map((u) =>
+              u.id === userId
+                ? { ...u, week_start: updatedUser.week_start || nextWeekStart }
+                : u
+            )
+          );
+          if (currentUserId === userId && typeof window !== "undefined") {
+            try {
+              localStorage.setItem("backlog_week_start", nextWeekStart);
+            } catch {
+              // ignore
+            }
+          }
+          return true;
+        }
+      } catch (err) {
+        console.error("ユーザー週開始設定の更新エラー:", err);
+      }
+      return false;
+    },
+    [currentUserId]
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -277,6 +320,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         refreshUsers,
         openUserManageModal: () => setIsManageOpen(true),
         openPasswordChangeModal: () => setIsPasswordModalOpen(true),
+        updateUserWeekStart,
+        effectiveWeekStart,
         settings,
         refreshSettings,
         updateSettings,

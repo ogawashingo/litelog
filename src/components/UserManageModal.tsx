@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound } from "lucide-react";
-import { User } from "@/types";
+import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar } from "lucide-react";
+import { User, WeekStartDay } from "@/types";
 
 interface UserManageModalProps {
   isOpen: boolean;
@@ -55,6 +55,7 @@ export default function UserManageModal({
   const [newRole, setNewRole] = useState("メンバー");
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [newColor, setNewColor] = useState(AVATAR_COLORS[0]);
+  const [newWeekStart, setNewWeekStart] = useState<WeekStartDay>("monday");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -66,6 +67,7 @@ export default function UserManageModal({
   const [editRole, setEditRole] = useState("");
   const [editIsAdmin, setEditIsAdmin] = useState(false);
   const [editColor, setEditColor] = useState("");
+  const [editWeekStart, setEditWeekStart] = useState<WeekStartDay>("monday");
 
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin);
 
@@ -96,6 +98,7 @@ export default function UserManageModal({
           role: newRole.trim() || (newIsAdmin ? "管理者" : "メンバー"),
           isAdmin: newIsAdmin,
           color: newColor,
+          weekStart: newWeekStart,
         }),
       });
 
@@ -109,6 +112,7 @@ export default function UserManageModal({
       setNewName("");
       setNewRole("メンバー");
       setNewIsAdmin(false);
+      setNewWeekStart("monday");
       const nextColorIdx = (users.length + 1) % AVATAR_COLORS.length;
       setNewColor(AVATAR_COLORS[nextColorIdx]);
       await onUpdated();
@@ -128,6 +132,7 @@ export default function UserManageModal({
     setEditRole(user.role || "メンバー");
     setEditIsAdmin(Boolean(user.is_admin));
     setEditColor(user.color || "#4f46e5");
+    setEditWeekStart(user.week_start || "monday");
     setErrorMsg("");
   };
 
@@ -146,6 +151,7 @@ export default function UserManageModal({
         role: editRole.trim() || (editIsAdmin ? "管理者" : "メンバー"),
         isAdmin: editIsAdmin,
         color: editColor,
+        weekStart: editWeekStart,
       };
       if (editPassword.trim()) {
         payload.password = editPassword.trim();
@@ -325,21 +331,52 @@ export default function UserManageModal({
                   </div>
                 </div>
 
-                <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={newIsAdmin}
-                    onChange={(e) => {
-                      setNewIsAdmin(e.target.checked);
-                      if (e.target.checked && newRole === "メンバー") {
-                        setNewRole("管理者");
-                      }
-                    }}
-                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <Crown className="w-3.5 h-3.5 text-amber-500" />
-                  <span>管理者権限（Admin）を付与する</span>
-                </label>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="text-[11px] font-semibold text-slate-600">カレンダー:</span>
+                    <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setNewWeekStart("monday")}
+                        className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                          newWeekStart === "monday"
+                            ? "bg-indigo-600 text-white"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        月曜始まり
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewWeekStart("sunday")}
+                        className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                          newWeekStart === "sunday"
+                            ? "bg-indigo-600 text-white"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        日曜始まり
+                      </button>
+                    </div>
+                  </div>
+
+                  <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={newIsAdmin}
+                      onChange={(e) => {
+                        setNewIsAdmin(e.target.checked);
+                        if (e.target.checked && newRole === "メンバー") {
+                          setNewRole("管理者");
+                        }
+                      }}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <Crown className="w-3.5 h-3.5 text-amber-500" />
+                    <span>管理者権限（Admin）を付与する</span>
+                  </label>
+                </div>
               </div>
             </form>
           ) : (
@@ -453,6 +490,34 @@ export default function UserManageModal({
                               <Crown className="w-3.5 h-3.5 text-amber-500" />
                               <span>Admin権限</span>
                             </label>
+                            {/* カレンダー個人設定切替 */}
+                            <div className="flex items-center gap-1 text-[11px] text-slate-600 ml-1">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditWeekStart("monday")}
+                                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                                    editWeekStart === "monday"
+                                      ? "bg-indigo-600 text-white"
+                                      : "text-slate-600 hover:text-slate-900"
+                                  }`}
+                                >
+                                  月始
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditWeekStart("sunday")}
+                                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                                    editWeekStart === "sunday"
+                                      ? "bg-indigo-600 text-white"
+                                      : "text-slate-600 hover:text-slate-900"
+                                  }`}
+                                >
+                                  日始
+                                </button>
+                              </div>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
@@ -530,6 +595,10 @@ export default function UserManageModal({
                                   ログイン中
                                 </span>
                               )}
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded">
+                                <Calendar className="w-2.5 h-2.5 text-slate-400" />
+                                {u.week_start === "sunday" ? "日曜始まり" : "月曜始まり"}
+                              </span>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
                               <span className="flex items-center gap-1">

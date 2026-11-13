@@ -44,8 +44,8 @@ export function DatePicker({
   ariaLabel,
   fullWidth = false,
 }: DatePickerProps) {
-  const { settings, updateSettings } = useUser();
-  const weekStart: WeekStartDay = settings.weekStart || "monday";
+  const { settings, updateSettings, currentUser, updateUserWeekStart, effectiveWeekStart } = useUser();
+  const weekStart: WeekStartDay = effectiveWeekStart || "monday";
 
   // ポップアップの開閉状態
   const [isOpen, setIsOpen] = useState(false);
@@ -201,6 +201,9 @@ export function DatePicker({
   const toggleWeekStart = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const nextStart: WeekStartDay = weekStart === "monday" ? "sunday" : "monday";
+    if (currentUser?.id) {
+      await updateUserWeekStart(currentUser.id, nextStart);
+    }
     await updateSettings({ weekStart: nextStart });
   };
 

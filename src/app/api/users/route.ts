@@ -15,6 +15,7 @@ export async function GET() {
         u.role,
         u.is_admin,
         u.color,
+        u.week_start,
         u.created_at,
         COUNT(i.id) AS issue_count,
         SUM(CASE WHEN i.id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END) AS open_issue_count
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       role = "メンバー",
       isAdmin = false,
       color = "#4f46e5",
+      weekStart = "monday",
     } = body;
 
     if (!name || !name.trim()) {
@@ -78,9 +80,11 @@ export async function POST(request: Request) {
     const rawPassword = String(password).trim() || "pass123";
     const hashedPassword = hashPassword(rawPassword);
 
+    const cleanWeekStart = weekStart === "sunday" ? "sunday" : "monday";
+
     const insert = db.prepare(`
-      INSERT INTO users (login_id, password, name, role, is_admin, color)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO users (login_id, password, name, role, is_admin, color, week_start)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const result = insert.run(
       cleanLoginId,
@@ -88,7 +92,8 @@ export async function POST(request: Request) {
       name.trim(),
       (role || (isAdmin ? "管理者" : "メンバー")).trim(),
       isAdmin ? 1 : 0,
-      color || "#4f46e5"
+      color || "#4f46e5",
+      cleanWeekStart
     );
 
     const created = db.prepare(`
@@ -99,6 +104,7 @@ export async function POST(request: Request) {
         u.role,
         u.is_admin,
         u.color,
+        u.week_start,
         u.created_at,
         0 AS issue_count,
         0 AS open_issue_count

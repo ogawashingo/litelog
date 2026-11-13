@@ -48,6 +48,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       role TEXT NOT NULL DEFAULT 'メンバー',
       is_admin INTEGER NOT NULL DEFAULT 0,
       color TEXT NOT NULL DEFAULT '#4f46e5',
+      week_start TEXT NOT NULL DEFAULT 'monday',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -63,6 +64,10 @@ function setupSchemaAndSeed(db, isProdDb = false) {
   if (!userCols.some((col) => col.name === "password")) {
     db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT 'pass123';");
     console.log("✓ users.password カラムのマイグレーションが成功しました");
+  }
+  if (!userCols.some((col) => col.name === "week_start")) {
+    db.exec("ALTER TABLE users ADD COLUMN week_start TEXT NOT NULL DEFAULT 'monday';");
+    console.log("✓ users.week_start カラムのマイグレーションが成功しました");
   }
   db.prepare(`
     UPDATE users
@@ -105,6 +110,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       key TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#4f46e5',
+      week_start TEXT NOT NULL DEFAULT 'monday',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -755,6 +761,7 @@ async function runTests() {
       role TEXT NOT NULL DEFAULT 'メンバー',
       is_admin INTEGER NOT NULL DEFAULT 0,
       color TEXT NOT NULL DEFAULT '#4f46e5',
+      week_start TEXT NOT NULL DEFAULT 'monday',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE settings (
@@ -830,6 +837,29 @@ async function runTests() {
     throw new Error(`日曜始まり先頭日計算テスト失敗: ${sunStart.toISOString()}`);
   }
   console.log(`✓ 期日カレンダーの週開始曜日（月曜始まり／日曜始まり）計算＆設定保存テスト成功`);
+
+  // 21. メンバー各個人ごとのカレンダー設定（月曜始まり／日曜始まり）個別保存・更新テスト
+  const userYamada = db.prepare("SELECT id, name, week_start FROM users WHERE login_id = 'yamada'").get();
+  const userSato = db.prepare("SELECT id, name, week_start FROM users WHERE login_id = 'sato'").get();
+  if (!userYamada || !userSato) throw new Error("テスト対象ユーザーが見つかりません");
+
+  // デフォルト値が 'monday' であること
+  if (userYamada.week_start !== "monday" || userSato.week_start !== "monday") {
+    throw new Error(`メンバー初期week_start不正: yamada=${userYamada.week_start}, sato=${userSato.week_start}`);
+  }
+
+  // sato を日曜始まりに更新
+  db.prepare("UPDATE users SET week_start = 'sunday' WHERE id = ?").run(userSato.id);
+  const updatedSato = db.prepare("SELECT week_start FROM users WHERE id = ?").get(userSato.id);
+  const recheckYamada = db.prepare("SELECT week_start FROM users WHERE id = ?").get(userYamada.id);
+
+  if (updatedSato.week_start !== "sunday") {
+    throw new Error(`個人カレンダー設定更新失敗: sato期待='sunday', 実際='${updatedSato.week_start}'`);
+  }
+  if (recheckYamada.week_start !== "monday") {
+    throw new Error(`他メンバーへの副作用検知: yamada期待='monday', 実際='${recheckYamada.week_start}'`);
+  }
+  console.log(`✓ メンバー各個人のカレンダー設定（山田: 月曜始まり, 佐藤: 日曜始まり）個別更新＆分離検証成功`);
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

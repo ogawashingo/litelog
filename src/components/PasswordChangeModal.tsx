@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut } from "lucide-react";
-import { User } from "@/types";
+import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut, Calendar } from "lucide-react";
+import { User, WeekStartDay } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 
 // プリセットアバターカラー（オリジナリティのあるコズミック＆コーラルパレット）
@@ -33,9 +33,10 @@ export default function PasswordChangeModal({
   onSuccess,
   onLogout,
 }: PasswordChangeModalProps) {
-  // プロフィール（表示名・テーマ色）用State
+  // プロフィール（表示名・テーマ色・カレンダー週開始）用State
   const [name, setName] = useState("");
   const [color, setColor] = useState(AVATAR_COLORS[0]);
+  const [weekStart, setWeekStart] = useState<WeekStartDay>("monday");
 
   // パスワード変更用State（変更する場合のみ入力）
   const [currentPassword, setCurrentPassword] = useState("");
@@ -52,6 +53,7 @@ export default function PasswordChangeModal({
     if (isOpen && currentUser) {
       setName(currentUser.name || "");
       setColor(currentUser.color || AVATAR_COLORS[0]);
+      setWeekStart(currentUser.week_start || "monday");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -106,6 +108,7 @@ export default function PasswordChangeModal({
       const payload: Record<string, unknown> = {
         name: name.trim(),
         color,
+        weekStart,
       };
       if (isChangingPassword) {
         payload.currentPassword = currentPassword;
@@ -126,7 +129,7 @@ export default function PasswordChangeModal({
       setSuccessMsg(
         isChangingPassword
           ? "プロフィール設定とパスワードを変更しました。"
-          : "プロフィール設定（テーマ色・表示名）を保存しました。"
+          : "プロフィール設定（テーマ色・表示名・カレンダー設定）を保存しました。"
       );
       setCurrentPassword("");
       setNewPassword("");
@@ -270,7 +273,56 @@ export default function PasswordChangeModal({
             />
           </div>
 
-          {/* 3. パスワード変更セクション（任意） */}
+          {/* 3. カレンダー週開始曜日設定 */}
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-bold text-gray-700 mb-1.5">
+              <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+              <span>カレンダーの週開始曜日（あなたの個人設定）</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setWeekStart("monday")}
+                className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                  weekStart === "monday"
+                    ? "border-indigo-500 bg-indigo-50/70 ring-1 ring-indigo-500"
+                    : "border-gray-200 hover:bg-gray-50 bg-white"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-800">月曜始まり</span>
+                  {weekStart === "monday" && (
+                    <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.2 rounded font-semibold">
+                      選択中
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-500 mt-0.5">月・火・水・木・金・土・日</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWeekStart("sunday")}
+                className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                  weekStart === "sunday"
+                    ? "border-indigo-500 bg-indigo-50/70 ring-1 ring-indigo-500"
+                    : "border-gray-200 hover:bg-gray-50 bg-white"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-800">日曜始まり</span>
+                  {weekStart === "sunday" && (
+                    <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.2 rounded font-semibold">
+                      選択中
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-500 mt-0.5">日・月・火・水・木・金・土</div>
+              </button>
+            </div>
+          </div>
+
+          {/* 4. パスワード変更セクション（任意） */}
           <div className="pt-3 border-t border-gray-200 space-y-3">
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-xs font-bold text-gray-700">

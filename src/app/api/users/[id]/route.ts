@@ -150,6 +150,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updates.push("color = ?");
       values.push(body.color);
     }
+    const incomingWeekStart = body.weekStart ?? body.week_start;
+    if (incomingWeekStart !== undefined) {
+      const cleanWeekStart = incomingWeekStart === "sunday" ? "sunday" : "monday";
+      updates.push("week_start = ?");
+      values.push(cleanWeekStart);
+    }
 
     if (updates.length > 0) {
       values.push(targetId);
@@ -164,6 +170,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         u.role,
         u.is_admin,
         u.color,
+        u.week_start,
         u.created_at,
         COUNT(i.id) AS issue_count,
         SUM(CASE WHEN i.id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END) AS open_issue_count

@@ -8,6 +8,7 @@ export interface User {
   role: string;      // 役割・肩書き（例: '管理者', 'エンジニア'）
   is_admin: number;  // 管理者権限フラグ（1: Admin管理者, 0: 一般メンバー）
   color: string;     // アバターカラー（16進数カラーコード）
+  week_start?: WeekStartDay; // カレンダー週開始曜日（'monday' | 'sunday'）
   created_at: string;
   issue_count?: number;      // 担当課題総数（集計時）
   open_issue_count?: number; // 未完了の担当課題数（集計時）

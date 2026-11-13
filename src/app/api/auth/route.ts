@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const cleanLoginId = String(loginId).trim();
 
     const row = db.prepare(`
-      SELECT id, login_id, password, name, role, is_admin, color, created_at
+      SELECT id, login_id, password, name, role, is_admin, color, week_start, created_at
       FROM users
       WHERE LOWER(login_id) = LOWER(?)
     `).get(cleanLoginId) as {
@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       role: string;
       is_admin: number;
       color: string;
+      week_start: string;
       created_at: string;
     } | undefined;
 
@@ -83,6 +84,7 @@ export async function POST(request: Request) {
       role: row.role,
       is_admin: row.is_admin,
       color: row.color,
+      week_start: row.week_start || "monday",
       created_at: row.created_at,
     };
 

@@ -57,6 +57,7 @@ export default function AdminPage() {
     settings,
     updateSettings,
     refreshUsers,
+    updateUserWeekStart,
     previewTheme,
     setPreviewTheme,
   } = useUser();
@@ -910,10 +911,10 @@ export default function AdminPage() {
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-indigo-600" />
-                <span>5. カレンダーの週開始曜日（期日・日付選択）</span>
+                <span>5. カレンダーの週開始曜日（システム共通デフォルト設定）</span>
               </label>
               <p className="text-[11px] text-slate-500">
-                課題の期限日や開始日を選択するカレンダーで、月曜始まりにするか日曜始まりにするかを設定します。
+                期日・開始日選択カレンダーのシステム共通デフォルトです。各個人ごとの設定は、下部の「チームメンバー・権限管理」一覧の [月始 / 日始] または各個人のマイアカウント画面で個別に選べます。
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 <button
@@ -1128,32 +1129,65 @@ export default function AdminPage() {
                 </button>
               </div>
               <p className="text-xs text-slate-500">
-                メンバーの追加・編集・操作ユーザーの切り替えや、管理者（Admin）権限を確認できます。
+                メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] カレンダー設定を直接変更できます。
               </p>
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                {users.map((u) => (
-                  <div
-                    key={u.id}
-                    className="px-3 py-2 flex items-center justify-between text-xs bg-white"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div
-                        style={{ backgroundColor: u.color || "#4f46e5" }}
-                        className="w-6 h-6 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0"
-                      >
-                        {getUserInitials(u.name)}
+                {users.map((u) => {
+                  const userWeekStart = u.week_start || "monday";
+                  return (
+                    <div
+                      key={u.id}
+                      className="px-3 py-2 flex items-center justify-between gap-2 text-xs bg-white hover:bg-slate-50/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          style={{ backgroundColor: u.color || "#4f46e5" }}
+                          className="w-6 h-6 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0"
+                        >
+                          {getUserInitials(u.name)}
+                        </div>
+                        <span className="font-bold text-slate-800 truncate">{u.name}</span>
+                        {Boolean(u.is_admin) && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                            <Crown className="w-2.5 h-2.5 text-amber-600" />
+                            Admin
+                          </span>
+                        )}
                       </div>
-                      <span className="font-bold text-slate-800 truncate">{u.name}</span>
-                      {Boolean(u.is_admin) && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full font-bold">
-                          <Crown className="w-2.5 h-2.5 text-amber-600" />
-                          Admin
-                        </span>
-                      )}
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-slate-500 text-[11px] hidden sm:inline">{u.role}</span>
+                        {/* カレンダー個人設定切替（月曜始まり / 日曜始まり） */}
+                        <div className="inline-flex rounded border border-slate-200 bg-slate-50 p-0.5 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => updateUserWeekStart(u.id, "monday")}
+                            className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                              userWeekStart === "monday"
+                                ? "bg-indigo-600 text-white shadow-xs"
+                                : "text-slate-500 hover:text-slate-800"
+                            }`}
+                            title={`${u.name}さんのカレンダーを月曜始まりに設定`}
+                          >
+                            月始
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateUserWeekStart(u.id, "sunday")}
+                            className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                              userWeekStart === "sunday"
+                                ? "bg-indigo-600 text-white shadow-xs"
+                                : "text-slate-500 hover:text-slate-800"
+                            }`}
+                            title={`${u.name}さんのカレンダーを日曜始まりに設定`}
+                          >
+                            日始
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-slate-500 text-[11px]">{u.role}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
