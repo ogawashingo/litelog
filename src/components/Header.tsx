@@ -34,7 +34,7 @@ export default function Header({
   return (
     <header className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-14 gap-4 sm:gap-6">
           {/* 左側: オリジナルロゴとナビゲーション（ダッシュボード / ボード / ガント / 管理） */}
           <div className="flex items-center gap-4">
             {/* オリジナルブランドロゴ */}
@@ -109,7 +109,7 @@ export default function Header({
               )}
 
               {/* プロジェクト切り替えセレクトボックス */}
-              <div className="relative flex items-center ml-1.5">
+              <div className="relative flex items-center ml-2 mr-1 sm:mr-2">
                 <FolderGit2 className="w-3.5 h-3.5 text-white/70 absolute left-2.5 pointer-events-none" />
                 <select
                   value={selectedProjectId || ""}
@@ -130,7 +130,7 @@ export default function Header({
           </div>
 
           {/* 右側: 課題の追加ボタン ＆ メンバー管理 ＆ 操作ユーザー表示 */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 ml-2 sm:ml-4">
             {/* 課題追加ボタン（テーマ連動） */}
             <button
               onClick={onOpenCreateIssue}
