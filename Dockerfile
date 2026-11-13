@@ -1,18 +1,18 @@
 # ==========================================
 # ステージ1: 依存パッケージのインストール
 # ==========================================
-FROM node:22-alpine AS deps
+FROM node:22-slim AS deps
 WORKDIR /app
 
 # パッケージ定義ファイルをコピー
 COPY package.json package-lock.json ./
 # 本番およびビルドに必要な依存関係をインストール
-RUN npm ci
+RUN npm ci --no-audit --no-fund
 
 # ==========================================
 # ステージ2: アプリケーションのビルド
 # ==========================================
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 WORKDIR /app
 
 # 依存パッケージをコピー
@@ -30,7 +30,7 @@ RUN npm run build
 # ==========================================
 # ステージ3: 本番実行用ランナー
 # ==========================================
-FROM node:22-alpine AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 # 本番環境フラグとテレメトリ無効化
@@ -42,9 +42,9 @@ ENV HOSTNAME="0.0.0.0"
 # データベースファイルの保存先ディレクトリ設定
 ENV BACKLOG_DB_PATH=/app/data/backlog.db
 
-# セキュリティのため非 root ユーザーを作成
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# セキュリティのため非 root ユーザーを作成（Debian/Ubuntu 形式）
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 -g nodejs nextjs
 
 # 公開静的ファイルと standalone 出力結果をコピー
 COPY --from=builder /app/public ./public
