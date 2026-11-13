@@ -304,7 +304,6 @@ function DashboardContent() {
         <SummaryCards
           issues={filteredIssues}
           onSelectIssue={handleSelectIssue}
-          onUpdateStatus={handleUpdateStatus}
         />
 
         {/* メインエリア: 課題一覧を全幅で表示し、件名や担当者の視認性を確保 */}

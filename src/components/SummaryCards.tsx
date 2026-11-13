@@ -5,7 +5,6 @@ import React, { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calendar,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Flame,
@@ -14,7 +13,7 @@ import {
   Hourglass,
   Zap,
 } from "lucide-react";
-import { Issue, IssueStatus } from "@/types";
+import { Issue } from "@/types";
 import { TypeBadge } from "./IssueBadge";
 import { getTodayDateString } from "@/lib/dateUtils";
 import { useUser } from "./UserContext";
@@ -32,13 +31,11 @@ interface UrgentItem {
 interface SummaryCardsProps {
   issues: Issue[];
   onSelectIssue: (issue: Issue) => void;
-  onUpdateStatus?: (issueId: number, status: IssueStatus) => void;
 }
 
 export default function SummaryCards({
   issues,
   onSelectIssue,
-  onUpdateStatus,
 }: SummaryCardsProps) {
   const { settings } = useUser();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -245,25 +242,11 @@ export default function SummaryCards({
                 </button>
               </div>
 
-              {/* 右側: 担当者情報 & クイックアクション */}
+              {/* 右側: 担当者情報 */}
               <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                {/* 担当者 */}
-                <span className="text-xs text-slate-500 mr-1">
+                <span className="text-xs text-slate-500">
                   担当: <strong className="text-slate-700">{issue.assignee_name || "未割当"}</strong>
                 </span>
-
-                {/* ワンクリックで完了にするクイックボタン */}
-                {onUpdateStatus && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdateStatus(issue.id, "closed")}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all cursor-pointer shadow-2xs"
-                    title="この課題を完了（closed）にします"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">完了</span>
-                  </button>
-                )}
               </div>
             </div>
           );
