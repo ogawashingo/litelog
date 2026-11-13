@@ -788,20 +788,20 @@ export default function GanttChart({
 
         {/* ガントチャート専用コントローラー行（開始日 / スパン / スケール / 親子関係） */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-3 border-t border-slate-100">
-          {/* 左側：期間移動と開始日(startDate)・表示スパン(span) */}
+          {/* 左側グループ：期間移動と開始日・表示期間・スケール切替（日・週・月） */}
           <div className="flex flex-wrap items-center gap-3">
             {/* 前へ / 今日 / 次へ */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => handleShiftPeriod(-1)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
+                className="h-[30px] w-[30px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
                 title="1ヶ月前へ移動"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={handleGoToToday}
-                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 rounded-lg transition-colors cursor-pointer"
+                className="h-[30px] flex items-center gap-1 px-2.5 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 rounded-lg transition-colors cursor-pointer"
                 title="今日の日付へ移動"
               >
                 <CalendarIcon className="w-3.5 h-3.5 text-indigo-600" />
@@ -809,7 +809,7 @@ export default function GanttChart({
               </button>
               <button
                 onClick={() => handleShiftPeriod(1)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
+                className="h-[30px] w-[30px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 border border-slate-300 transition-colors cursor-pointer"
                 title="1ヶ月先へ移動"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -842,7 +842,7 @@ export default function GanttChart({
                   setSpan(nextSpan);
                   updateUrlParams({ span: nextSpan });
                 }}
-                className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-700 font-semibold cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                className="h-[30px] bg-white border border-slate-300 rounded-lg px-2 text-xs text-slate-700 font-semibold cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               >
                 <option value={1}>1ヶ月</option>
                 <option value={3}>3ヶ月</option>
@@ -850,28 +850,9 @@ export default function GanttChart({
                 <option value={12}>1年</option>
               </select>
             </div>
-          </div>
 
-          {/* 右側：親子関係トグル(withParentRelation) ・ スケール(scale) ・ 一覧開閉 */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* 親子課題関連の表示切り替え (withParentRelation) */}
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 py-1 rounded-lg transition-colors">
-              <input
-                type="checkbox"
-                checked={withParentRelation}
-                onChange={(e) => {
-                  const val = e.target.checked;
-                  setWithParentRelation(val);
-                  updateUrlParams({ withParentRelation: val });
-                }}
-                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
-              <span>親子課題を表示</span>
-            </label>
-
-            {/* スケール切替ボタングループ (scale=days/weeks/months) */}
-            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+            {/* スケール切替ボタングループ (scale=days/weeks/months) - 表示期間のすぐ隣に配置 */}
+            <div className="h-[30px] flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
               {[
                 { value: "days" as ViewScale, label: "日" },
                 { value: "weeks" as ViewScale, label: "週" },
@@ -883,7 +864,7 @@ export default function GanttChart({
                     setScale(item.value);
                     updateUrlParams({ scale: item.value });
                   }}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                  className={`h-[24px] px-2.5 flex items-center justify-center rounded-md font-semibold transition-all cursor-pointer ${
                     scale === item.value
                       ? "bg-white text-indigo-800 shadow-xs"
                       : "text-slate-600 hover:text-slate-900"
@@ -893,11 +874,30 @@ export default function GanttChart({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 右側グループ：親子課題トグル(withParentRelation) ・ 一覧開閉 */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* 親子課題関連の表示切り替え (withParentRelation) */}
+            <label className="h-[30px] flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors">
+              <input
+                type="checkbox"
+                checked={withParentRelation}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setWithParentRelation(val);
+                  updateUrlParams({ withParentRelation: val });
+                }}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
+              <span>親子課題を表示</span>
+            </label>
 
             {/* 左側課題リストの開閉ボタン */}
             <button
               onClick={() => setIsLeftPaneOpen(!isLeftPaneOpen)}
-              className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 border border-gray-300 px-2.5 py-1 rounded transition-colors"
+              className="h-[30px] flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors cursor-pointer"
               title={isLeftPaneOpen ? "課題一覧テーブルを折りたたむ" : "課題一覧テーブルを展開する"}
             >
               {isLeftPaneOpen ? (
