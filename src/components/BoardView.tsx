@@ -553,16 +553,30 @@ export default function BoardView({
                           </div>
                         )}
 
-                        {/* カード上部: 種別バッジ＆課題キー */}
+                        {/* カード上部: 種別バッジ＆課題キー（子課題の場合は 親キー › 子キー とコンパクトに表示） */}
                         <div className="flex items-center justify-between gap-1 mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <TypeBadge type={issue.issue_type} />
-                            <div className="flex items-center gap-1 min-w-0">
+                            <div className="flex items-center gap-1 min-w-0 flex-wrap">
                               {isChild && (
-                                <CornerDownRight
-                                  className="w-3 h-3 text-indigo-500 shrink-0"
-                                  title={`親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""}`}
-                                />
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const p = parentIssue || issues.find((i) => i.id === issue.parent_id);
+                                      if (p) {
+                                        setDetailIssue(p);
+                                        setIsDetailOpen(true);
+                                      }
+                                    }}
+                                    className="font-mono text-[11px] font-semibold text-slate-400 hover:text-indigo-600 hover:underline cursor-pointer truncate max-w-[80px]"
+                                    title={`親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""} ${issue.parent_title || parentIssue?.title || ""}`}
+                                  >
+                                    {issue.parent_issue_key || parentIssue?.issue_key}
+                                  </button>
+                                  <span className="text-slate-300 text-[10px] select-none font-bold">›</span>
+                                </>
                               )}
                               <a
                                 href={`/issues/${issue.issue_key}`}
@@ -578,7 +592,7 @@ export default function BoardView({
                                     ? `親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""} ${issue.parent_title || parentIssue?.title || ""}`
                                     : undefined
                                 }
-                                className="font-mono text-xs font-bold text-slate-500 group-hover:text-indigo-600 transition-colors hover:underline cursor-pointer truncate"
+                                className="font-mono text-xs font-bold text-slate-600 group-hover:text-indigo-600 transition-colors hover:underline cursor-pointer truncate"
                               >
                                 {issue.issue_key}
                               </a>
