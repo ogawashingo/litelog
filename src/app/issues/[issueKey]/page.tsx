@@ -1129,7 +1129,7 @@ export default function IssueDetailPage() {
                                 value={editCommentContent}
                                 onChange={(val) => setEditCommentContent(val)}
                                 users={users}
-                                className="w-full bg-white border border-indigo-400 rounded-lg p-2.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                                className="w-full bg-white border border-indigo-400 rounded-lg p-2.5 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
                                 placeholder="コメントを修正... (@でメンバーをメンション)"
                                 disabled={isSavingComment}
                                 autoFocus

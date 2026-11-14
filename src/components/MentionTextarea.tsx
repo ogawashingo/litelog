@@ -537,19 +537,19 @@ export default function MentionTextarea({
             placeholder={placeholder}
             rows={rows}
             disabled={disabled}
-            className={`w-full p-2.5 bg-transparent border-0 outline-none text-slate-800 placeholder-slate-400 text-xs leading-relaxed resize-y ${className}`}
+            className={`w-full p-2.5 bg-transparent border-0 outline-none text-slate-800 placeholder-slate-400 text-sm leading-relaxed resize-y ${className}`}
             {...rest}
           />
         </div>
       ) : (
         <div
-          className={`w-full p-3 bg-white text-xs leading-relaxed overflow-y-auto ${className}`}
+          className={`w-full p-3 bg-white text-sm leading-relaxed overflow-y-auto ${className}`}
           style={{ minHeight: `${rows * 1.5 + 1}rem` }}
         >
           {value ? (
             <MentionText text={value} users={users} />
           ) : (
-            <p className="text-slate-400 italic text-xs">（プレビューするテキストがありません）</p>
+            <p className="text-slate-400 italic text-sm">（プレビューするテキストがありません）</p>
           )}
         </div>
       )}
