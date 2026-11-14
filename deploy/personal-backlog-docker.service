@@ -1,0 +1,19 @@
+[Unit]
+Description=Personal Backlog Docker Compose Application (Port 3000)
+Requires=docker.service
+After=docker.service network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# docker-compose.yml が配置されているディレクトリ
+WorkingDirectory=/opt/personal-backlog
+# コンテナ起動時に docker compose up をバックグラウンド実行
+ExecStart=/usr/bin/docker compose up -d --build
+# 停止・再起動時の処理
+ExecStop=/usr/bin/docker compose down
+# 再読み込み時の処理
+ExecReload=/usr/bin/docker compose restart
+
+[Install]
+WantedBy=multi-user.target

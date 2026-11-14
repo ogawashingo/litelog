@@ -137,6 +137,17 @@ docker run -d -p 3000:3000 -v "$(pwd)/data:/app/data" --name personal-backlog pe
 >   echo '{"dns": ["8.8.8.8", "1.1.1.1"], "mtu": 1400}' > /etc/docker/daemon.json && systemctl restart docker
 >   ```
 
+### 6. Proxmox LXC コンテナ起動時の自動起動（ポート3000 listen）
+
+Proxmox VE の LXC コンテナ起動時に、自動でポート3000で待ち受けて起動させたい場合は、付属のセットアップスクリプトをご利用ください。
+
+```bash
+# コンテナ内のプロジェクトディレクトリで実行
+sudo bash deploy/setup.sh
+```
+
+詳細は [deploy/README.md](deploy/README.md) を参照してください。
+
 ---
 
 ## 📂 技術スタック
