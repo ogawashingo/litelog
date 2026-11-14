@@ -1002,7 +1002,7 @@ export default function GanttChart({
                               isClosed
                                 ? "line-through text-slate-400"
                                 : hasChildren
-                                ? "font-bold text-slate-900 hover:text-indigo-700"
+                                ? "font-bold text-slate-900 hover:text-indigo-700 text-[13px]"
                                 : "font-medium text-slate-800 hover:text-indigo-700"
                             }`}
                             title={`[${issue.issue_key}] ${issue.title}`}
@@ -1364,7 +1364,7 @@ export default function GanttChart({
                                 style={{
                                   left: `${barLeft + 1}px`,
                                   width: `${Math.max(16, barWidth)}px`,
-                                  height: "20px",
+                                  height: "26px",
                                 }}
                                 onClick={() => {
                                   setDetailIssue(issue);
@@ -1374,13 +1374,13 @@ export default function GanttChart({
                                 title={`[親課題: ${issue.issue_key}] ${issue.title}\n全体期間: ${effectiveStartDate} 〜 ${effectiveDueDate}\n子課題進捗: ${completedChildrenCount}/${childrenIssues.length} (${progressPercent}%)`}
                               >
                                 {/* 親バー本体 */}
-                                <div className="w-full h-3.5 bg-indigo-950 rounded-t-sm relative overflow-hidden flex items-center px-1.5 shadow-xs">
+                                <div className="w-full h-5 bg-indigo-950 rounded-t-sm relative overflow-hidden flex items-center px-2 shadow-xs">
                                   {/* 進捗ゲージ */}
                                   <div
                                     style={{ width: `${progressPercent}%` }}
                                     className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
                                   />
-                                  <span className="relative z-10 text-[9px] font-bold text-white truncate">
+                                  <span className="relative z-10 text-[11px] font-bold text-white truncate">
                                     {issue.issue_key} {issue.title} ({progressPercent}%)
                                   </span>
                                 </div>
@@ -1397,9 +1397,9 @@ export default function GanttChart({
                                     left: `${barLeft + Math.max(16, barWidth) + 8}px`,
                                     maxWidth: "380px",
                                   }}
-                                  className="absolute pointer-events-none flex items-center gap-1.5 text-[11px] text-slate-800 font-bold select-none whitespace-nowrap z-0"
+                                  className="absolute pointer-events-none flex items-center gap-1.5 text-xs text-slate-800 font-bold select-none whitespace-nowrap z-0"
                                 >
-                                  <span className="font-mono text-[10px] text-indigo-700">
+                                  <span className="font-mono text-[11px] text-indigo-700">
                                     {issue.issue_key}
                                   </span>
                                   <span className="truncate">{issue.title}</span>
