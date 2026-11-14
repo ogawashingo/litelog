@@ -1221,6 +1221,7 @@ export default function IssueDetailPage() {
           issueId={issue.id}
           commentId={historyModalCommentId}
           settings={settings}
+          users={users}
         />
       )}
 
@@ -1232,6 +1233,7 @@ export default function IssueDetailPage() {
           issueId={issue.id}
           initialTab={issueHistoryTab}
           settings={settings}
+          users={users}
         />
       )}
     </div>

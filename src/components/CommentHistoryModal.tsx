@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { X, History, Clock } from "lucide-react";
 import { formatTimestamp } from "@/lib/dateUtils";
-import { Comment, CommentHistory, SystemSettings } from "@/types";
+import { Comment, CommentHistory, SystemSettings, User } from "@/types";
+import MentionText from "./MentionText";
 
 interface CommentHistoryModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface CommentHistoryModalProps {
   issueId: number | string;
   commentId: number | null;
   settings?: SystemSettings;
+  users?: User[];
 }
 
 // ユーザー名の頭文字を取得するヘルパー
@@ -26,6 +28,7 @@ export default function CommentHistoryModal({
   issueId,
   commentId,
   settings,
+  users = [],
 }: CommentHistoryModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,9 +155,9 @@ export default function CommentHistoryModal({
                         </span>
                       </div>
                     </div>
-                    <p className="text-slate-800 whitespace-pre-wrap text-sm pt-1">
-                      {currentComment.content}
-                    </p>
+                    <div className="pt-1">
+                      <MentionText text={currentComment.content} users={users} className="text-sm text-slate-800" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -187,9 +190,9 @@ export default function CommentHistoryModal({
                           <span>{formatTimestamp(h.created_at, settings, true)}</span>
                         </div>
                       </div>
-                      <p className="text-slate-600 whitespace-pre-wrap text-sm pt-1">
-                        {h.content}
-                      </p>
+                      <div className="pt-1">
+                        <MentionText text={h.content} users={users} className="text-sm text-slate-600" />
+                      </div>
                     </div>
                   </div>
                 );

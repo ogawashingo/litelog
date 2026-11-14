@@ -1427,6 +1427,7 @@ export default function IssueDetailModal({
         issueId={issue.id}
         commentId={historyModalCommentId}
         settings={settings}
+        users={users}
       />
 
       {/* 課題変更履歴モーダル */}
@@ -1436,6 +1437,7 @@ export default function IssueDetailModal({
         issueId={issue.id}
         initialTab={issueHistoryTab}
         settings={settings}
+        users={users}
       />
     </div>
   );

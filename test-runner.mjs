@@ -6,6 +6,7 @@ import fs from "node:fs";
 import { getJapaneseHoliday } from "./src/lib/holidayUtils.ts";
 import { parseMentions, createMentionNotifications } from "./src/lib/notificationUtils.ts";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES, getAvatarColorLabel } from "./src/lib/avatarColors.ts";
+import { parseMarkdown, parseInline } from "./src/lib/markdownUtils.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -1344,6 +1345,104 @@ async function runTests() {
     throw new Error(`カスタムカラーラベル取得不一致: ${getAvatarColorLabel("#123456")}`);
   }
   console.log(`✓ チームメンバー・アカウント管理用カラーパターン拡充テスト成功 (${AVATAR_COLORS.length}色・重複なし・ラベル定義完全)`);
+
+  // 8. Markdown記法・リッチテキストAST解析＆メンション結合テスト
+  const testUsers = [
+    { id: 1, login_id: "yamada", name: "山田 太郎", color: "#4f46e5" },
+    { id: 2, login_id: "sato", name: "佐藤 花子", color: "#ec4899" },
+  ];
+
+  // 8-1. インライン要素検証
+  const inlineSample = "こんにちは **太字** と *斜体* と ~~取り消し~~、そして `code` と [Google](https://google.com) と @yamada です";
+  const inlines = parseInline(inlineSample, testUsers);
+  const boldNode = inlines.find((n) => n.type === "bold");
+  const italicNode = inlines.find((n) => n.type === "italic");
+  const strikeNode = inlines.find((n) => n.type === "strike");
+  const codeNode = inlines.find((n) => n.type === "code");
+  const linkNode = inlines.find((n) => n.type === "link");
+  const mentionNode = inlines.find((n) => n.type === "mention");
+
+  if (!boldNode || boldNode.children[0]?.value !== "太字") {
+    throw new Error("インライン太字のパースに失敗しました");
+  }
+  if (!italicNode || italicNode.children[0]?.value !== "斜体") {
+    throw new Error("インライン斜体のパースに失敗しました");
+  }
+  if (!strikeNode || strikeNode.children[0]?.value !== "取り消し") {
+    throw new Error("インライン取り消し線のパースに失敗しました");
+  }
+  if (!codeNode || codeNode.value !== "code") {
+    throw new Error("インラインコードのパースに失敗しました");
+  }
+  if (!linkNode || linkNode.text !== "Google" || linkNode.url !== "https://google.com") {
+    throw new Error("インラインリンクのパースに失敗しました");
+  }
+  if (!mentionNode || mentionNode.raw !== "@yamada" || mentionNode.user?.login_id !== "yamada") {
+    throw new Error("インラインメンションのユーザー解決に失敗しました");
+  }
+  console.log("✓ インラインMarkdown（太字・斜体・取消線・コード・リンク・メンション）パース成功");
+
+  // 8-2. ブロック要素検証（見出し・リスト・タスクリスト・引用・コードブロック・テーブル）
+  const markdownSample = [
+    "# 大見出し",
+    "## 中見出し",
+    "> これが引用文です",
+    "> 複数行引用 @sato",
+    "```typescript",
+    "const greeting = 'Hello World';",
+    "```",
+    "- [ ] 未完了タスク",
+    "- [x] 完了済みタスク",
+    "- 通常リスト項目",
+    "1. 番号付き項目1",
+    "2. 番号付き項目2",
+    "---",
+    "| 列1 | 列2 |",
+    "| --- | --- |",
+    "| 値A | 値B |",
+  ].join("\n");
+
+  const blocks = parseMarkdown(markdownSample, testUsers);
+  if (blocks.length !== 8) {
+    throw new Error(`ブロック数の解析結果が一致しません: 期待値=8, 実際=${blocks.length}`);
+  }
+
+  // 見出し1
+  if (blocks[0].type !== "heading" || blocks[0].level !== 1) {
+    throw new Error("h1見出しのパース失敗");
+  }
+  // 見出し2
+  if (blocks[1].type !== "heading" || blocks[1].level !== 2) {
+    throw new Error("h2見出しのパース失敗");
+  }
+  // 引用
+  if (blocks[2].type !== "blockquote" || blocks[2].lines.length !== 2) {
+    throw new Error("引用ブロックのパース失敗");
+  }
+  // コードブロック
+  if (blocks[3].type !== "codeblock" || blocks[3].lang !== "typescript" || !blocks[3].code.includes("Hello World")) {
+    throw new Error("コードブロックのパース失敗");
+  }
+  // リスト（箇条書き＋タスクリスト）
+  if (blocks[4].type !== "list" || blocks[4].ordered !== false || blocks[4].items.length !== 3) {
+    throw new Error("箇条書き/タスクリストのパース失敗");
+  }
+  if (blocks[4].items[0].checked !== false || blocks[4].items[1].checked !== true) {
+    throw new Error("タスクリストのチェック状態判定失敗");
+  }
+  // 番号付きリスト
+  if (blocks[5].type !== "list" || blocks[5].ordered !== true || blocks[5].items.length !== 2) {
+    throw new Error("番号付きリストのパース失敗");
+  }
+  // 水平線
+  if (blocks[6].type !== "hr") {
+    throw new Error("水平線のパース失敗");
+  }
+  // テーブル
+  if (blocks[7].type !== "table" || blocks[7].headers.length !== 2 || blocks[7].rows.length !== 1) {
+    throw new Error("テーブルのパース失敗");
+  }
+  console.log("✓ ブロックMarkdown（見出し・引用・コードブロック・タスクリスト・番号リスト・水平線・テーブル）パース成功");
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

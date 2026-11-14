@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { X, History, Clock, FileText, Type, Calendar } from "lucide-react";
 import { formatTimestamp } from "@/lib/dateUtils";
-import { Issue, IssueHistory, SystemSettings } from "@/types";
+import { Issue, IssueHistory, SystemSettings, User } from "@/types";
+import MentionText from "./MentionText";
 
 interface IssueHistoryModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface IssueHistoryModalProps {
   issueId: number | string;
   initialTab?: "description" | "title" | "dates" | "all";
   settings?: SystemSettings;
+  users?: User[];
 }
 
 // ユーザー名の頭文字を取得するヘルパー
@@ -26,6 +28,7 @@ export default function IssueHistoryModal({
   issueId,
   initialTab = "description",
   settings,
+  users = [],
 }: IssueHistoryModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,9 +248,13 @@ export default function IssueHistoryModal({
                       {currentIssue.title}
                     </p>
                   ) : activeTab === "description" ? (
-                    <p className="text-slate-800 whitespace-pre-wrap text-sm pt-1">
-                      {currentIssue.description || "（詳細・説明はありません）"}
-                    </p>
+                    <div className="pt-1">
+                      {currentIssue.description ? (
+                        <MentionText text={currentIssue.description} users={users} className="text-sm text-slate-800" />
+                      ) : (
+                        <span className="text-slate-400 italic text-xs">（詳細・説明はありません）</span>
+                      )}
+                    </div>
                   ) : activeTab === "dates" ? (
                     <div className="grid grid-cols-2 gap-3 pt-1">
                       <div className="bg-white p-2.5 rounded border border-emerald-200">
@@ -281,9 +288,13 @@ export default function IssueHistoryModal({
                       </div>
                       <div>
                         <span className="text-[10px] font-bold text-slate-500">詳細・説明:</span>
-                        <p className="text-slate-800 whitespace-pre-wrap">
-                          {currentIssue.description || "（詳細・説明はありません）"}
-                        </p>
+                        <div className="pt-0.5">
+                          {currentIssue.description ? (
+                            <MentionText text={currentIssue.description} users={users} className="text-xs text-slate-800" />
+                          ) : (
+                            <span className="text-slate-400 italic text-xs">（詳細・説明はありません）</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -343,11 +354,17 @@ export default function IssueHistoryModal({
                       </div>
                       <div className="pt-1">
                         <span className="text-[10px] text-slate-500 font-medium">変更前の内容:</span>
-                        <p className="text-slate-700 whitespace-pre-wrap text-sm bg-white p-2.5 rounded border border-slate-200/80 mt-1">
-                          {h.old_value !== null && h.old_value !== undefined && h.old_value !== ""
-                            ? h.old_value
-                            : "（未設定）"}
-                        </p>
+                        <div className="bg-white p-2.5 rounded border border-slate-200/80 mt-1">
+                          {h.old_value !== null && h.old_value !== undefined && h.old_value !== "" ? (
+                            isFieldDesc ? (
+                              <MentionText text={h.old_value} users={users} className="text-sm text-slate-700" />
+                            ) : (
+                              <p className="text-slate-700 whitespace-pre-wrap text-sm">{h.old_value}</p>
+                            )
+                          ) : (
+                            <span className="text-slate-400 italic text-xs">（未設定）</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
