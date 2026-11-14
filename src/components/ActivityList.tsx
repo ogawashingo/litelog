@@ -240,8 +240,8 @@ export default function ActivityList({
             )}
           </button>
           <History className="w-4 h-4 text-indigo-600 shrink-0" />
-          <h3 className="font-bold text-slate-800 text-sm">最近の更新</h3>
-          <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700 shadow-2xs">
+          <h3 className="font-bold text-slate-800 text-base">最近の更新</h3>
+          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700 shadow-2xs">
             {filteredActivities.length}
           </span>
         </div>
@@ -258,9 +258,9 @@ export default function ActivityList({
             groupedTimeline.map((group) => (
               <div key={group.dateKey} className="timeline">
                 {/* 本家Backlog風の日付見出し (h3.timeline__date: YYYY年M月D日(曜日)) */}
-                <h4 className="timeline__date sticky top-0 z-10 bg-slate-100 border-y border-slate-200/90 px-4 py-1.5 text-xs font-bold text-slate-800 flex items-center justify-between shadow-2xs">
+                <h4 className="timeline__date sticky top-0 z-10 bg-slate-100 border-y border-slate-200/90 px-4 py-1.5 text-sm font-bold text-slate-800 flex items-center justify-between shadow-2xs">
                   <span className="font-bold text-slate-900">{group.dateLabel}</span>
-                  <span className="text-[10px] font-semibold text-slate-500">
+                  <span className="text-xs font-semibold text-slate-500">
                     {group.items.length} 件の更新
                   </span>
                 </h4>
@@ -284,7 +284,7 @@ export default function ActivityList({
                       <li
                         key={act.id}
                         data-testid={`activity-item-${act.id}`}
-                        className={`timeline__stream-item px-4 py-3 text-xs transition-colors ${
+                        className={`timeline__stream-item px-4 py-3 text-sm transition-colors ${
                           isDeleted
                             ? "is_deleted bg-slate-50/50 text-slate-400"
                             : "hover:bg-indigo-50/30"
@@ -299,7 +299,7 @@ export default function ActivityList({
                                 style={{
                                   backgroundColor: act.user_color || "#4f46e5",
                                 }}
-                                className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0 shadow-2xs"
+                                className="w-5.5 h-5.5 rounded-full text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-2xs"
                                 title={act.user_name || "システム"}
                               >
                                 {getUserInitials(act.user_name || "システム")}
@@ -314,7 +314,7 @@ export default function ActivityList({
                                   さんが {meta.particle}
                                 </span>
                                 <span
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${meta.badgeClass}`}
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-bold border ${meta.badgeClass}`}
                                 >
                                   {meta.icon}
                                   <span>{meta.badgeLabel}</span>
@@ -324,7 +324,7 @@ export default function ActivityList({
 
                             {/* 相対時刻・絶対時刻ツールチップ (stream-update__meta) */}
                             <span
-                              className="stream-update__meta text-[11px] text-gray-400 shrink-0"
+                              className="stream-update__meta text-xs text-gray-400 shrink-0"
                               title={formatTimestamp(act.created_at, settings, true)}
                             >
                               {formatActivityTimestamp(act.created_at, settings)}
@@ -383,7 +383,7 @@ export default function ActivityList({
                                 {diffBadges.map((badge, idx) => (
                                   <span
                                     key={idx}
-                                    className="update-value inline-block font-mono text-[11px] font-semibold text-gray-600 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded"
+                                    className="update-value inline-block font-mono text-xs font-semibold text-gray-600 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded"
                                   >
                                     {badge}
                                   </span>

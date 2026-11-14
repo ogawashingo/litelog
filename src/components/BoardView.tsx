@@ -344,7 +344,7 @@ export default function BoardView({
                 placeholder="課題を検索..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                className="w-full text-sm pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -352,7 +352,7 @@ export default function BoardView({
             <select
               value={filterAssignee}
               onChange={(e) => setFilterAssignee(e.target.value)}
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">担当者: すべて</option>
               {currentUser && (
@@ -370,7 +370,7 @@ export default function BoardView({
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as IssueType | "all")}
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">種別: すべて</option>
               <option value="task">タスク</option>
@@ -383,7 +383,7 @@ export default function BoardView({
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value as IssuePriority | "all")}
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">優先度: すべて</option>
               <option value="high">高</option>
@@ -397,7 +397,7 @@ export default function BoardView({
               onChange={(e) =>
                 setFilterRelation(e.target.value as "all" | "parent" | "child" | "standalone")
               }
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">階層: すべて</option>
               <option value="parent">親課題のみ</option>
@@ -408,7 +408,7 @@ export default function BoardView({
             {/* 完了タスクの表示切り替え */}
             <button
               onClick={() => setShowClosed(!showClosed)}
-              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
                 showClosed
                   ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
                   : "bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100 font-semibold"
@@ -445,9 +445,9 @@ export default function BoardView({
               {/* レーンヘッダー */}
               <div className="flex items-center justify-between p-3 border-b border-slate-200/80 bg-white rounded-t-lg">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-slate-800">{col.title}</span>
+                  <span className="font-bold text-base text-slate-800">{col.title}</span>
                   <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${col.badgeBg} ${col.badgeText}`}
+                    className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${col.badgeBg} ${col.badgeText}`}
                   >
                     {columnIssues.length}
                   </span>
@@ -471,7 +471,7 @@ export default function BoardView({
                         : "border-slate-300 text-slate-400"
                     }`}
                   >
-                    <p className="text-xs">
+                    <p className="text-sm">
                       {isOver ? "ここにドロップして移動" : "課題はありません"}
                     </p>
                   </div>
@@ -542,7 +542,7 @@ export default function BoardView({
                                       setIsDetailOpen(true);
                                     }
                                   }}
-                                  className="inline-flex items-center gap-0.5 font-mono text-[11px] font-semibold text-slate-400 hover:text-indigo-600 hover:underline cursor-pointer truncate max-w-[95px]"
+                                  className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-slate-400 hover:text-indigo-600 hover:underline cursor-pointer truncate max-w-[105px]"
                                   title={`親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""} ${issue.parent_title || parentIssue?.title || ""}`}
                                 >
                                   <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
@@ -555,27 +555,27 @@ export default function BoardView({
                         </div>
 
                         {/* カード件名 */}
-                        <h4 className="text-xs font-semibold text-slate-800 line-clamp-2 leading-snug mb-2 group-hover:text-indigo-900 transition-colors">
+                        <h4 className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug mb-2 group-hover:text-indigo-900 transition-colors">
                           {issue.title}
                         </h4>
 
                         {/* カード下部: 期限日・担当者アバター */}
-                        <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 text-slate-500">
+                        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
                           {/* 期限日 ＆ コメントバッジ */}
                           <div className="flex items-center gap-2">
                             {dueInfo ? (
                               <span className={`flex items-center gap-1 ${dueInfo.color}`}>
                                 {dueInfo.isOverdue ? (
-                                  <AlertCircle className="w-3 h-3 text-rose-600" />
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                                 ) : dueInfo.isToday ? (
-                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
                                 ) : (
-                                  <Calendar className="w-3 h-3 text-slate-400" />
+                                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
                                 )}
                                 <span>{dueInfo.label}</span>
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-[10px]">期日なし</span>
+                              <span className="text-slate-400 text-xs">期日なし</span>
                             )}
 
                             {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}
@@ -600,7 +600,7 @@ export default function BoardView({
 
                           {/* 担当者アイコン・表示名 */}
                           <div
-                            className="flex items-center gap-1"
+                            className="flex items-center gap-1.5"
                             title={issue.assignee_name ? `担当者: ${issue.assignee_name}` : "担当者: 未割当"}
                           >
                             <div
@@ -609,11 +609,11 @@ export default function BoardView({
                                   ? issue.assignee_color || "#4f46e5"
                                   : "#cbd5e1",
                               }}
-                              className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-2xs shrink-0"
+                              className="w-5.5 h-5.5 rounded-full text-white flex items-center justify-center text-[10px] font-bold shadow-2xs shrink-0"
                             >
                               {getUserInitials(issue.assignee_name)}
                             </div>
-                            <span className="text-[10px] text-slate-600 font-medium max-w-[72px] truncate">
+                            <span className="text-xs text-slate-600 font-medium max-w-[85px] truncate">
                               {issue.assignee_name || "未割当"}
                             </span>
                           </div>

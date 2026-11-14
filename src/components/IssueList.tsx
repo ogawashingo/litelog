@@ -269,7 +269,7 @@ export default function IssueList({
               placeholder="課題を検索..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
@@ -277,7 +277,7 @@ export default function IssueList({
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">担当者: すべて</option>
             {currentUser && (
@@ -295,7 +295,7 @@ export default function IssueList({
           <select
             value={selectedStatus}
             onChange={(e) => onSelectStatus?.(e.target.value as IssueStatus | "all")}
-            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">状態: すべて</option>
             <option value="open">状態: 未対応</option>
@@ -308,7 +308,7 @@ export default function IssueList({
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as IssueType | "all")}
-            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">種別: すべて</option>
             <option value="task">タスク</option>
@@ -321,7 +321,7 @@ export default function IssueList({
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value as IssuePriority | "all")}
-            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">優先度: すべて</option>
             <option value="high">優先度: 高</option>
@@ -333,7 +333,7 @@ export default function IssueList({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as "due" | "updated" | "priority")}
-            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="due">ソート: 期限順</option>
             <option value="updated">ソート: 更新順</option>
@@ -344,7 +344,7 @@ export default function IssueList({
           <button
             type="button"
             onClick={() => setWithParentRelation((prev) => !prev)}
-            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
               withParentRelation
                 ? "bg-indigo-50/70 text-indigo-800 border-indigo-200 font-semibold"
                 : "bg-white text-slate-500 border-slate-300 hover:bg-slate-50"
@@ -508,7 +508,7 @@ export default function IssueList({
                               onSelectIssue(issue);
                             }
                           }}
-                          className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-xs font-mono cursor-pointer"
+                          className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-sm font-mono cursor-pointer"
                         >
                           {issue.issue_key}
                         </a>
@@ -535,8 +535,8 @@ export default function IssueList({
                             isClosed
                               ? "text-slate-500"
                               : isParent
-                              ? "font-bold text-slate-900"
-                              : "font-medium text-slate-800"
+                              ? "font-bold text-slate-900 text-sm"
+                              : "font-medium text-slate-800 text-sm"
                           }`}
                         >
                           <span
@@ -572,7 +572,7 @@ export default function IssueList({
                       <div className="flex items-center gap-1.5">
                         <div
                           style={{ backgroundColor: issue.assignee_id ? assigneeColor : "#cbd5e1" }}
-                          className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0"
+                          className="w-6 h-6 rounded-full text-white flex items-center justify-center text-[10px] font-bold shrink-0"
                           title={issue.assignee_name || "未割当"}
                         >
                           {getUserInitials(issue.assignee_name)}
@@ -586,7 +586,7 @@ export default function IssueList({
                             }
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-xs bg-transparent hover:bg-slate-100 border border-transparent hover:border-slate-300 rounded px-1 py-0.5 text-slate-700 font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-indigo-500 max-w-[110px] truncate"
+                          className="text-sm bg-transparent hover:bg-slate-100 border border-transparent hover:border-slate-300 rounded px-1 py-0.5 text-slate-700 font-medium cursor-pointer focus:outline-hidden focus:ring-1 focus:ring-indigo-500 max-w-[120px] truncate"
                         >
                           <option value="">未割当</option>
                           {users.map((u) => (
@@ -653,7 +653,7 @@ export default function IssueList({
                     </td>
 
                     {/* 期限日（カレンダー選択・月曜/日曜始まり対応・クリア可能） */}
-                    <td className="py-3 px-3 whitespace-nowrap text-xs">
+                    <td className="py-3 px-3 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <DatePicker
                           value={issue.due_date}
@@ -673,7 +673,7 @@ export default function IssueList({
                           badge={
                             issue.due_date ? (
                               <span
-                                className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${
+                                className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${
                                   dueInfo.isOverdue && !isClosed
                                     ? "bg-rose-100 text-rose-700 font-bold"
                                     : dueInfo.isToday && !isClosed

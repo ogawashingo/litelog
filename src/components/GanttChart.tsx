@@ -690,7 +690,7 @@ export default function GanttChart({
                 placeholder="課題を検索..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                className="w-full text-sm pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -698,7 +698,7 @@ export default function GanttChart({
             <select
               value={filterAssignee}
               onChange={(e) => setFilterAssignee(e.target.value)}
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">担当者: すべて</option>
               {currentUser && (
@@ -716,7 +716,7 @@ export default function GanttChart({
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as IssueType | "all")}
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">種別: すべて</option>
               <option value="task">タスク</option>
@@ -729,7 +729,7 @@ export default function GanttChart({
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as IssueStatus | "all")}
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">状態: すべて</option>
               <option value="open">未対応</option>
@@ -742,7 +742,7 @@ export default function GanttChart({
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value as IssuePriority | "all")}
-              className="text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">優先度: すべて</option>
               <option value="high">高</option>
@@ -753,7 +753,7 @@ export default function GanttChart({
             {/* 完了課題の表示トグル */}
             <button
               onClick={() => setShowClosed(!showClosed)}
-              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
                 showClosed
                   ? "bg-indigo-50/70 text-indigo-800 border-indigo-200"
                   : "bg-white text-slate-400 border-slate-200"
@@ -781,7 +781,7 @@ export default function GanttChart({
               </button>
               <button
                 onClick={handleGoToToday}
-                className="h-[30px] flex items-center gap-1 px-2.5 text-xs font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 rounded-lg transition-colors cursor-pointer"
+                className="h-[30px] flex items-center gap-1 px-2.5 text-sm font-semibold text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-300 rounded-lg transition-colors cursor-pointer"
                 title="今日の日付へ移動"
               >
                 <CalendarIcon className="w-3.5 h-3.5 text-indigo-600" />
@@ -797,7 +797,7 @@ export default function GanttChart({
             </div>
 
             {/* 開始日指定（startDate） */}
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-sm">
               <span className="text-slate-500 font-semibold">開始日:</span>
               <DatePicker
                 value={formatDateString(startDate)}
@@ -813,7 +813,7 @@ export default function GanttChart({
             </div>
 
             {/* 表示スパン指定（span） */}
-            <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-sm">
               <span className="text-slate-500 font-semibold">表示期間:</span>
               <select
                 value={span}
@@ -822,7 +822,7 @@ export default function GanttChart({
                   setSpan(nextSpan);
                   updateUrlParams({ span: nextSpan });
                 }}
-                className="h-[30px] bg-white border border-slate-300 rounded-lg px-2 text-xs text-slate-700 font-semibold cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                className="h-[30px] bg-white border border-slate-300 rounded-lg px-2 text-sm text-slate-700 font-semibold cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               >
                 <option value={1}>1ヶ月</option>
                 <option value={3}>3ヶ月</option>
@@ -832,7 +832,7 @@ export default function GanttChart({
             </div>
 
             {/* スケール切替ボタングループ (scale=days/weeks/months) - 表示期間のすぐ隣に配置 */}
-            <div className="h-[30px] flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+            <div className="h-[30px] flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-sm">
               {[
                 { value: "days" as ViewScale, label: "日" },
                 { value: "weeks" as ViewScale, label: "週" },
@@ -859,7 +859,7 @@ export default function GanttChart({
           {/* 右側グループ：親子課題トグル(withParentRelation) ・ 一覧開閉 */}
           <div className="flex flex-wrap items-center gap-3">
             {/* 親子課題関連の表示切り替え (withParentRelation) */}
-            <label className="h-[30px] flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors">
+            <label className="h-[30px] flex items-center gap-1.5 text-sm font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors">
               <input
                 type="checkbox"
                 checked={withParentRelation}
@@ -877,7 +877,7 @@ export default function GanttChart({
             {/* 左側課題リストの開閉ボタン */}
             <button
               onClick={() => setIsLeftPaneOpen(!isLeftPaneOpen)}
-              className="h-[30px] flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors cursor-pointer"
+              className="h-[30px] flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors cursor-pointer"
               title={isLeftPaneOpen ? "課題一覧テーブルを折りたたむ" : "課題一覧テーブルを展開する"}
             >
               {isLeftPaneOpen ? (
@@ -955,7 +955,7 @@ export default function GanttChart({
                       onMouseEnter={() => setHoveredIssueId(issue.id)}
                       onMouseLeave={() => setHoveredIssueId(null)}
                       style={{ height: `${ROW_HEIGHT}px` }}
-                      className={`group flex items-center px-3 text-xs transition-colors ${
+                      className={`group flex items-center px-3 text-sm transition-colors ${
                         hasChildren ? "bg-slate-50/70 font-semibold" : ""
                       } ${isHovered ? "bg-indigo-50/70" : "hover:bg-slate-50/80"}`}
                     >
@@ -1002,8 +1002,8 @@ export default function GanttChart({
                               isClosed
                                 ? "line-through text-slate-400"
                                 : hasChildren
-                                ? "font-bold text-slate-900 hover:text-indigo-700 text-[13px]"
-                                : "font-medium text-slate-800 hover:text-indigo-700"
+                                ? "font-bold text-slate-900 hover:text-indigo-700 text-sm"
+                                : "font-medium text-slate-800 hover:text-indigo-700 text-sm"
                             }`}
                             title={`[${issue.issue_key}] ${issue.title}`}
                           >
@@ -1015,7 +1015,7 @@ export default function GanttChart({
                         {withParentRelation && depth === 0 && (
                           <div className="flex items-center gap-1 shrink-0">
                             {hasChildren && (
-                              <span className="text-[10px] bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full font-bold">
+                              <span className="text-xs bg-indigo-100 text-indigo-800 px-1.5 py-0.2 rounded-full font-bold">
                                 {childrenIssues.length}
                               </span>
                             )}
@@ -1042,7 +1042,7 @@ export default function GanttChart({
                               ? issue.assignee_color || "#4f46e5"
                               : "#cbd5e1",
                           }}
-                          className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold"
+                          className="w-5.5 h-5.5 rounded-full text-white flex items-center justify-center text-[10px] font-bold"
                           title={issue.assignee_name ? `担当: ${issue.assignee_name}` : "担当: 未割当"}
                         >
                           {getUserInitials(issue.assignee_name)}
@@ -1056,7 +1056,7 @@ export default function GanttChart({
                           onChange={(e) =>
                             handleQuickStatusChange(issue.id, e.target.value as IssueStatus)
                           }
-                          className="w-full text-[11px] font-semibold bg-white border border-slate-300 rounded px-1 py-0.5 text-slate-700 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          className="w-full text-xs font-semibold bg-white border border-slate-300 rounded px-1 py-0.5 text-slate-700 focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                           title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildren.length} 件あるため完了にできません` : undefined}
                         >
                           <option value="open">未対応</option>
@@ -1069,7 +1069,7 @@ export default function GanttChart({
                       </div>
 
                       {/* 期限日 */}
-                      <div className="w-[58px] shrink-0 text-center font-medium text-[11px]">
+                      <div className="w-[58px] shrink-0 text-center font-medium text-xs">
                         {issue.due_date ? (
                           <span
                             className={
@@ -1084,7 +1084,7 @@ export default function GanttChart({
                             {issue.due_date.slice(5)}
                           </span>
                         ) : (
-                          <span className="text-gray-300 text-[10px]">未設定</span>
+                          <span className="text-gray-300 text-xs">未設定</span>
                         )}
                       </div>
                     </div>
@@ -1142,7 +1142,7 @@ export default function GanttChart({
 
                 {/* 2段目：スケールに応じた目盛り */}
                 {scale === "days" && (
-                  <div className="flex text-[11px] h-[26px]">
+                  <div className="flex text-xs h-[26px]">
                     {dateRange.map((d, idx) => {
                       const dateStr = formatDateString(d);
                       const isToday = dateStr === todayStr;
@@ -1176,14 +1176,14 @@ export default function GanttChart({
                           title={cellTooltip}
                         >
                           <span
-                            className={`leading-none ${
+                            className={`leading-none font-semibold ${
                               isToday ? "text-indigo-900 font-extrabold" : textColor
                             }`}
                           >
                             {dayNum}
                           </span>
                           <span
-                            className={`text-[9px] scale-90 leading-none ${
+                            className={`text-[10px] leading-none mt-0.5 ${
                               isToday ? "text-indigo-700 font-bold" : textColor
                             }`}
                           >
@@ -1196,7 +1196,7 @@ export default function GanttChart({
                 )}
 
                 {scale === "weeks" && (
-                  <div className="flex text-[10px] h-[26px]">
+                  <div className="flex text-xs h-[26px]">
                     {weekGroups.map((wg, idx) => (
                       <div
                         key={idx}
@@ -1210,7 +1210,7 @@ export default function GanttChart({
                 )}
 
                 {scale === "months" && (
-                  <div className="flex text-[10px] h-[26px]">
+                  <div className="flex text-xs h-[26px]">
                     {monthGroups.map((mg, idx) => (
                       <div
                         key={idx}
@@ -1380,7 +1380,7 @@ export default function GanttChart({
                                     style={{ width: `${progressPercent}%` }}
                                     className="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
                                   />
-                                  <span className="relative z-10 text-[11px] font-bold text-white truncate">
+                                  <span className="relative z-10 text-xs font-bold text-white truncate">
                                     {issue.issue_key} {issue.title} ({progressPercent}%)
                                   </span>
                                 </div>
@@ -1399,7 +1399,7 @@ export default function GanttChart({
                                   }}
                                   className="absolute pointer-events-none flex items-center gap-1.5 text-xs text-slate-800 font-bold select-none whitespace-nowrap z-0"
                                 >
-                                  <span className="font-mono text-[11px] text-indigo-700">
+                                  <span className="font-mono text-xs text-indigo-700">
                                     {issue.issue_key}
                                   </span>
                                   <span className="truncate">{issue.title}</span>
@@ -1443,10 +1443,10 @@ export default function GanttChart({
                                 {/* バー内テキスト（幅が狭いときは隠れる） */}
                                 {barWidth >= 40 && (
                                   <div className="flex-1 min-w-0 flex items-center gap-1 px-1 truncate pointer-events-none">
-                                    <span className="text-[10px] font-bold opacity-90 shrink-0">
+                                    <span className="text-[11px] font-bold opacity-90 shrink-0">
                                       {issue.issue_key}
                                     </span>
-                                    <span className="text-[11px] font-medium truncate">
+                                    <span className="text-xs font-medium truncate">
                                       {issue.title}
                                     </span>
                                   </div>
@@ -1466,9 +1466,9 @@ export default function GanttChart({
                                     left: `${barLeft + Math.max(14, barWidth) + 8}px`,
                                     maxWidth: "380px",
                                   }}
-                                  className="absolute pointer-events-none flex items-center gap-1.5 text-[11px] text-slate-700 font-medium select-none whitespace-nowrap z-0"
+                                  className="absolute pointer-events-none flex items-center gap-1.5 text-xs text-slate-700 font-medium select-none whitespace-nowrap z-0"
                                 >
-                                  <span className="font-semibold text-slate-400 font-mono text-[10px]">
+                                  <span className="font-semibold text-slate-400 font-mono text-[11px]">
                                     {issue.issue_key}
                                   </span>
                                   <span className="truncate">{issue.title}</span>
@@ -1481,7 +1481,7 @@ export default function GanttChart({
                           <div className="px-3">
                             <button
                               onClick={() => handleSetDefaultDates(issue)}
-                              className="text-[10px] text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-0.5 rounded border border-dashed border-slate-300 hover:border-indigo-400 flex items-center gap-1 transition-colors cursor-pointer"
+                              className="text-xs text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 px-2 py-0.5 rounded border border-dashed border-slate-300 hover:border-indigo-400 flex items-center gap-1 transition-colors cursor-pointer"
                               title="クリックすると基準日で期間を設定します"
                             >
                               <Plus className="w-3 h-3" />

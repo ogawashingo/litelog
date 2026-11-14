@@ -257,7 +257,7 @@ export function DatePicker({
         role="button"
         tabIndex={disabled ? -1 : 0}
         aria-label={ariaLabel || placeholder}
-        className={`flex items-center gap-1.5 text-xs py-1.5 px-3 border rounded-lg cursor-pointer transition-colors select-none ${
+        className={`flex items-center gap-1.5 text-sm py-1.5 px-3 border rounded-lg cursor-pointer transition-colors select-none ${
           fullWidth ? "w-full justify-between" : ""
         } ${getTriggerStyle()} ${
           disabled ? "opacity-60 cursor-not-allowed" : ""
@@ -310,7 +310,7 @@ export function DatePicker({
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-xs font-bold text-slate-800 px-1">
+                <span className="text-sm font-bold text-slate-800 px-1">
                   {viewYear}年 {viewMonth}月
                 </span>
                 <button
@@ -329,7 +329,7 @@ export function DatePicker({
                   type="button"
                   onClick={toggleShowHolidays}
                   title={`日本の祝日表示: ${showHolidays ? "ON (赤字・祝日名表示)" : "OFF"}（クリックで切替）`}
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                  className={`px-1.5 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer ${
                     showHolidays
                       ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
                       : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
@@ -343,7 +343,7 @@ export function DatePicker({
                   type="button"
                   onClick={toggleWeekStart}
                   title={`現在: ${weekStart === "monday" ? "月曜始まり" : "日曜始まり"}（クリックで切替）`}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-slate-600 border-slate-200"
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold border transition-colors cursor-pointer bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-slate-600 border-slate-200"
                 >
                   <span>{weekStart === "monday" ? "月始" : "日始"}</span>
                   <RotateCcw className="w-2.5 h-2.5 opacity-60" />
@@ -352,7 +352,7 @@ export function DatePicker({
             </div>
 
             {/* 曜日ヘッダー */}
-            <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[11px] font-semibold">
+            <div className="grid grid-cols-7 gap-1 text-center mb-1 text-xs font-semibold">
               {weekdayLabels.map((lbl, idx) => (
                 <div
                   key={idx}
@@ -416,7 +416,7 @@ export function DatePicker({
             </div>
 
             {/* ポップアップフッター（今日ボタン・クリア・閉じる） */}
-            <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 text-[11px]">
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-100 text-xs">
               <div className="flex items-center gap-1">
                 <button
                   type="button"
