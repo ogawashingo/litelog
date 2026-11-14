@@ -47,6 +47,10 @@ data/
 # vercel
 .vercel
 
+# local files
+*.local.*
+scripts/*.local.*
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
