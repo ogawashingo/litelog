@@ -7,6 +7,7 @@ import { Project, Issue, IssueType, IssueStatus, IssuePriority } from "@/types";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
 import MentionTextarea from "./MentionTextarea";
+import NotifyUserSelector from "./NotifyUserSelector";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -42,6 +43,8 @@ export default function CreateIssueModal({
   const [priority, setPriority] = useState<IssuePriority>("medium");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [attachmentIds, setAttachmentIds] = useState<number[]>([]);
+  const [notifyUserIds, setNotifyUserIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -60,6 +63,8 @@ export default function CreateIssueModal({
       setDescription("");
       setStartDate("");
       setDueDate("");
+      setAttachmentIds([]);
+      setNotifyUserIds([]);
       setPriority("medium");
       setIssueType("task");
       setErrorMessage("");
@@ -107,6 +112,8 @@ export default function CreateIssueModal({
           priority,
           startDate: startDate || null,
           dueDate: dueDate || null,
+          attachmentIds,
+          notifyUserIds,
         }),
       });
 
@@ -120,6 +127,10 @@ export default function CreateIssueModal({
       setDescription("");
       setStartDate("");
       setDueDate("");
+      setNotifyUserIds([]);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("backlog:notifications-updated"));
+      }
       await refreshUsers();
       onCreated();
       onClose();
@@ -299,11 +310,12 @@ export default function CreateIssueModal({
               詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
             </label>
             <MentionTextarea
-              placeholder="タスクの背景、達成条件、作業手順など... (@でメンバー候補を表示)"
+              placeholder="タスクの背景、達成条件、作業手順など... (@でメンバー候補を表示、画像ペースト・添付対応)"
               rows={4}
               value={description}
               onChange={(val) => setDescription(val)}
               users={users}
+              onAttachmentUploaded={(att) => setAttachmentIds((prev) => [...prev, att.id])}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
@@ -371,6 +383,16 @@ export default function CreateIssueModal({
               />
             </div>
           </div>
+
+          {/* 通知先（参加者）チェックボックス選択 */}
+          <NotifyUserSelector
+            users={users}
+            currentUserId={currentUser?.id || null}
+            selectedUserIds={notifyUserIds}
+            onChange={setNotifyUserIds}
+            autoNotifyUserIds={assigneeId ? [Number(assigneeId)] : []}
+            label="この課題の登録を通知するメンバー"
+          />
 
           {/* フッター操作ボタン */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">

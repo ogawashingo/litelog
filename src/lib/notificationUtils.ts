@@ -1,4 +1,4 @@
-// メンション解析および通知生成ユーティリティ
+// メンション解析・自動通知（アサイン・作成者/担当者更新・コメント）・通知先指定の生成ユーティリティ
 import { DatabaseSync } from "node:sqlite";
 
 export interface MentionUser {
@@ -62,9 +62,17 @@ export function createMentionNotifications(
     senderId: number;
     text: string;
     existingText?: string | null; // 編集時の場合、変更前テキスト。新しくメンションされたユーザーのみに通知
+    excludeUserIds?: number[];    // 既に別種別の通知を送ったため除外するユーザーID配列
   }
 ): number[] {
-  const { issueId, commentId = null, senderId, text, existingText = null } = options;
+  const {
+    issueId,
+    commentId = null,
+    senderId,
+    text,
+    existingText = null,
+    excludeUserIds = [],
+  } = options;
   if (!text || !text.trim()) return [];
 
   // 全ユーザー取得
@@ -78,8 +86,9 @@ export function createMentionNotifications(
   const previousMentions = existingText ? parseMentions(existingText, users) : [];
   const newMentions = currentMentions.filter((userId) => !previousMentions.includes(userId));
 
-  // 送信者自身（自分自身）へのメンションは通知対象外
-  const targetUserIds = newMentions.filter((userId) => userId !== senderId);
+  // 送信者自身（自分自身）および除外指定ユーザーへのメンションは通知対象外
+  const excludeSet = new Set<number>([senderId, ...excludeUserIds]);
+  const targetUserIds = newMentions.filter((userId) => !excludeSet.has(userId));
 
   if (targetUserIds.length === 0) return [];
 
@@ -98,4 +107,287 @@ export function createMentionNotifications(
   }
 
   return createdIds;
+}
+
+/**
+ * 課題の新規登録に伴う自動通知（担当者アサイン・本文メンション・通知先チェックボックス）を一括作成
+ */
+export function createIssueCreatedNotifications(
+  db: DatabaseSync,
+  options: {
+    issueId: number;
+    senderId: number;
+    assigneeId?: number | null;
+    issueKey: string;
+    title: string;
+    description?: string | null;
+    notifyUserIds?: (number | string)[] | null;
+  }
+): number[] {
+  const {
+    issueId,
+    senderId,
+    assigneeId = null,
+    issueKey,
+    title,
+    description = "",
+    notifyUserIds = [],
+  } = options;
+
+  const users = db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+  if (!users || users.length === 0) return [];
+  const validUserIdSet = new Set<number>(users.map((u) => Number(u.id)));
+  const sender = users.find((u) => Number(u.id) === Number(senderId));
+  const senderName = sender?.name || "メンバー";
+
+  // 同一操作内での重複通知を防ぐセット（送信者自身を最初から除外）
+  const notifiedUserIds = new Set<number>([Number(senderId)]);
+  const createdNotificationIds: number[] = [];
+
+  const insertStmt = db.prepare(`
+    INSERT INTO notifications (user_id, sender_id, issue_id, comment_id, type, content, is_read)
+    VALUES (?, ?, ?, NULL, ?, ?, 0)
+  `);
+
+  // 1. 担当者にアサインされた時の自動通知（「○○さんがあなたを担当者に設定しました」）
+  const targetAssigneeId = assigneeId ? Number(assigneeId) : null;
+  if (
+    targetAssigneeId &&
+    validUserIdSet.has(targetAssigneeId) &&
+    !notifiedUserIds.has(targetAssigneeId)
+  ) {
+    const res = insertStmt.run(
+      targetAssigneeId,
+      senderId,
+      issueId,
+      "assigned",
+      `${senderName}さんがあなたを担当者に設定しました`
+    );
+    createdNotificationIds.push(Number(res.lastInsertRowid));
+    notifiedUserIds.add(targetAssigneeId);
+  }
+
+  // 2. 課題説明文に @メンション が含まれる場合の通知
+  const cleanDesc = String(description || "").trim();
+  if (cleanDesc) {
+    const mentionedIds = parseMentions(cleanDesc, users);
+    const snippet = cleanDesc.slice(0, 120);
+    for (const uid of mentionedIds) {
+      if (validUserIdSet.has(uid) && !notifiedUserIds.has(uid)) {
+        const res = insertStmt.run(uid, senderId, issueId, "mention", snippet);
+        createdNotificationIds.push(Number(res.lastInsertRowid));
+        notifiedUserIds.add(uid);
+      }
+    }
+  }
+
+  // 3. 「通知したいユーザー（参加者）」チェックボックスで選択されたユーザーへの通知
+  if (Array.isArray(notifyUserIds) && notifyUserIds.length > 0) {
+    const snippet = cleanDesc
+      ? cleanDesc.slice(0, 120)
+      : `課題 [${issueKey}] 「${title}」が登録されました`;
+    for (const rawId of notifyUserIds) {
+      const uid = Number(rawId);
+      if (uid && validUserIdSet.has(uid) && !notifiedUserIds.has(uid)) {
+        const res = insertStmt.run(uid, senderId, issueId, "notify", snippet);
+        createdNotificationIds.push(Number(res.lastInsertRowid));
+        notifiedUserIds.add(uid);
+      }
+    }
+  }
+
+  return createdNotificationIds;
+}
+
+/**
+ * 課題の更新に伴う自動通知（担当者アサイン・本文新規メンション・通知先チェックボックス・作成者/担当者への更新通知）を一括作成
+ */
+export function createIssueUpdatedNotifications(
+  db: DatabaseSync,
+  options: {
+    issueId: number;
+    senderId: number;
+    issueKey: string;
+    createdBy?: number | null;
+    previousAssigneeId?: number | null;
+    newAssigneeId?: number | null;
+    newDescription?: string;
+    existingDescription?: string | null;
+    updateSummary?: string;
+    notifyUserIds?: (number | string)[] | null;
+  }
+): number[] {
+  const {
+    issueId,
+    senderId,
+    issueKey,
+    createdBy = null,
+    previousAssigneeId = null,
+    newAssigneeId = null,
+    newDescription,
+    existingDescription = null,
+    updateSummary = "",
+    notifyUserIds = [],
+  } = options;
+
+  const users = db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+  if (!users || users.length === 0) return [];
+  const validUserIdSet = new Set<number>(users.map((u) => Number(u.id)));
+  const sender = users.find((u) => Number(u.id) === Number(senderId));
+  const senderName = sender?.name || "メンバー";
+
+  // 同一操作内での重複通知を防ぐセット（送信者自身を最初から除外）
+  const notifiedUserIds = new Set<number>([Number(senderId)]);
+  const createdNotificationIds: number[] = [];
+
+  const insertStmt = db.prepare(`
+    INSERT INTO notifications (user_id, sender_id, issue_id, comment_id, type, content, is_read)
+    VALUES (?, ?, ?, NULL, ?, ?, 0)
+  `);
+
+  // 1. 担当者が新たに設定・変更された場合の自動通知（「○○さんがあなたを担当者に設定しました」）
+  const resolvedNewAssignee = newAssigneeId ? Number(newAssigneeId) : null;
+  const resolvedPrevAssignee = previousAssigneeId ? Number(previousAssigneeId) : null;
+  if (
+    resolvedNewAssignee &&
+    resolvedNewAssignee !== resolvedPrevAssignee &&
+    validUserIdSet.has(resolvedNewAssignee) &&
+    !notifiedUserIds.has(resolvedNewAssignee)
+  ) {
+    const res = insertStmt.run(
+      resolvedNewAssignee,
+      senderId,
+      issueId,
+      "assigned",
+      `${senderName}さんがあなたを担当者に設定しました`
+    );
+    createdNotificationIds.push(Number(res.lastInsertRowid));
+    notifiedUserIds.add(resolvedNewAssignee);
+  }
+
+  // 2. 詳細説明が更新され、新しく @メンション されたユーザーへの通知
+  if (newDescription !== undefined && String(newDescription).trim()) {
+    const cleanDesc = String(newDescription).trim();
+    const currentMentions = parseMentions(cleanDesc, users);
+    const prevMentions = existingDescription ? parseMentions(String(existingDescription), users) : [];
+    const addedMentions = currentMentions.filter((uid) => !prevMentions.includes(uid));
+    const snippet = cleanDesc.slice(0, 120);
+
+    for (const uid of addedMentions) {
+      if (validUserIdSet.has(uid) && !notifiedUserIds.has(uid)) {
+        const res = insertStmt.run(uid, senderId, issueId, "mention", snippet);
+        createdNotificationIds.push(Number(res.lastInsertRowid));
+        notifiedUserIds.add(uid);
+      }
+    }
+  }
+
+  const summaryText = (updateSummary || `課題 [${issueKey}] を更新しました`).trim().slice(0, 120);
+
+  // 3. 「通知したいユーザー（参加者）」チェックボックスで選択されたユーザーへの通知
+  if (Array.isArray(notifyUserIds) && notifyUserIds.length > 0) {
+    for (const rawId of notifyUserIds) {
+      const uid = Number(rawId);
+      if (uid && validUserIdSet.has(uid) && !notifiedUserIds.has(uid)) {
+        const res = insertStmt.run(uid, senderId, issueId, "notify", summaryText);
+        createdNotificationIds.push(Number(res.lastInsertRowid));
+        notifiedUserIds.add(uid);
+      }
+    }
+  }
+
+  // 4. 自分が作成した課題や担当している課題が誰かに更新された時の自動通知
+  const stakeholderIds = [
+    createdBy ? Number(createdBy) : null,
+    resolvedNewAssignee,
+    resolvedPrevAssignee,
+  ];
+  for (const stId of stakeholderIds) {
+    if (stId && validUserIdSet.has(stId) && !notifiedUserIds.has(stId)) {
+      const res = insertStmt.run(stId, senderId, issueId, "updated", summaryText);
+      createdNotificationIds.push(Number(res.lastInsertRowid));
+      notifiedUserIds.add(stId);
+    }
+  }
+
+  return createdNotificationIds;
+}
+
+/**
+ * コメント投稿に伴う自動通知（@メンション・通知先チェックボックス・課題の作成者/担当者への自動通知）を一括作成
+ */
+export function createCommentNotifications(
+  db: DatabaseSync,
+  options: {
+    issueId: number;
+    commentId: number;
+    senderId: number;
+    text: string;
+    issueCreatedBy?: number | null;
+    issueAssigneeId?: number | null;
+    notifyUserIds?: (number | string)[] | null;
+  }
+): number[] {
+  const {
+    issueId,
+    commentId,
+    senderId,
+    text,
+    issueCreatedBy = null,
+    issueAssigneeId = null,
+    notifyUserIds = [],
+  } = options;
+
+  if (!text || !text.trim()) return [];
+
+  const users = db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+  if (!users || users.length === 0) return [];
+  const validUserIdSet = new Set<number>(users.map((u) => Number(u.id)));
+
+  // 同一コメント投稿内での重複通知を防ぐセット（送信者自身を最初から除外）
+  const notifiedUserIds = new Set<number>([Number(senderId)]);
+  const createdNotificationIds: number[] = [];
+  const cleanSnippet = text.trim().slice(0, 120);
+
+  const insertStmt = db.prepare(`
+    INSERT INTO notifications (user_id, sender_id, issue_id, comment_id, type, content, is_read)
+    VALUES (?, ?, ?, ?, ?, ?, 0)
+  `);
+
+  // 1. コメント本文で @メンション されたユーザーへの通知
+  const mentionedIds = parseMentions(text, users);
+  for (const uid of mentionedIds) {
+    if (validUserIdSet.has(uid) && !notifiedUserIds.has(uid)) {
+      const res = insertStmt.run(uid, senderId, issueId, commentId, "mention", cleanSnippet);
+      createdNotificationIds.push(Number(res.lastInsertRowid));
+      notifiedUserIds.add(uid);
+    }
+  }
+
+  // 2. 「通知したいユーザー（参加者）」チェックボックスで選択されたユーザーへの通知
+  if (Array.isArray(notifyUserIds) && notifyUserIds.length > 0) {
+    for (const rawId of notifyUserIds) {
+      const uid = Number(rawId);
+      if (uid && validUserIdSet.has(uid) && !notifiedUserIds.has(uid)) {
+        const res = insertStmt.run(uid, senderId, issueId, commentId, "notify", cleanSnippet);
+        createdNotificationIds.push(Number(res.lastInsertRowid));
+        notifiedUserIds.add(uid);
+      }
+    }
+  }
+
+  // 3. 課題の作成者および担当者への自動コメント通知
+  const stakeholderIds = [
+    issueCreatedBy ? Number(issueCreatedBy) : null,
+    issueAssigneeId ? Number(issueAssigneeId) : null,
+  ];
+  for (const stId of stakeholderIds) {
+    if (stId && validUserIdSet.has(stId) && !notifiedUserIds.has(stId)) {
+      const res = insertStmt.run(stId, senderId, issueId, commentId, "commented", cleanSnippet);
+      createdNotificationIds.push(Number(res.lastInsertRowid));
+      notifiedUserIds.add(stId);
+    }
+  }
+
+  return createdNotificationIds;
 }

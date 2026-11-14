@@ -37,7 +37,7 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
     }
   }, [currentUser]);
 
-  // 初回ロード・30秒間隔のポーリング・画面復帰時の自動取得
+  // 初回ロード・30秒間隔のポーリング・画面復帰時および更新イベント発火時の自動取得
   useEffect(() => {
     fetchNotifications();
 
@@ -47,10 +47,12 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
       fetchNotifications();
     };
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("backlog:notifications-updated", handleFocus);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("backlog:notifications-updated", handleFocus);
     };
   }, [fetchNotifications]);
 
@@ -217,7 +219,7 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
                 </div>
                 <p className="text-xs font-bold text-slate-600">新しい通知はありません</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  課題やコメントでメンションされるとここに届きます
+                  担当アサイン・課題更新・コメント・メンション時に届きます
                 </p>
               </div>
             ) : (
@@ -258,7 +260,27 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
                       </div>
 
                       <div className="text-xs text-slate-700 leading-snug mb-1">
-                        <span className="font-semibold text-indigo-700">あなたをメンションしました</span>
+                        {n.type === "assigned" ? (
+                          <span className="font-semibold text-emerald-700">
+                            あなたを担当者に設定しました
+                          </span>
+                        ) : n.type === "commented" ? (
+                          <span className="font-semibold text-sky-700">
+                            あなたの課題にコメントしました
+                          </span>
+                        ) : n.type === "updated" ? (
+                          <span className="font-semibold text-amber-700">
+                            あなたの課題を更新しました
+                          </span>
+                        ) : n.type === "notify" ? (
+                          <span className="font-semibold text-violet-700">
+                            あなたを通知先に指定しました
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-indigo-700">
+                            あなたをメンションしました
+                          </span>
+                        )}
                       </div>
 
                       {/* 課題タイトル */}

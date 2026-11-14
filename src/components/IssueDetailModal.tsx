@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus } from "lucide-react";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority } from "@/types";
+import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon } from "lucide-react";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, Attachment } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -13,6 +13,7 @@ import MentionText from "./MentionText";
 import { DatePicker } from "./DatePicker";
 import CommentHistoryModal from "./CommentHistoryModal";
 import IssueHistoryModal from "./IssueHistoryModal";
+import NotifyUserSelector from "./NotifyUserSelector";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -36,9 +37,11 @@ export default function IssueDetailModal({
   // モーダル内部で最新の課題状態を保持（保存・即時変更時に即座に反映）
   const [currentIssue, setCurrentIssue] = useState<Issue | null>(issue);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [childrenIssues, setChildrenIssues] = useState<Issue[]>([]);
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [commentNotifyUserIds, setCommentNotifyUserIds] = useState<number[]>([]);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState("");
@@ -164,6 +167,7 @@ export default function IssueDetailModal({
             setEditStartDate(nextIssue.start_date || "");
             setEditDueDate(nextIssue.due_date || "");
             setComments(Array.isArray(data.comments) ? data.comments : []);
+            setAttachments(Array.isArray(data.attachments) ? data.attachments : []);
             setChildrenIssues(Array.isArray(data.children) ? data.children : []);
 
             fetch(`/api/issues?projectId=${nextIssue.project_id}`)
@@ -216,6 +220,7 @@ export default function IssueDetailModal({
   const [editParentId, setEditParentId] = useState<string>("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editNotifyUserIds, setEditNotifyUserIds] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // 課題が切り替わったときに詳細・コメント・子課題・親候補を取得し、編集状態を同期
@@ -232,6 +237,8 @@ export default function IssueDetailModal({
     setEditParentId(issue.parent_id ? String(issue.parent_id) : "");
     setEditStartDate(issue.start_date || "");
     setEditDueDate(issue.due_date || "");
+    setEditNotifyUserIds([]);
+    setCommentNotifyUserIds([]);
     setIsEditing(false);
     setIsAddingChild(false);
     setChildTitle("");
@@ -248,6 +255,9 @@ export default function IssueDetailModal({
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
+        }
+        if (Array.isArray(data.attachments)) {
+          setAttachments(data.attachments);
         }
         if (Array.isArray(data.children)) {
           setChildrenIssues(data.children);
@@ -321,11 +331,16 @@ export default function IssueDetailModal({
           startDate: editStartDate || null,
           dueDate: editDueDate || null,
           actorId: currentUser?.id || null,
+          notifyUserIds: editNotifyUserIds,
         }),
       });
 
       if (res.ok) {
         setIsEditing(false);
+        setEditNotifyUserIds([]);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
         // DB最新レコードで再同期
         const detailRes = await fetch(`/api/issues/${issue.id}`);
         if (detailRes.ok) {
@@ -374,6 +389,9 @@ export default function IssueDetailModal({
         }),
       });
       if (res.ok) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
         await refreshUsers();
         onUpdated();
       } else {
@@ -386,6 +404,65 @@ export default function IssueDetailModal({
       console.error("ステータス変更エラー:", err);
       setCurrentIssue((prev) => (prev ? { ...prev, status: previousStatus } : null));
       setEditStatus(previousStatus);
+    }
+  };
+
+  // ファイルサイズフォーマット
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  // 添付ファイル直接追加
+  const handleDirectFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("issueId", String(activeIssue.id));
+      for (let i = 0; i < files.length; i++) {
+        formData.append("file", files[i]);
+      }
+
+      const res = await fetch("/api/attachments", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const newAtts: Attachment[] = data.attachments || [data];
+        setAttachments((prev) => [...prev, ...newAtts]);
+        onUpdated();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "ファイルのアップロードに失敗しました");
+      }
+    } catch (err) {
+      console.error("添付ファイルアップロードエラー:", err);
+      alert("通信エラーによりアップロードに失敗しました");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  // 添付ファイル削除
+  const handleDeleteAttachment = async (attachmentId: number) => {
+    if (!confirm("この添付ファイルを削除しますか？")) return;
+    try {
+      const res = await fetch(`/api/attachments/${attachmentId}`, { method: "DELETE" });
+      if (res.ok) {
+        setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+        onUpdated();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "添付ファイルの削除に失敗しました");
+      }
+    } catch (err) {
+      console.error("添付ファイル削除エラー:", err);
+      alert("通信エラーにより削除できませんでした");
     }
   };
 
@@ -432,6 +509,9 @@ export default function IssueDetailModal({
           const detailData = await detailRes.json();
           if (detailData.issue) setCurrentIssue(detailData.issue);
         }
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
         await refreshUsers();
         onUpdated();
       }
@@ -453,6 +533,7 @@ export default function IssueDetailModal({
         body: JSON.stringify({
           content: newComment.trim(),
           userId: currentUser?.id || null,
+          notifyUserIds: commentNotifyUserIds,
         }),
       });
 
@@ -460,6 +541,10 @@ export default function IssueDetailModal({
         const addedComment = await res.json();
         setComments((prev) => [...prev, addedComment]);
         setNewComment("");
+        setCommentNotifyUserIds([]);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
         onUpdated(); // アクティビティや更新日時の反映
       }
     } catch (err) {
@@ -572,6 +657,9 @@ export default function IssueDetailModal({
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
+        }
+        if (Array.isArray(data.attachments)) {
+          setAttachments(data.attachments);
         }
         if (Array.isArray(data.children)) {
           setChildrenIssues(data.children);
@@ -864,10 +952,35 @@ export default function IssueDetailModal({
                   value={editDescription}
                   onChange={(val) => setEditDescription(val)}
                   users={users}
-                  placeholder="課題の詳細・背景・補足メモを入力... (@でメンバー候補を表示)"
+                  issueId={activeIssue.id}
+                  onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
+                  placeholder="課題の詳細・背景・補足メモを入力... (@でメンバー候補を表示、画像ペースト・添付対応)"
                   className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* 編集時の通知先（参加者）チェックボックス選択 */}
+              <NotifyUserSelector
+                users={users}
+                currentUserId={currentUser?.id || null}
+                selectedUserIds={editNotifyUserIds}
+                onChange={setEditNotifyUserIds}
+                autoNotifyUserIds={
+                  [
+                    activeIssue.created_by ? Number(activeIssue.created_by) : 0,
+                    editAssigneeId ? Number(editAssigneeId) : 0,
+                  ].filter(Boolean)
+                }
+                participantUserIds={
+                  [
+                    activeIssue.created_by ? Number(activeIssue.created_by) : 0,
+                    activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
+                    ...comments.map((c) => Number(c.user_id || 0)),
+                  ].filter(Boolean)
+                }
+                label="この課題の更新を通知するメンバー"
+                compact
+              />
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -1091,6 +1204,104 @@ export default function IssueDetailModal({
                     <span className="text-gray-400 italic">詳細メモはありません</span>
                   )}
                 </div>
+              </div>
+
+              {/* 添付ファイルセクション */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>添付ファイル ({attachments.length})</span>
+                  </h4>
+                  <label className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors cursor-pointer">
+                    <Plus className="w-3 h-3" />
+                    <span>ファイルを追加</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      multiple
+                      onChange={handleDirectFileUpload}
+                    />
+                  </label>
+                </div>
+
+                {attachments.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {attachments.map((att) => {
+                      const isImg = att.mime_type.startsWith("image/");
+                      const canDelete =
+                        currentUser?.is_admin === 1 || att.user_id === currentUser?.id;
+                      const fileUrl = att.url || `/api/attachments/${att.id}`;
+
+                      return (
+                        <div
+                          key={att.id}
+                          className="group relative flex items-center gap-2.5 p-2 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 shadow-2xs hover:shadow-xs transition-all"
+                        >
+                          {isImg ? (
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-12 h-12 rounded bg-slate-100 border border-slate-200 shrink-0 overflow-hidden flex items-center justify-center hover:opacity-90 transition-opacity"
+                              title={`${att.file_name} を表示`}
+                            >
+                              <img
+                                src={fileUrl}
+                                alt={att.file_name}
+                                className="w-full h-full object-cover"
+                              />
+                            </a>
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-indigo-50 border border-indigo-100 text-indigo-600 shrink-0 flex items-center justify-center font-bold text-xs">
+                              <FileText className="w-6 h-6" />
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <a
+                              href={fileUrl}
+                              download={att.file_name}
+                              className="block text-xs font-semibold text-slate-800 hover:text-indigo-600 truncate transition-colors"
+                              title={`${att.file_name} をダウンロード`}
+                            >
+                              {att.file_name}
+                            </a>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                              <span>{formatFileSize(att.file_size)}</span>
+                              {att.user_name && <span>· {att.user_name}</span>}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a
+                              href={fileUrl}
+                              download={att.file_name}
+                              className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded"
+                              title="ダウンロード"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAttachment(att.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"
+                                title="添付ファイルを削除"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-400 italic bg-slate-50/70 border border-dashed border-slate-200 rounded-lg p-3 text-center">
+                    添付ファイルはありません（詳細やコメント欄で画像ペーストやドラッグ＆ドロップでも追加できます）
+                  </div>
+                )}
               </div>
 
               {/* 子課題セクション */}
@@ -1347,8 +1558,10 @@ export default function IssueDetailModal({
                           value={editCommentContent}
                           onChange={(val) => setEditCommentContent(val)}
                           users={users}
+                          issueId={activeIssue.id}
+                          onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
                           className="w-full bg-white border border-indigo-400 rounded-lg p-2.5 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                          placeholder="コメントを修正... (@でメンバーをメンション)"
+                          placeholder="コメントを修正... (@でメンバーをメンション、画像ペースト・添付対応)"
                           disabled={isSavingComment}
                           autoFocus
                         />
@@ -1380,19 +1593,45 @@ export default function IssueDetailModal({
             </div>
 
             {/* コメント入力フォーム */}
-            <form onSubmit={handlePostComment} className="space-y-2 pt-2">
+            <form onSubmit={handlePostComment} className="space-y-2.5 pt-2">
               <MentionTextarea
                 rows={2}
                 placeholder={
                   currentUser
-                    ? `${currentUser.name} としてコメント・進捗を入力... (@でメンバーをメンション)`
-                    : "進捗や気づき、メモを残せます... (@でメンバーをメンション)"
+                    ? `${currentUser.name} としてコメント・進捗を入力... (@でメンバーをメンション、画像ペースト・添付対応)`
+                    : "進捗や気づき、メモを残せます... (@でメンバーをメンション、画像ペースト・添付対応)"
                 }
                 value={newComment}
                 onChange={(val) => setNewComment(val)}
                 users={users}
+                issueId={activeIssue.id}
+                onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
                 className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
+
+              {/* コメント投稿時の通知先（参加者）チェックボックス選択 */}
+              <NotifyUserSelector
+                users={users}
+                currentUserId={currentUser?.id || null}
+                selectedUserIds={commentNotifyUserIds}
+                onChange={setCommentNotifyUserIds}
+                autoNotifyUserIds={
+                  [
+                    activeIssue.created_by ? Number(activeIssue.created_by) : 0,
+                    activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
+                  ].filter(Boolean)
+                }
+                participantUserIds={
+                  [
+                    activeIssue.created_by ? Number(activeIssue.created_by) : 0,
+                    activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
+                    ...comments.map((c) => Number(c.user_id || 0)),
+                  ].filter(Boolean)
+                }
+                label="コメントを通知するメンバー（参加者）"
+                compact
+              />
+
               <div className="flex justify-end">
                 <button
                   type="submit"

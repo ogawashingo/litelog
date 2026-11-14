@@ -34,6 +34,7 @@ import { Issue, Comment, IssueStatus, IssueType, IssuePriority, Project } from "
 import { setStoredProjectId } from "@/lib/projectStorage";
 import MentionTextarea from "@/components/MentionTextarea";
 import MentionText from "@/components/MentionText";
+import NotifyUserSelector from "@/components/NotifyUserSelector";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -52,6 +53,7 @@ export default function IssueDetailPage() {
 
   // コメント投稿State
   const [newComment, setNewComment] = useState("");
+  const [commentNotifyUserIds, setCommentNotifyUserIds] = useState<number[]>([]);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState("");
@@ -71,6 +73,7 @@ export default function IssueDetailPage() {
   const [editParentId, setEditParentId] = useState<string>("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
+  const [editNotifyUserIds, setEditNotifyUserIds] = useState<number[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // URLコピー表示State
@@ -186,11 +189,16 @@ export default function IssueDetailPage() {
           startDate: editStartDate || null,
           dueDate: editDueDate || null,
           actorId: currentUser?.id || null,
+          notifyUserIds: editNotifyUserIds,
         }),
       });
 
       if (res.ok) {
         setIsEditing(false);
+        setEditNotifyUserIds([]);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
         await refreshUsers();
         await fetchIssueDetail();
       }
@@ -279,6 +287,7 @@ export default function IssueDetailPage() {
         body: JSON.stringify({
           content: newComment.trim(),
           userId: currentUser?.id || null,
+          notifyUserIds: commentNotifyUserIds,
         }),
       });
 
@@ -286,6 +295,10 @@ export default function IssueDetailPage() {
         const addedComment = await res.json();
         setComments((prev) => [...prev, addedComment]);
         setNewComment("");
+        setCommentNotifyUserIds([]);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
       }
     } catch (err) {
       console.error("コメント投稿失敗:", err);
@@ -876,14 +889,37 @@ export default function IssueDetailPage() {
                   </div>
                 </div>
                 {isEditing ? (
-                  <MentionTextarea
-                    rows={6}
-                    value={editDescription}
-                    onChange={(val) => setEditDescription(val)}
-                    users={users}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
-                    placeholder="課題の詳細や手順などを記入... (@でメンバーをメンション)"
-                  />
+                  <div className="space-y-3">
+                    <MentionTextarea
+                      rows={6}
+                      value={editDescription}
+                      onChange={(val) => setEditDescription(val)}
+                      users={users}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
+                      placeholder="課題の詳細や手順などを記入... (@でメンバーをメンション)"
+                    />
+                    <NotifyUserSelector
+                      users={users}
+                      currentUserId={currentUser?.id || null}
+                      selectedUserIds={editNotifyUserIds}
+                      onChange={setEditNotifyUserIds}
+                      autoNotifyUserIds={
+                        [
+                          issue.created_by ? Number(issue.created_by) : 0,
+                          editAssigneeId ? Number(editAssigneeId) : 0,
+                        ].filter(Boolean)
+                      }
+                      participantUserIds={
+                        [
+                          issue.created_by ? Number(issue.created_by) : 0,
+                          issue.assignee_id ? Number(issue.assignee_id) : 0,
+                          ...comments.map((c) => Number(c.user_id || 0)),
+                        ].filter(Boolean)
+                      }
+                      label="この課題の更新を通知するメンバー"
+                      compact
+                    />
+                  </div>
                 ) : (
                   <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 text-sm text-slate-800 leading-relaxed min-h-[80px]">
                     {issue.description ? (
@@ -1163,20 +1199,41 @@ export default function IssueDetailPage() {
                 </div>
 
                 {/* コメント投稿フォーム */}
-                <form onSubmit={handlePostComment} className="pt-2">
-                  <div className="flex gap-2">
-                    <MentionTextarea
-                      rows={2}
-                      value={newComment}
-                      onChange={(val) => setNewComment(val)}
-                      users={users}
-                      placeholder="コメントを入力... (@でメンバーをメンション)"
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
-                    />
+                <form onSubmit={handlePostComment} className="pt-2 space-y-2.5">
+                  <MentionTextarea
+                    rows={2}
+                    value={newComment}
+                    onChange={(val) => setNewComment(val)}
+                    users={users}
+                    placeholder="コメントを入力... (@でメンバーをメンション)"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
+                  />
+                  <NotifyUserSelector
+                    users={users}
+                    currentUserId={currentUser?.id || null}
+                    selectedUserIds={commentNotifyUserIds}
+                    onChange={setCommentNotifyUserIds}
+                    autoNotifyUserIds={
+                      [
+                        issue.created_by ? Number(issue.created_by) : 0,
+                        issue.assignee_id ? Number(issue.assignee_id) : 0,
+                      ].filter(Boolean)
+                    }
+                    participantUserIds={
+                      [
+                        issue.created_by ? Number(issue.created_by) : 0,
+                        issue.assignee_id ? Number(issue.assignee_id) : 0,
+                        ...comments.map((c) => Number(c.user_id || 0)),
+                      ].filter(Boolean)
+                    }
+                    label="コメントを通知するメンバー（参加者）"
+                    compact
+                  />
+                  <div className="flex justify-end">
                     <button
                       type="submit"
                       disabled={!newComment.trim() || isPostingComment}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5 self-end cursor-pointer"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                     >
                       <Send className="w-3.5 h-3.5" />
                       <span>送信</span>

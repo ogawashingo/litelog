@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { createMentionNotifications } from "@/lib/notificationUtils";
+import { createIssueCreatedNotifications } from "@/lib/notificationUtils";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
@@ -32,6 +32,7 @@ export async function GET(request: Request) {
         u.color AS assignee_color,
         creator.name AS creator_name,
         COALESCE(cmt_stat.comment_count, 0) AS comment_count,
+        COALESCE(att_stat.attachment_count, 0) AS attachment_count,
         latest_c.content AS latest_comment_content,
         latest_c.created_at AS latest_comment_created_at,
         cu.name AS latest_comment_user_name,
@@ -46,6 +47,12 @@ export async function GET(request: Request) {
         FROM comments
         GROUP BY issue_id
       ) cmt_stat ON cmt_stat.issue_id = i.id
+      LEFT JOIN (
+        SELECT issue_id, COUNT(*) AS attachment_count
+        FROM attachments
+        WHERE issue_id IS NOT NULL
+        GROUP BY issue_id
+      ) att_stat ON att_stat.issue_id = i.id
       LEFT JOIN comments latest_c ON latest_c.id = cmt_stat.latest_comment_id
       LEFT JOIN users cu ON latest_c.user_id = cu.id
       WHERE 1=1
@@ -185,6 +192,30 @@ export async function POST(request: Request) {
 
       issueId = result.lastInsertRowid;
 
+      // 添付ファイルの紐付け（本文中に埋め込まれた添付URLまたは明示されたattachmentIds）
+      const foundAttachmentIds = new Set<number>();
+      if (Array.isArray(body.attachmentIds)) {
+        for (const aid of body.attachmentIds) {
+          if (Number(aid)) foundAttachmentIds.add(Number(aid));
+        }
+      }
+      if (description) {
+        const matches = String(description).matchAll(/\/api\/attachments\/(\d+)/g);
+        for (const m of matches) {
+          if (m[1]) foundAttachmentIds.add(Number(m[1]));
+        }
+      }
+      if (foundAttachmentIds.size > 0) {
+        const updateAttStmt = db.prepare(`
+          UPDATE attachments
+          SET issue_id = ?
+          WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+        `);
+        for (const aid of foundAttachmentIds) {
+          updateAttStmt.run(issueId, aid, issueId);
+        }
+      }
+
       // アクティビティ履歴を記録
       const insertActivity = db.prepare(`
         INSERT INTO activities (issue_id, user_id, action_type, content)
@@ -192,14 +223,16 @@ export async function POST(request: Request) {
       `);
       insertActivity.run(issueId, resolvedActorId, `課題 [${issueKey}] 「${String(title).trim()}」を追加しました`);
 
-      // メンション通知の作成（課題説明文にメンションが含まれている場合）
-      if (description && String(description).trim()) {
-        createMentionNotifications(db, {
-          issueId: Number(issueId),
-          senderId: resolvedActorId,
-          text: String(description).trim(),
-        });
-      }
+      // 自動通知および通知先（参加者）指定・メンション通知の一括作成
+      createIssueCreatedNotifications(db, {
+        issueId: Number(issueId),
+        senderId: resolvedActorId,
+        assigneeId: resolvedAssigneeId,
+        issueKey,
+        title: String(title).trim(),
+        description: String(description || "").trim(),
+        notifyUserIds: Array.isArray(body.notifyUserIds) ? body.notifyUserIds : [],
+      });
 
       db.exec("COMMIT;");
     } catch (txErr) {

@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   CornerDownRight,
+  Paperclip,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, PriorityBadge } from "./IssueBadge";
@@ -595,6 +596,17 @@ export default function BoardView({
                                 }}
                                 placement="top"
                               />
+                            )}
+
+                            {/* 添付ファイル件数バッジ */}
+                            {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                                title={`添付ファイル ${issue.attachment_count}件`}
+                              >
+                                <Paperclip className="w-3 h-3 text-slate-500" />
+                                <span>{issue.attachment_count}</span>
+                              </span>
                             )}
                           </div>
 

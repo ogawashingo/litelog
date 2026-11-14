@@ -102,6 +102,17 @@ export async function PUT(request: Request, { params }: RouteParams) {
         WHERE id = ?
       `).run(cleanContent, comment.id);
 
+      // コメント本文内の添付ファイルURLをバインド
+      const commentMatches = cleanContent.matchAll(/\/api\/attachments\/(\d+)/g);
+      const updateAttStmt = db.prepare(`
+        UPDATE attachments
+        SET issue_id = ?, comment_id = ?
+        WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+      `);
+      for (const m of commentMatches) {
+        if (m[1]) updateAttStmt.run(issue.id, comment.id, Number(m[1]), issue.id);
+      }
+
       // 3. 課題の updated_at を更新
       db.prepare(`
         UPDATE issues

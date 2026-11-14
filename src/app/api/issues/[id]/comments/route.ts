@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { createMentionNotifications } from "@/lib/notificationUtils";
+import { createCommentNotifications } from "@/lib/notificationUtils";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -64,6 +64,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     ).get(isNumeric ? Number(id) : id) as {
       id: number;
       issue_key: string;
+      created_by: number | null;
+      assignee_id: number | null;
     } | undefined;
 
     if (!issue) {
@@ -86,6 +88,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       const result = insert.run(issueId, resolvedUserId, cleanContent);
       commentId = result.lastInsertRowid;
 
+      // コメント本文内の添付ファイルURLをこの課題およびコメントにバインド
+      const commentMatches = cleanContent.matchAll(/\/api\/attachments\/(\d+)/g);
+      const updateAttStmt = db.prepare(`
+        UPDATE attachments
+        SET issue_id = ?, comment_id = ?
+        WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+      `);
+      for (const m of commentMatches) {
+        if (m[1]) updateAttStmt.run(issueId, commentId, Number(m[1]), issueId);
+      }
+
       // 課題の updated_at を更新
       db.prepare("UPDATE issues SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(issueId);
 
@@ -95,12 +108,15 @@ export async function POST(request: Request, { params }: RouteParams) {
         VALUES (?, ?, 'commented', ?)
       `).run(issueId, resolvedUserId, cleanContent);
 
-      // メンション通知の作成
-      createMentionNotifications(db, {
+      // コメント通知の一括作成（@メンション・通知先チェックボックス・課題の作成者/担当者への自動通知）
+      createCommentNotifications(db, {
         issueId,
         commentId: Number(commentId),
         senderId: resolvedUserId,
         text: cleanContent,
+        issueCreatedBy: issue.created_by,
+        issueAssigneeId: issue.assignee_id,
+        notifyUserIds: Array.isArray(body.notifyUserIds) ? body.notifyUserIds : [],
       });
 
       db.exec("COMMIT;");

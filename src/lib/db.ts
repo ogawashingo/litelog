@@ -8,9 +8,16 @@ import { hashPassword, isPasswordHashed } from "@/lib/auth";
 const DB_DIR = path.join(process.cwd(), "data");
 const DB_PATH = process.env.BACKLOG_DB_PATH || path.join(DB_DIR, "backlog.db");
 
+// 添付ファイル（画像等）の実体保存先ディレクトリ
+export const ATTACHMENTS_DIR =
+  process.env.BACKLOG_ATTACHMENTS_DIR || path.join(DB_DIR, "attachments");
+
 // ディレクトリが存在しない場合は作成（インメモリDB以外）
 if (DB_PATH !== ":memory:" && !fs.existsSync(path.dirname(DB_PATH))) {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+}
+if (ATTACHMENTS_DIR && !fs.existsSync(ATTACHMENTS_DIR)) {
+  fs.mkdirSync(ATTACHMENTS_DIR, { recursive: true });
 }
 
 let dbInstance: DatabaseSync | null = null;
@@ -241,6 +248,23 @@ function initDb(db: DatabaseSync) {
       is_read INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+  `);
+
+  // 添付ファイルテーブル（画像・ファイル管理）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+      comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      file_name TEXT NOT NULL,
+      stored_name TEXT NOT NULL UNIQUE,
+      file_size INTEGER NOT NULL,
+      mime_type TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_attachments_issue_id ON attachments(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_attachments_comment_id ON attachments(comment_id);
   `);
 
   // システム設定（時刻・タイムゾーン・マイグレーションバージョン管理等）テーブル

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle } from "lucide-react";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -563,6 +563,16 @@ export default function IssueList({
                             }}
                             placement={index < 2 ? "bottom" : "top"}
                           />
+                        )}
+                        {/* 添付ファイル件数バッジ */}
+                        {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                            title={`添付ファイル ${issue.attachment_count}件`}
+                          >
+                            <Paperclip className="w-3 h-3 text-slate-500" />
+                            <span>{issue.attachment_count}</span>
+                          </span>
                         )}
                       </div>
                     </td>

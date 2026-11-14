@@ -4,7 +4,13 @@ import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
 import { getJapaneseHoliday } from "./src/lib/holidayUtils.ts";
-import { parseMentions, createMentionNotifications } from "./src/lib/notificationUtils.ts";
+import {
+  parseMentions,
+  createMentionNotifications,
+  createIssueCreatedNotifications,
+  createIssueUpdatedNotifications,
+  createCommentNotifications,
+} from "./src/lib/notificationUtils.ts";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES, getAvatarColorLabel } from "./src/lib/avatarColors.ts";
 import { parseMarkdown, parseInline } from "./src/lib/markdownUtils.ts";
 
@@ -233,6 +239,23 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       is_read INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+  `);
+
+  // 添付ファイルテーブル（画像・ファイル保存）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS attachments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+      comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      file_name TEXT NOT NULL,
+      stored_name TEXT NOT NULL UNIQUE,
+      file_size INTEGER NOT NULL,
+      mime_type TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_attachments_issue_id ON attachments(issue_id);
+    CREATE INDEX IF NOT EXISTS idx_attachments_comment_id ON attachments(comment_id);
   `);
   // 既存の「〜にコメントを追加しました」を実際のコメント内容へマイグレーション
   db.exec(`
@@ -1352,14 +1375,15 @@ async function runTests() {
     { id: 2, login_id: "sato", name: "佐藤 花子", color: "#ec4899" },
   ];
 
-  // 8-1. インライン要素検証
-  const inlineSample = "こんにちは **太字** と *斜体* と ~~取り消し~~、そして `code` と [Google](https://google.com) と @yamada です";
+  // 8-1. インライン要素検証（太字・斜体・取消線・コード・リンク・画像・メンション）
+  const inlineSample = "こんにちは **太字** と *斜体* と ~~取り消し~~、そして `code` と [Google](https://google.com) と ![スクリーンショット](/api/attachments/10) と @yamada です";
   const inlines = parseInline(inlineSample, testUsers);
   const boldNode = inlines.find((n) => n.type === "bold");
   const italicNode = inlines.find((n) => n.type === "italic");
   const strikeNode = inlines.find((n) => n.type === "strike");
   const codeNode = inlines.find((n) => n.type === "code");
   const linkNode = inlines.find((n) => n.type === "link");
+  const imgNode = inlines.find((n) => n.type === "image");
   const mentionNode = inlines.find((n) => n.type === "mention");
 
   if (!boldNode || boldNode.children[0]?.value !== "太字") {
@@ -1377,10 +1401,13 @@ async function runTests() {
   if (!linkNode || linkNode.text !== "Google" || linkNode.url !== "https://google.com") {
     throw new Error("インラインリンクのパースに失敗しました");
   }
+  if (!imgNode || imgNode.alt !== "スクリーンショット" || imgNode.url !== "/api/attachments/10") {
+    throw new Error("インライン画像のパースに失敗しました");
+  }
   if (!mentionNode || mentionNode.raw !== "@yamada" || mentionNode.user?.login_id !== "yamada") {
     throw new Error("インラインメンションのユーザー解決に失敗しました");
   }
-  console.log("✓ インラインMarkdown（太字・斜体・取消線・コード・リンク・メンション）パース成功");
+  console.log("✓ インラインMarkdown（太字・斜体・取消線・コード・リンク・画像・メンション）パース成功");
 
   // 8-2. ブロック要素検証（見出し・リスト・タスクリスト・引用・コードブロック・テーブル）
   const markdownSample = [
@@ -1443,6 +1470,174 @@ async function runTests() {
     throw new Error("テーブルのパース失敗");
   }
   console.log("✓ ブロックMarkdown（見出し・引用・コードブロック・タスクリスト・番号リスト・水平線・テーブル）パース成功");
+
+  // 9. 添付ファイル（attachments）テーブル操作＆結合・カスケード削除テスト
+  const testIssueId = db.prepare("SELECT id FROM issues LIMIT 1").get().id;
+  const insertAttStmt = db.prepare(`
+    INSERT INTO attachments (issue_id, user_id, file_name, stored_name, file_size, mime_type)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  const attRes1 = insertAttStmt.run(testIssueId, 1, "test_screenshot.png", "1731580000_abc_test_screenshot.png", 10240, "image/png");
+  const attRes2 = insertAttStmt.run(testIssueId, 2, "sample_doc.pdf", "1731580001_def_sample_doc.pdf", 20480, "application/pdf");
+
+  // 集計クエリの検証
+  const countRow = db.prepare(`
+    SELECT COUNT(*) AS count FROM attachments WHERE issue_id = ?
+  `).get(testIssueId);
+  if (countRow.count !== 2) {
+    throw new Error(`添付ファイル件数不一致: 期待値=2, 実際=${countRow.count}`);
+  }
+
+  // 課題一覧結合クエリでの attachment_count 検証
+  const issueWithAtt = db.prepare(`
+    SELECT i.id, i.issue_key, COALESCE(att_stat.attachment_count, 0) AS attachment_count
+    FROM issues i
+    LEFT JOIN (
+      SELECT issue_id, COUNT(*) AS attachment_count
+      FROM attachments
+      WHERE issue_id IS NOT NULL
+      GROUP BY issue_id
+    ) att_stat ON att_stat.issue_id = i.id
+    WHERE i.id = ?
+  `).get(testIssueId);
+  if (!issueWithAtt || issueWithAtt.attachment_count !== 2) {
+    throw new Error(`課題添付ファイル集計結合クエリ失敗: ${JSON.stringify(issueWithAtt)}`);
+  }
+
+  // 課題削除時の添付ファイルカスケード削除検証
+  db.prepare("DELETE FROM issues WHERE id = ?").run(testIssueId);
+  const remainingAtts = db.prepare(`
+    SELECT COUNT(*) AS count FROM attachments WHERE issue_id = ?
+  `).get(testIssueId);
+  if (remainingAtts.count !== 0) {
+    throw new Error(`課題削除時の添付ファイルカスケード削除失敗: 残存件数=${remainingAtts.count}`);
+  }
+  console.log("✓ 添付ファイル（attachments）テーブル登録・件数集計結合・カスケード削除テスト成功");
+
+  // 10. 自動通知（担当アサイン・作成課題/担当課題の更新＆コメント）および通知先（参加者）チェックボックス選択の検証
+  const userSuzuki = db.prepare("SELECT id, name FROM users WHERE login_id = 'suzuki'").get();
+  if (!userSuzuki) throw new Error("テスト用ユーザー suzuki が見つかりません");
+
+  // テスト前に通知テーブルをクリーンアップ
+  db.prepare("DELETE FROM notifications").run();
+
+  // 10-1. 課題新規作成時：山田が作成、佐藤を担当者にアサイン、鈴木を「通知先チェックボックス」で選択
+  const autoIssueRes = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, 'NOTIF-AUTO-1', 1001, '自動通知テスト課題', '詳細説明テキスト', 'task', 'open', 'high')
+  `).run(validPrjId, userSato.id, userYamada.id);
+  const autoIssueId = Number(autoIssueRes.lastInsertRowid);
+
+  const createdNotifIds = createIssueCreatedNotifications(db, {
+    issueId: autoIssueId,
+    senderId: userYamada.id,
+    assigneeId: userSato.id,
+    issueKey: "NOTIF-AUTO-1",
+    title: "自動通知テスト課題",
+    description: "詳細説明テキスト",
+    notifyUserIds: [userSuzuki.id, userYamada.id], // 自分自身(山田)が含まれていても除外されること
+  });
+
+  if (createdNotifIds.length !== 2) {
+    throw new Error(`課題作成時の通知生成件数不一致: 期待=2, 実際=${createdNotifIds.length}`);
+  }
+  const satoAssignNotif = db
+    .prepare("SELECT * FROM notifications WHERE issue_id = ? AND user_id = ?")
+    .get(autoIssueId, userSato.id);
+  if (
+    !satoAssignNotif ||
+    satoAssignNotif.type !== "assigned" ||
+    !satoAssignNotif.content.includes("あなたを担当者に設定しました")
+  ) {
+    throw new Error(`担当者アサイン通知の検証失敗: ${JSON.stringify(satoAssignNotif)}`);
+  }
+
+  const suzukiNotifyNotif = db
+    .prepare("SELECT * FROM notifications WHERE issue_id = ? AND user_id = ?")
+    .get(autoIssueId, userSuzuki.id);
+  if (!suzukiNotifyNotif || suzukiNotifyNotif.type !== "notify") {
+    throw new Error(`チェックボックス通知先指定の検証失敗: ${JSON.stringify(suzukiNotifyNotif)}`);
+  }
+
+  // 10-2. 課題更新時：鈴木が課題を更新し、担当者を鈴木から佐藤のままステータス変更 ➔ 作成者(山田)と担当者(佐藤)に自動通知('updated')が届くこと
+  db.prepare("DELETE FROM notifications WHERE issue_id = ?").run(autoIssueId);
+  const updateNotifIds = createIssueUpdatedNotifications(db, {
+    issueId: autoIssueId,
+    senderId: userSuzuki.id,
+    issueKey: "NOTIF-AUTO-1",
+    createdBy: userYamada.id,
+    previousAssigneeId: userSato.id,
+    newAssigneeId: userSato.id,
+    updateSummary: "課題 [NOTIF-AUTO-1] の状態を「未対応」から「処理中」に変更しました",
+  });
+
+  if (updateNotifIds.length !== 2) {
+    throw new Error(`課題更新時の作成者・担当者自動通知件数不一致: 期待=2, 実際=${updateNotifIds.length}`);
+  }
+  const yamadaUpdNotif = db
+    .prepare("SELECT * FROM notifications WHERE issue_id = ? AND user_id = ?")
+    .get(autoIssueId, userYamada.id);
+  const satoUpdNotif = db
+    .prepare("SELECT * FROM notifications WHERE issue_id = ? AND user_id = ?")
+    .get(autoIssueId, userSato.id);
+  if (!yamadaUpdNotif || yamadaUpdNotif.type !== "updated" || !satoUpdNotif || satoUpdNotif.type !== "updated") {
+    throw new Error(`課題更新時の作成者・担当者通知種別不一致: yamada=${JSON.stringify(yamadaUpdNotif)}, sato=${JSON.stringify(satoUpdNotif)}`);
+  }
+
+  // 10-3. 課題更新で担当者が変更された時：山田が担当者を佐藤から鈴木へ変更 ➔ 鈴木には 'assigned'、元担当者の佐藤には 'updated' が届き、操作者の山田には届かないこと
+  db.prepare("DELETE FROM notifications WHERE issue_id = ?").run(autoIssueId);
+  const reassignNotifIds = createIssueUpdatedNotifications(db, {
+    issueId: autoIssueId,
+    senderId: userYamada.id,
+    issueKey: "NOTIF-AUTO-1",
+    createdBy: userYamada.id,
+    previousAssigneeId: userSato.id,
+    newAssigneeId: userSuzuki.id,
+    updateSummary: `課題 [NOTIF-AUTO-1] の担当者を「${userSuzuki.name}」に設定しました`,
+  });
+  if (reassignNotifIds.length !== 2) {
+    throw new Error(`担当者変更時の通知件数不一致: 期待=2, 実際=${reassignNotifIds.length}`);
+  }
+  const suzukiReassignNotif = db
+    .prepare("SELECT * FROM notifications WHERE issue_id = ? AND user_id = ?")
+    .get(autoIssueId, userSuzuki.id);
+  if (!suzukiReassignNotif || suzukiReassignNotif.type !== "assigned") {
+    throw new Error(`担当者変更時の新担当者へのassigned通知失敗: ${JSON.stringify(suzukiReassignNotif)}`);
+  }
+
+  // 10-4. コメント投稿時：鈴木がコメントし、通知先チェックボックスも併用 ➔ 作成者(山田)と担当者(佐藤)に自動で 'commented' 通知が届くこと（重複なし）
+  db.prepare("DELETE FROM notifications WHERE issue_id = ?").run(autoIssueId);
+  const autoCommentRes = db.prepare(`
+    INSERT INTO comments (issue_id, user_id, content)
+    VALUES (?, ?, '進捗を報告します。確認お願いします。')
+  `).run(autoIssueId, userSuzuki.id);
+  const autoCommentId = Number(autoCommentRes.lastInsertRowid);
+
+  const commentNotifIds = createCommentNotifications(db, {
+    issueId: autoIssueId,
+    commentId: autoCommentId,
+    senderId: userSuzuki.id,
+    text: "進捗を報告します。確認お願いします。",
+    issueCreatedBy: userYamada.id,
+    issueAssigneeId: userSato.id,
+    notifyUserIds: [],
+  });
+  if (commentNotifIds.length !== 2) {
+    throw new Error(`コメント時の作成者・担当者自動通知件数不一致: 期待=2, 実際=${commentNotifIds.length}`);
+  }
+  const yamadaCmtNotif = db
+    .prepare("SELECT * FROM notifications WHERE issue_id = ? AND user_id = ?")
+    .get(autoIssueId, userYamada.id);
+  const satoCmtNotif = db
+    .prepare("SELECT * FROM notifications WHERE issue_id = ? AND user_id = ?")
+    .get(autoIssueId, userSato.id);
+  if (!yamadaCmtNotif || yamadaCmtNotif.type !== "commented" || !satoCmtNotif || satoCmtNotif.type !== "commented") {
+    throw new Error(`コメント時の自動通知種別不一致: yamada=${JSON.stringify(yamadaCmtNotif)}, sato=${JSON.stringify(satoCmtNotif)}`);
+  }
+
+  // テスト用課題のクリーンアップ
+  db.prepare("DELETE FROM issues WHERE id = ?").run(autoIssueId);
+  console.log("✓ 自動通知（担当アサイン・作成者/担当者への更新＆コメント通知）＆通知先（参加者）複数選択の検証成功");
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import { User } from "@/types";
 import { parseMarkdown, BlockNode, InlineNode, ListItem } from "@/lib/markdownUtils";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { Check, Copy, ExternalLink, X, ZoomIn, Download } from "lucide-react";
 
 interface MentionTextProps {
   text: string;
@@ -53,6 +53,83 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
         <code>{code}</code>
       </pre>
     </div>
+  );
+}
+
+/**
+ * 添付画像インライン表示およびクリック拡大ライトボックス
+ */
+function ImageNodeView({ url, alt }: { url: string; alt: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <>
+      <span className="block my-2 group relative max-w-fit">
+        {hasError ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs">
+            ⚠️ 画像を読み込めませんでした: {alt || url}
+          </span>
+        ) : (
+          <span className="relative inline-block cursor-zoom-in rounded-lg overflow-hidden border border-slate-200 shadow-2xs hover:shadow-md transition-all">
+            <img
+              src={url}
+              alt={alt || "添付画像"}
+              loading="lazy"
+              onError={() => setHasError(true)}
+              onClick={() => setIsOpen(true)}
+              className="max-h-80 max-w-full block object-contain bg-slate-50 hover:opacity-95 transition-opacity"
+            />
+            <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-slate-900/70 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 pointer-events-none">
+              <ZoomIn className="w-3 h-3" /> 拡大
+            </span>
+          </span>
+        )}
+        {alt && !hasError && (
+          <span className="block text-[11px] text-slate-500 mt-1">{alt}</span>
+        )}
+      </span>
+
+      {/* 拡大ライトボックスモーダル */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 cursor-zoom-out animate-fadeIn"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className="relative max-w-5xl max-h-[90vh] flex flex-col items-center cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between w-full mb-2 px-1 text-white">
+              <span className="text-sm font-medium truncate max-w-md">{alt || "添付画像プレビュー"}</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={url}
+                  download={alt || "image"}
+                  className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors"
+                  title="ダウンロード"
+                >
+                  <Download className="w-4 h-4" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white transition-colors"
+                  title="閉じる"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <img
+              src={url}
+              alt={alt || "拡大プレビュー"}
+              className="max-h-[82vh] max-w-full rounded-lg shadow-2xl object-contain border border-slate-700 bg-slate-900"
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -110,6 +187,9 @@ function renderInlineNode(node: InlineNode, key: string | number): React.ReactNo
         </a>
       );
     }
+
+    case "image":
+      return <ImageNodeView key={key} url={node.url} alt={node.alt} />;
 
     case "mention": {
       const user = node.user;

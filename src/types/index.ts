@@ -67,6 +67,7 @@ export interface Issue {
   title_history_count?: number;             // タイトルの変更履歴件数
   due_date_history_count?: number;          // 期限日の変更履歴件数
   start_date_history_count?: number;        // 開始日の変更履歴件数
+  attachment_count?: number;                // 添付ファイル総数
   children?: Issue[];     // 親子ツリー時の子課題リスト
 }
 
@@ -172,11 +173,19 @@ export interface SystemSettings {
   showHolidays: boolean;             // 日本の祝日表示（カレンダー赤字・祝日名表示）
 }
 
-// 通知情報（メンション等）
+// 通知種別
+export type NotificationType =
+  | "mention"    // @メンションされた時
+  | "assigned"   // 担当者に設定（アサイン）された時
+  | "commented"  // 作成課題・担当課題にコメントされた時
+  | "updated"    // 作成課題・担当課題が更新された時
+  | "notify";    // 通知先（参加者）チェックボックスで指定された時
+
+// 通知情報（メンション・自動通知・参加者通知等）
 export interface Notification {
   id: number;
   user_id: number;           // 通知受信者ユーザーID
-  sender_id: number | null;  // 通知送信者（メンション者）ユーザーID
+  sender_id: number | null;  // 通知送信者（操作者）ユーザーID
   sender_name?: string | null;  // 送信者名（結合時）
   sender_color?: string | null; // 送信者カラー（結合時）
   issue_id: number;          // 関連課題ID
@@ -185,10 +194,26 @@ export interface Notification {
   project_name?: string;     // プロジェクト名
   project_color?: string;    // プロジェクトカラー
   comment_id: number | null; // コメントID（コメント経由の場合）
-  type: "mention" | string;  // 通知種別（メンションなど）
+  type: NotificationType | string; // 通知種別
   content: string;           // 通知本文・抜粋
   is_read: number;           // 既読フラグ（0: 未読, 1: 既読）
   created_at: string;        // 作成日時
+}
+
+// 添付ファイル情報
+export interface Attachment {
+  id: number;
+  issue_id: number | null;     // 紐づく課題ID
+  comment_id: number | null;   // 紐づくコメントID
+  user_id: number | null;      // アップロード者ユーザーID
+  user_name?: string | null;   // アップロード者名（結合時）
+  user_color?: string | null;  // アップロード者カラー（結合時）
+  file_name: string;           // 元のファイル名（例: screenshot.png）
+  stored_name: string;         // ディスク保存ファイル名
+  file_size: number;           // ファイルサイズ（バイト）
+  mime_type: string;           // MIMEタイプ（例: image/png）
+  created_at: string;          // アップロード日時
+  url?: string;                // 取得用エンドポイントURL (/api/attachments/[id])
 }
 
 

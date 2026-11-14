@@ -36,12 +36,13 @@ export async function GET() {
     const comments = db.prepare("SELECT * FROM comments").all();
     const commentHistories = db.prepare("SELECT * FROM comment_histories").all();
     const activities = db.prepare("SELECT * FROM activities").all();
+    const attachments = db.prepare("SELECT * FROM attachments").all();
     const settings = db
       .prepare("SELECT key, value, updated_at FROM settings WHERE key NOT IN ('session_secret', 'schema_migration_version')")
       .all();
 
     const backupData = {
-      version: 5,
+      version: 6,
       exportedAt: new Date().toISOString(),
       users,
       projects,
@@ -50,6 +51,7 @@ export async function GET() {
       comments,
       commentHistories,
       activities,
+      attachments,
       settings,
     };
 
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = await request.json();
-    const { users, projects, issues, issueHistories, comments, commentHistories, activities, settings } = body;
+    const { users, projects, issues, issueHistories, comments, commentHistories, activities, attachments, settings } = body;
 
     if (!Array.isArray(projects) || !Array.isArray(issues)) {
       return NextResponse.json({ error: "有効なバックアップデータ形式ではありません" }, { status: 400 });
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
     db.exec("BEGIN TRANSACTION;");
     try {
       // 既存データをクリア
+      db.exec("DELETE FROM attachments;");
       db.exec("DELETE FROM activities;");
       db.exec("DELETE FROM comment_histories;");
       db.exec("DELETE FROM comments;");
@@ -263,6 +266,27 @@ export async function POST(request: Request) {
         for (const a of activities) {
           const userId = a.user_id && validUserIds.has(a.user_id) ? a.user_id : null;
           insertAct.run(a.id, a.issue_id || null, userId, a.action_type, a.content, a.created_at || new Date().toISOString());
+        }
+      }
+
+      if (Array.isArray(attachments)) {
+        const insertAtt = db.prepare(`
+          INSERT INTO attachments (id, issue_id, comment_id, user_id, file_name, stored_name, file_size, mime_type, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (const att of attachments) {
+          const userId = att.user_id && validUserIds.has(att.user_id) ? att.user_id : null;
+          insertAtt.run(
+            att.id,
+            att.issue_id || null,
+            att.comment_id || null,
+            userId,
+            att.file_name,
+            att.stored_name,
+            att.file_size,
+            att.mime_type || "application/octet-stream",
+            att.created_at || new Date().toISOString()
+          );
         }
       }
 

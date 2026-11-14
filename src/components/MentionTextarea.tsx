@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { User } from "@/types";
+import { User, Attachment } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 import MentionText from "./MentionText";
 import {
@@ -23,6 +23,9 @@ import {
   Edit3,
   HelpCircle,
   X,
+  Paperclip,
+  Image as ImageIcon,
+  Loader2,
 } from "lucide-react";
 
 interface MentionTextareaProps
@@ -35,6 +38,8 @@ interface MentionTextareaProps
   className?: string;
   disabled?: boolean;
   showToolbar?: boolean;
+  issueId?: number; // 紐づける課題ID（任意）
+  onAttachmentUploaded?: (attachment: Attachment) => void; // アップロード完了時コールバック
 }
 
 export default function MentionTextarea({
@@ -46,10 +51,18 @@ export default function MentionTextarea({
   className = "",
   disabled = false,
   showToolbar = true,
+  issueId,
+  onAttachmentUploaded,
   ...rest
 }: MentionTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ファイルアップロード状態
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
 
   // 表示モード（編集 vs プレビュー）
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
@@ -242,6 +255,125 @@ export default function MentionTextarea({
     applyFormat("@", "", "");
   };
 
+  // ファイルアップロード共通処理
+  const uploadFiles = async (files: File[]) => {
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    setUploadError("");
+
+    try {
+      const formData = new FormData();
+      if (issueId) {
+        formData.append("issueId", String(issueId));
+      }
+      for (const file of files) {
+        formData.append("file", file);
+      }
+
+      const res = await fetch("/api/attachments", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setUploadError(err.error || "ファイルのアップロードに失敗しました");
+        return;
+      }
+
+      const data = await res.json();
+      const attachmentsList: Attachment[] = data.attachments || [data];
+
+      // Markdown テキストをカーソル位置または末尾に挿入
+      const markdownToInsert = attachmentsList
+        .map((att) => {
+          const isImg = att.mime_type.startsWith("image/");
+          return isImg
+            ? `\n![${att.file_name}](${att.url})\n`
+            : `\n[${att.file_name}](${att.url})\n`;
+        })
+        .join("");
+
+      if (textareaRef.current) {
+        const ta = textareaRef.current;
+        const start = ta.selectionStart || 0;
+        const end = ta.selectionEnd || 0;
+        const before = value.slice(0, start);
+        const after = value.slice(end);
+        const nextVal = before + markdownToInsert + after;
+        onChange(nextVal);
+        setTimeout(() => {
+          ta.focus();
+          const newPos = start + markdownToInsert.length;
+          ta.setSelectionRange(newPos, newPos);
+        }, 50);
+      } else {
+        onChange(value + (value ? "\n" : "") + markdownToInsert);
+      }
+
+      if (onAttachmentUploaded) {
+        for (const att of attachmentsList) {
+          onAttachmentUploaded(att);
+        }
+      }
+    } catch (err) {
+      console.error("アップロードエラー:", err);
+      setUploadError("通信エラーによりアップロードに失敗しました");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // クリップボードからの画像ペースト検知 (Cmd/Ctrl + V)
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const filesToUpload: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) {
+          if (file.type.startsWith("image/") && (!file.name || file.name === "image.png")) {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+            const namedFile = new File([file], `screenshot_${timestamp}.png`, { type: file.type });
+            filesToUpload.push(namedFile);
+          } else {
+            filesToUpload.push(file);
+          }
+        }
+      }
+    }
+
+    if (filesToUpload.length > 0) {
+      e.preventDefault();
+      uploadFiles(filesToUpload);
+    }
+  };
+
+  // ドラッグ＆ドロップ検知
+  const handleDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer?.types?.includes("Files")) {
+      e.preventDefault();
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      setIsDragging(false);
+      uploadFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
   // キーボード操作（上下移動、決定、Escキャンセル、ショートカットキー）
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // ショートカットキー対応 (Cmd/Ctrl + B, I, K)
@@ -416,6 +548,33 @@ export default function MentionTextarea({
                 >
                   <AtSign className="w-3.5 h-3.5" />
                 </button>
+                <div className="w-[1px] h-3.5 bg-slate-300 mx-1 self-center" />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      uploadFiles(Array.from(e.target.files));
+                      e.target.value = "";
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="ファイル・画像を添付（ドラッグ＆ドロップ、Cmd+V貼り付け対応）"
+                  disabled={disabled || isUploading}
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                >
+                  {isUploading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                  ) : (
+                    <Paperclip className="w-3.5 h-3.5" />
+                  )}
+                  <span className="text-[11px] font-medium hidden sm:inline">添付</span>
+                </button>
               </>
             ) : (
               <span className="text-[11px] font-medium text-slate-500 py-0.5 px-1">
@@ -515,6 +674,10 @@ export default function MentionTextarea({
                       <span className="font-sans text-slate-400">リンク</span>
                     </div>
                     <div className="flex justify-between">
+                      <span>![代替テキスト](URL)</span>
+                      <span className="font-sans text-slate-400">画像</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span>@ユーザーID</span>
                       <span className="font-sans text-slate-400">メンション</span>
                     </div>
@@ -528,18 +691,59 @@ export default function MentionTextarea({
 
       {/* エディタ本体（編集 vs プレビュー） */}
       {activeTab === "edit" ? (
-        <div className="relative w-full">
+        <div
+          className="relative w-full"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <textarea
             ref={textareaRef}
             value={value}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={placeholder}
             rows={rows}
             disabled={disabled}
             className={`w-full p-2.5 bg-transparent border-0 outline-none text-slate-800 placeholder-slate-400 text-sm leading-relaxed resize-y ${className}`}
             {...rest}
           />
+
+          {/* ドラッグ中のドロップゾーンオーバーレイ */}
+          {isDragging && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-indigo-50/95 border-2 border-dashed border-indigo-400 rounded-b-lg backdrop-blur-2xs pointer-events-none transition-all">
+              <Paperclip className="w-6 h-6 text-indigo-600 animate-bounce mb-1" />
+              <p className="text-xs font-semibold text-indigo-800">
+                ここにファイルをドロップして添付
+              </p>
+              <p className="text-[11px] text-indigo-600">
+                画像は自動的にMarkdownプレビューとして挿入されます
+              </p>
+            </div>
+          )}
+
+          {/* アップロード中インジケーター */}
+          {isUploading && (
+            <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900/80 text-white text-xs shadow-md backdrop-blur-xs">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+              <span>ファイルをアップロード中...</span>
+            </div>
+          )}
+
+          {/* アップロードエラー表示 */}
+          {uploadError && (
+            <div className="px-3 py-1 bg-rose-50 border-t border-rose-200 text-rose-700 text-xs flex items-center justify-between">
+              <span>⚠️ {uploadError}</span>
+              <button
+                type="button"
+                onClick={() => setUploadError("")}
+                className="text-rose-500 hover:text-rose-700 p-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div

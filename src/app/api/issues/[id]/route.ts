@@ -1,8 +1,10 @@
 // 課題詳細取得・更新・削除API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import path from "node:path";
+import fs from "node:fs";
+import { getDb, ATTACHMENTS_DIR } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { createMentionNotifications } from "@/lib/notificationUtils";
+import { createIssueUpdatedNotifications } from "@/lib/notificationUtils";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
@@ -87,7 +89,19 @@ export async function GET(_request: Request, { params }: RouteParams) {
       ORDER BY c.created_at ASC
     `).all(targetIssueId);
 
-    return NextResponse.json({ issue, children, comments });
+    // 添付ファイル取得（アップロード者情報も結合）
+    const attachments = db.prepare(`
+      SELECT 
+        a.*,
+        u.name AS user_name,
+        u.color AS user_color
+      FROM attachments a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.issue_id = ?
+      ORDER BY a.created_at ASC, a.id ASC
+    `).all(targetIssueId);
+
+    return NextResponse.json({ issue, children, comments, attachments });
   } catch (error) {
     console.error("課題詳細取得エラー:", error);
     return NextResponse.json({ error: "課題詳細の取得に失敗しました" }, { status: 500 });
@@ -114,8 +128,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       issue_key: string;
       title: string;
       description: string | null;
+      issue_type: string;
       status: string;
       priority: string;
+      parent_id: number | null;
       assignee_id: number | null;
       created_by: number | null;
       start_date: string | null;
@@ -339,13 +355,54 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         insertActivity.run(currentIssue.id, actorId, "updated", `課題 [${currentIssue.issue_key}] を更新しました`);
       }
 
-      // メンション通知の作成（詳細説明が更新された場合、新しく追加されたメンション対象者へ通知）
+      // 本文中の添付ファイルURLをこの課題にバインド
       if (body.description !== undefined) {
-        createMentionNotifications(db, {
+        const descMatches = String(body.description).matchAll(/\/api\/attachments\/(\d+)/g);
+        const updateAttStmt = db.prepare(`
+          UPDATE attachments
+          SET issue_id = ?
+          WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+        `);
+        for (const m of descMatches) {
+          if (m[1]) updateAttStmt.run(issueId, Number(m[1]), issueId);
+        }
+      }
+
+      // 実際にフィールド変更があったか、または通知先（参加者）が明示選択されている場合に通知を生成
+      const resolvedNextAssigneeId =
+        body.assigneeId !== undefined
+          ? body.assigneeId
+            ? Number(body.assigneeId)
+            : null
+          : currentIssue.assignee_id;
+
+      const hasOtherChanges =
+        (body.issueType !== undefined && body.issueType !== currentIssue.issue_type) ||
+        (body.parentId !== undefined && (body.parentId ? Number(body.parentId) : null) !== (currentIssue.parent_id || null));
+
+      const hasEffectiveChange =
+        activityLogs.length > 0 ||
+        historiesToInsert.length > 0 ||
+        hasOtherChanges ||
+        (Array.isArray(body.notifyUserIds) && body.notifyUserIds.length > 0);
+
+      if (hasEffectiveChange) {
+        const updateSummary =
+          activityLogs.length > 0
+            ? activityLogs.map((l) => l.msg).join(" / ")
+            : `課題 [${currentIssue.issue_key}] を更新しました`;
+
+        createIssueUpdatedNotifications(db, {
           issueId: currentIssue.id,
           senderId: sessionUser.id,
-          text: String(body.description).trim(),
-          existingText: currentIssue.description || "",
+          issueKey: currentIssue.issue_key,
+          createdBy: currentIssue.created_by,
+          previousAssigneeId: currentIssue.assignee_id,
+          newAssigneeId: resolvedNextAssigneeId,
+          newDescription: body.description !== undefined ? String(body.description).trim() : undefined,
+          existingDescription: currentIssue.description || "",
+          updateSummary,
+          notifyUserIds: Array.isArray(body.notifyUserIds) ? body.notifyUserIds : [],
         });
       }
 
@@ -411,6 +468,11 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     const issueId = currentIssue.id;
 
+    // 削除前に関連する添付ファイルの保存ファイル名を取得
+    const attachmentsToDelete = db
+      .prepare("SELECT stored_name FROM attachments WHERE issue_id = ?")
+      .all(issueId) as { stored_name: string }[];
+
     db.exec("BEGIN;");
     try {
       db.prepare("DELETE FROM issues WHERE id = ?").run(issueId);
@@ -425,6 +487,18 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     } catch (txErr) {
       db.exec("ROLLBACK;");
       throw txErr;
+    }
+
+    // ディスク上の実体ファイルをクリーンアップ
+    for (const att of attachmentsToDelete) {
+      try {
+        const filePath = path.join(ATTACHMENTS_DIR, att.stored_name);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error("添付ファイル削除エラー:", err);
+      }
     }
 
     return NextResponse.json({ success: true, message: "課題を削除しました" });

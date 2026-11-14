@@ -9,6 +9,7 @@ export type InlineNode =
   | { type: "strike"; children: InlineNode[] }
   | { type: "code"; value: string }
   | { type: "link"; text: string; url: string }
+  | { type: "image"; alt: string; url: string }
   | { type: "br" };
 
 export interface ListItem {
@@ -33,14 +34,15 @@ export function parseInline(text: string, users: User[] = []): InlineNode[] {
 
   // トークン単位で切り出すための正規表現パターン
   // 1: コード: `...`
-  // 2: 太字: **...** または __...__
-  // 3: 取り消し線: ~~...~~
-  // 4: 斜体: *...* または _..._
-  // 5: リンク: [text](url)
-  // 6: 自動URL: https?://...
-  // 7: メンション: @login_id または @[表示名]
+  // 2: 画像: ![alt](url)
+  // 3: 太字: **...** または __...__
+  // 4: 取り消し線: ~~...~~
+  // 5: 斜体: *...* または _..._
+  // 6: リンク: [text](url)
+  // 7: 自動URL: https?://...
+  // 8: メンション: @login_id または @[表示名]
   const inlineRegex =
-    /(`[^`\n]+`)|(\*\*[^*\n]+\*\*|__[^_\n]+__)|(~~[^~\n]+~~)|(\*[^*\n]+\*|_[^_\n]+_)|(\[[^\]\n]+\]\((?:https?:\/\/[^\s\)]+|#[^\s\)]*)\))|(https?:\/\/[a-zA-Z0-9_\-.~:/?#\[\]@!$&'()*+,;=%]+)|(@[a-zA-Z0-9_.-]+|@\[[^\]\n]+\])/g;
+    /(`[^`\n]+`)|(!\[[^\]\n]*\]\([^)\s]+\))|(\*\*[^*\n]+\*\*|__[^_\n]+__)|(~~[^~\n]+~~)|(\*[^*\n]+\*|_[^_\n]+_)|(\[[^\]\n]+\]\([^)\s]+\))|(https?:\/\/[a-zA-Z0-9_\-.~:/?#\[\]@!$&'()*+,;=%]+)|(@[a-zA-Z0-9_.-]+|@\[[^\]\n]+\])/g;
 
   const result: InlineNode[] = [];
   let lastIndex = 0;
@@ -62,27 +64,39 @@ export function parseInline(text: string, users: User[] = []): InlineNode[] {
       const codeVal = matchedStr.slice(1, -1);
       result.push({ type: "code", value: codeVal });
     } else if (match[2]) {
+      // 画像: ![alt](url)
+      const imgMatch = matchedStr.match(/^!\[([^\]]*)\]\((.+)\)$/);
+      if (imgMatch) {
+        result.push({
+          type: "image",
+          alt: imgMatch[1],
+          url: imgMatch[2],
+        });
+      } else {
+        result.push({ type: "text", value: matchedStr });
+      }
+    } else if (match[3]) {
       // 太字: **bold** または __bold__
       const inner = matchedStr.slice(2, -2);
       result.push({
         type: "bold",
         children: parseInline(inner, users),
       });
-    } else if (match[3]) {
+    } else if (match[4]) {
       // 取り消し線: ~~strike~~
       const inner = matchedStr.slice(2, -2);
       result.push({
         type: "strike",
         children: parseInline(inner, users),
       });
-    } else if (match[4]) {
+    } else if (match[5]) {
       // 斜体: *italic* または _italic_
       const inner = matchedStr.slice(1, -1);
       result.push({
         type: "italic",
         children: parseInline(inner, users),
       });
-    } else if (match[5]) {
+    } else if (match[6]) {
       // リンク: [text](url)
       const linkMatch = matchedStr.match(/^\[([^\]]+)\]\((.+)\)$/);
       if (linkMatch) {
@@ -94,14 +108,14 @@ export function parseInline(text: string, users: User[] = []): InlineNode[] {
       } else {
         result.push({ type: "text", value: matchedStr });
       }
-    } else if (match[6]) {
+    } else if (match[7]) {
       // 自動URLリンク
       result.push({
         type: "link",
         text: matchedStr,
         url: matchedStr,
       });
-    } else if (match[7]) {
+    } else if (match[8]) {
       // メンション: @login_id または @[表示名]
       let targetUser: User | undefined;
       if (matchedStr.startsWith("@[") && matchedStr.endsWith("]")) {
