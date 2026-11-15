@@ -44,9 +44,6 @@ export default function IssueDetailModal({
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [newComment, setNewComment] = useState("");
   const [commentNotifyUserIds, setCommentNotifyUserIds] = useState<number[]>([]);
-  const [commentStatus, setCommentStatus] = useState<IssueStatus>(issue?.status || "open");
-  const [commentResolution, setCommentResolution] = useState<IssueResolution | null>(issue?.resolution || null);
-  const [commentAssigneeId, setCommentAssigneeId] = useState<string>(issue?.assignee_id ? String(issue.assignee_id) : "");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState("");
@@ -253,9 +250,6 @@ export default function IssueDetailModal({
     setEditDueDate(issue.due_date || "");
     setEditNotifyUserIds([]);
     setCommentNotifyUserIds([]);
-    setCommentStatus(issue.status);
-    setCommentResolution(issue.resolution || null);
-    setCommentAssigneeId(issue.assignee_id ? String(issue.assignee_id) : "");
     setIsEditing(false);
     setIsAddingChild(false);
     setChildTitle("");
@@ -270,9 +264,6 @@ export default function IssueDetailModal({
           setEditPriority(data.issue.priority);
           setEditStatus(data.issue.status);
           setEditResolution(data.issue.resolution || null);
-          setCommentStatus(data.issue.status);
-          setCommentResolution(data.issue.resolution || null);
-          setCommentAssigneeId(data.issue.assignee_id ? String(data.issue.assignee_id) : "");
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
@@ -603,22 +594,10 @@ export default function IssueDetailModal({
     }
   };
 
-  // コメントの投稿（状態・完了理由・担当者の同時更新に対応）
+  // コメントの投稿
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isPostingComment) return;
-
-    if (commentStatus === "closed" && hasUnclosedChildren) {
-      alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-      return;
-    }
-
-    const isAttrChanged =
-      commentStatus !== activeIssue.status ||
-      (commentResolution || null) !== (activeIssue.resolution || null) ||
-      (commentAssigneeId ? Number(commentAssigneeId) : null) !== (activeIssue.assignee_id || null);
-
-    if (!newComment.trim() && !isAttrChanged) return;
+    if (isPostingComment || !newComment.trim()) return;
 
     try {
       setIsPostingComment(true);
@@ -627,9 +606,6 @@ export default function IssueDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: newComment.trim(),
-          status: commentStatus,
-          resolution: commentResolution || null,
-          assigneeId: commentAssigneeId ? Number(commentAssigneeId) : null,
           userId: currentUser?.id || null,
           notifyUserIds: commentNotifyUserIds,
         }),
@@ -644,9 +620,6 @@ export default function IssueDetailModal({
           setCurrentIssue(data.issue);
           setEditStatus(data.issue.status);
           setEditResolution(data.issue.resolution || null);
-          setCommentStatus(data.issue.status);
-          setCommentResolution(data.issue.resolution || null);
-          setCommentAssigneeId(data.issue.assignee_id ? String(data.issue.assignee_id) : "");
         }
         setNewComment("");
         setCommentNotifyUserIds([]);
@@ -657,7 +630,7 @@ export default function IssueDetailModal({
         onUpdated(); // アクティビティや親一覧の反映
       } else {
         const errData = await res.json().catch(() => ({}));
-        alert(errData.error || "コメントの投稿・更新に失敗しました");
+        alert(errData.error || "コメントの投稿に失敗しました");
       }
     } catch (err) {
       console.error("コメント投稿失敗:", err);
@@ -767,9 +740,6 @@ export default function IssueDetailModal({
           setEditPriority(data.issue.priority);
           setEditStatus(data.issue.status);
           setEditResolution(data.issue.resolution || null);
-          setCommentStatus(data.issue.status);
-          setCommentResolution(data.issue.resolution || null);
-          setCommentAssigneeId(data.issue.assignee_id ? String(data.issue.assignee_id) : "");
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
@@ -934,6 +904,136 @@ export default function IssueDetailModal({
             </button>
           </div>
         </div>
+
+        {/* 常時固定の課題件名 ＆ クイック属性バー（コメント等をスクロールしても常に最上部に留まる） */}
+        {!isEditing && (
+          <div className="bg-slate-50 border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 shrink-0 shadow-2xs">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+              {/* 件名 ＆ 親課題リンク */}
+              <div className="min-w-0 flex-1">
+                {activeIssue.parent_id && activeIssue.parent_issue_key && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeIssue.parent_id) {
+                        handleSwitchIssue({ id: activeIssue.parent_id, issue_key: activeIssue.parent_issue_key });
+                      }
+                    }}
+                    className="mb-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[11px] text-slate-700 font-medium hover:bg-indigo-100 transition-colors cursor-pointer group truncate max-w-full"
+                    title={`親課題 [${activeIssue.parent_issue_key}] を開く`}
+                  >
+                    <GitBranch className="w-3 h-3 text-indigo-500 shrink-0" />
+                    <span className="text-slate-500">親:</span>
+                    <span className="font-bold text-indigo-700">[{activeIssue.parent_issue_key}]</span>
+                    <span className="truncate">{activeIssue.parent_title}</span>
+                  </button>
+                )}
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 leading-snug line-clamp-2" title={activeIssue.title}>
+                    {activeIssue.title}
+                  </h2>
+                  {Boolean(activeIssue.title_history_count && activeIssue.title_history_count > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueHistoryTab("title");
+                        setIsIssueHistoryOpen(true);
+                      }}
+                      className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium shrink-0"
+                      title="タイトルの変更履歴を確認"
+                    >
+                      (履歴 · {activeIssue.title_history_count}件)
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 状態・完了理由・担当者の常時固定セレクター */}
+              <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                {/* 状態セレクター */}
+                <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-2xs">
+                  <span className="text-[10px] text-slate-500 font-bold shrink-0">状態:</span>
+                  <select
+                    value={activeIssue.status}
+                    onChange={(e) => {
+                      const nextStatus = e.target.value as IssueStatus;
+                      if (nextStatus === "closed" && hasUnclosedChildren) {
+                        alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                        return;
+                      }
+                      handleQuickStatusChange(nextStatus);
+                    }}
+                    className="bg-transparent text-xs font-bold text-slate-800 cursor-pointer focus:outline-hidden"
+                  >
+                    <option value="open">未対応</option>
+                    <option value="in_progress">処理中</option>
+                    <option value="resolved">処理済み</option>
+                    <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
+                      完了{hasUnclosedChildren ? " (未完了あり)" : ""}
+                    </option>
+                  </select>
+                </div>
+
+                {/* 完了理由セレクター（完了時のみ活性） */}
+                <div className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition-colors ${
+                  activeIssue.status === "closed" ? "bg-white border border-slate-300 shadow-2xs" : "opacity-50"
+                }`}>
+                  <span className="text-[10px] text-slate-500 font-medium shrink-0">完了理由:</span>
+                  <ResolutionSelect
+                    value={activeIssue.status === "closed" ? activeIssue.resolution : null}
+                    onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
+                    disabled={activeIssue.status !== "closed"}
+                    size="sm"
+                    placeholder="--"
+                  />
+                  {Boolean(activeIssue.resolution_history_count && activeIssue.resolution_history_count > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIssueHistoryTab("all");
+                        setIsIssueHistoryOpen(true);
+                      }}
+                      className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                      title="クリックして完了理由の変更履歴を確認"
+                    >
+                      ({activeIssue.resolution_history_count})
+                    </button>
+                  )}
+                </div>
+
+                {/* 担当者セレクター */}
+                <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-2xs max-w-[130px] sm:max-w-[160px]">
+                  <div
+                    style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
+                    className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[8px] font-bold shrink-0"
+                  >
+                    {getUserInitials(currentAssignee?.name)}
+                  </div>
+                  <select
+                    value={activeIssue.assignee_id ? String(activeIssue.assignee_id) : ""}
+                    onChange={(e) => handleQuickAssigneeChange(e.target.value)}
+                    className="bg-transparent text-xs font-medium text-slate-800 cursor-pointer focus:outline-hidden truncate w-full"
+                  >
+                    <option value="">未割当</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            {hasUnclosedChildren && (
+              <span
+                className="text-[10px] text-amber-600 block mt-1 leading-tight"
+                title={`未完了の子課題が ${unclosedChildrenCount} 件存在するため、すべて完了するまで完了にできません`}
+              >
+                ※ 未完了の子課題が {unclosedChildrenCount} 件あるため、すべて完了するまで親課題を完了にできません
+              </span>
+            )}
+          </div>
+        )}
 
         {/* コンテンツ本体 */}
         <div ref={contentScrollRef} className="p-4 sm:p-6 overflow-y-auto space-y-6 flex-1">
@@ -1142,136 +1242,8 @@ export default function IssueDetailModal({
             </div>
           ) : (
             <>
-              {/* タイトル ＆ 親課題バッジ */}
-              <div>
-                {activeIssue.parent_id && activeIssue.parent_issue_key && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (activeIssue.parent_id) {
-                        handleSwitchIssue({ id: activeIssue.parent_id, issue_key: activeIssue.parent_issue_key });
-                      }
-                    }}
-                    className="mb-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-xs text-slate-700 font-medium hover:bg-indigo-100 hover:border-indigo-300 transition-colors cursor-pointer group text-left"
-                    title={`親課題 [${activeIssue.parent_issue_key}] を開く`}
-                  >
-                    <GitBranch className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                    <span className="text-slate-500">親課題:</span>
-                    <span className="font-bold text-indigo-700 group-hover:underline">[{activeIssue.parent_issue_key}]</span>
-                    <span className="truncate max-w-sm group-hover:text-indigo-900">{activeIssue.parent_title}</span>
-                  </button>
-                )}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-xl font-bold text-slate-900 leading-snug">
-                    {activeIssue.title}
-                  </h2>
-                  {Boolean(activeIssue.title_history_count && activeIssue.title_history_count > 0) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIssueHistoryTab("title");
-                        setIsIssueHistoryOpen(true);
-                      }}
-                      className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
-                      title="クリックしてタイトルの変更履歴を確認"
-                    >
-                      (変更履歴 · {activeIssue.title_history_count}件)
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 属性グリッド（状態、完了理由、担当者、優先度、開始日、期限日、登録日時） */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 sm:p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-x-5 gap-y-3.5 text-xs">
-                {/* 状態変更セレクター */}
-                <div className="min-w-0">
-                  <span className="text-slate-500 block mb-1 font-medium">状態</span>
-                  <select
-                    value={activeIssue.status}
-                    onChange={(e) => {
-                      const nextStatus = e.target.value as IssueStatus;
-                      if (nextStatus === "closed" && hasUnclosedChildren) {
-                        alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-                        return;
-                      }
-                      handleQuickStatusChange(nextStatus);
-                    }}
-                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="open">未対応</option>
-                    <option value="in_progress">処理中</option>
-                    <option value="resolved">処理済み</option>
-                    <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
-                      完了{hasUnclosedChildren ? " (未完了あり)" : ""}
-                    </option>
-                  </select>
-                  {hasUnclosedChildren && (
-                    <span
-                      className="text-[10px] text-amber-600 block mt-1 leading-tight"
-                      title={`未完了の子課題が ${unclosedChildrenCount} 件存在するため、すべて完了するまで完了にできません`}
-                    >
-                      子課題未完了({unclosedChildrenCount})
-                    </span>
-                  )}
-                </div>
-
-                {/* 完了理由即時変更セレクター */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="text-slate-500 font-medium">完了理由</span>
-                    {activeIssue.status !== "closed" && (
-                      <span className="text-[9px] text-slate-400 font-normal">
-                        (完了時のみ)
-                      </span>
-                    )}
-                    {Boolean(activeIssue.resolution_history_count && activeIssue.resolution_history_count > 0) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIssueHistoryTab("all");
-                          setIsIssueHistoryOpen(true);
-                        }}
-                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
-                        title="クリックして完了理由の変更履歴を確認"
-                      >
-                        ({activeIssue.resolution_history_count})
-                      </button>
-                    )}
-                  </div>
-                  <ResolutionSelect
-                    value={activeIssue.status === "closed" ? activeIssue.resolution : null}
-                    onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
-                    disabled={activeIssue.status !== "closed"}
-                    size="sm"
-                    placeholder="--"
-                  />
-                </div>
-
-                {/* 担当者即時変更セレクター */}
-                <div className="min-w-0">
-                  <span className="text-slate-500 block mb-1 font-medium">担当者</span>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <div
-                      style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
-                      className="w-5 h-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0"
-                    >
-                      {getUserInitials(currentAssignee?.name)}
-                    </div>
-                    <select
-                      value={activeIssue.assignee_id ? String(activeIssue.assignee_id) : ""}
-                      onChange={(e) => handleQuickAssigneeChange(e.target.value)}
-                      className="bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-medium text-slate-800 cursor-pointer focus:ring-1 focus:ring-indigo-500 min-w-0 w-full truncate"
-                    >
-                      <option value="">未割当</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
+              {/* サブ属性グリッド（優先度、開始日、期限日、登録日時）※件名・状態・完了理由・担当者は上部ヘッダーに常時固定 */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 sm:p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 text-xs">
                 {/* 優先度即時変更セレクター */}
                 <div className="min-w-0">
                   <span className="text-slate-500 block mb-1 font-medium">優先度</span>
@@ -1812,68 +1784,6 @@ export default function IssueDetailModal({
                 className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
 
-              {/* 本家Backlog風 状態・完了理由・担当者の同時変更バー */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 sm:p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                {/* 状態変更 */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">状態の変更</label>
-                  <select
-                    value={commentStatus}
-                    onChange={(e) => {
-                      const nextStatus = e.target.value as IssueStatus;
-                      setCommentStatus(nextStatus);
-                      if (nextStatus !== "closed") {
-                        setCommentResolution(null);
-                      }
-                    }}
-                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="open">未対応</option>
-                    <option value="in_progress">処理中</option>
-                    <option value="resolved">処理済み</option>
-                    <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
-                      完了{hasUnclosedChildren ? " (未完了あり)" : ""}
-                    </option>
-                  </select>
-                </div>
-
-                {/* 完了理由（完了時のみ有効・任意） */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    完了理由
-                    {commentStatus !== "closed" && (
-                      <span className="text-[9px] font-normal text-slate-400 ml-1">
-                        (完了時のみ)
-                      </span>
-                    )}
-                  </label>
-                  <ResolutionSelect
-                    value={commentStatus === "closed" ? commentResolution : null}
-                    onChange={(nextRes) => setCommentResolution(nextRes)}
-                    disabled={commentStatus !== "closed"}
-                    size="sm"
-                    placeholder="-- （未設定）"
-                  />
-                </div>
-
-                {/* 担当者変更 */}
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">担当者の変更</label>
-                  <select
-                    value={commentAssigneeId}
-                    onChange={(e) => setCommentAssigneeId(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs cursor-pointer focus:ring-1 focus:ring-indigo-500 truncate"
-                  >
-                    <option value="">未割当</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={String(u.id)}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
               {/* コメント投稿時の通知先（参加者）チェックボックス選択 */}
               <NotifyUserSelector
                 users={users}
@@ -1898,32 +1808,14 @@ export default function IssueDetailModal({
               />
 
               <div className="flex justify-end">
-                {(() => {
-                  const isAttrChanged =
-                    commentStatus !== activeIssue.status ||
-                    (commentResolution || null) !== (activeIssue.resolution || null) ||
-                    (commentAssigneeId ? Number(commentAssigneeId) : null) !== (activeIssue.assignee_id || null);
-                  const canSubmit = (Boolean(newComment.trim()) || isAttrChanged) && !isPostingComment;
-
-                  return (
-                    <button
-                      type="submit"
-                      disabled={!canSubmit}
-                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>
-                        {isPostingComment
-                          ? "送信中..."
-                          : newComment.trim() && isAttrChanged
-                          ? "コメントと状態を保存"
-                          : isAttrChanged
-                          ? "状態を変更して保存"
-                          : "コメントを投稿"}
-                      </span>
-                    </button>
-                  );
-                })()}
+                <button
+                  type="submit"
+                  disabled={!newComment.trim() || isPostingComment}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isPostingComment ? "送信中..." : "コメントを投稿"}</span>
+                </button>
               </div>
             </form>
 
