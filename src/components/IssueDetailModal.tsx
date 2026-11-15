@@ -44,6 +44,9 @@ export default function IssueDetailModal({
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [newComment, setNewComment] = useState("");
   const [commentNotifyUserIds, setCommentNotifyUserIds] = useState<number[]>([]);
+  const [commentStatus, setCommentStatus] = useState<IssueStatus>(issue?.status || "open");
+  const [commentResolution, setCommentResolution] = useState<IssueResolution | null>(issue?.resolution || null);
+  const [commentAssigneeId, setCommentAssigneeId] = useState<string>(issue?.assignee_id ? String(issue.assignee_id) : "");
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState("");
@@ -250,6 +253,9 @@ export default function IssueDetailModal({
     setEditDueDate(issue.due_date || "");
     setEditNotifyUserIds([]);
     setCommentNotifyUserIds([]);
+    setCommentStatus(issue.status);
+    setCommentResolution(issue.resolution || null);
+    setCommentAssigneeId(issue.assignee_id ? String(issue.assignee_id) : "");
     setIsEditing(false);
     setIsAddingChild(false);
     setChildTitle("");
@@ -264,6 +270,9 @@ export default function IssueDetailModal({
           setEditPriority(data.issue.priority);
           setEditStatus(data.issue.status);
           setEditResolution(data.issue.resolution || null);
+          setCommentStatus(data.issue.status);
+          setCommentResolution(data.issue.resolution || null);
+          setCommentAssigneeId(data.issue.assignee_id ? String(data.issue.assignee_id) : "");
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
@@ -567,10 +576,22 @@ export default function IssueDetailModal({
     }
   };
 
-  // コメントの投稿
+  // コメントの投稿（状態・完了理由・担当者の同時更新に対応）
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || isPostingComment) return;
+    if (isPostingComment) return;
+
+    if (commentStatus === "closed" && hasUnclosedChildren) {
+      alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+      return;
+    }
+
+    const isAttrChanged =
+      commentStatus !== activeIssue.status ||
+      (commentResolution || null) !== (activeIssue.resolution || null) ||
+      (commentAssigneeId ? Number(commentAssigneeId) : null) !== (activeIssue.assignee_id || null);
+
+    if (!newComment.trim() && !isAttrChanged) return;
 
     try {
       setIsPostingComment(true);
@@ -579,20 +600,37 @@ export default function IssueDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: newComment.trim(),
+          status: commentStatus,
+          resolution: commentResolution || null,
+          assigneeId: commentAssigneeId ? Number(commentAssigneeId) : null,
           userId: currentUser?.id || null,
           notifyUserIds: commentNotifyUserIds,
         }),
       });
 
       if (res.ok) {
-        const addedComment = await res.json();
-        setComments((prev) => [...prev, addedComment]);
+        const data = await res.json();
+        if (data.comment) {
+          setComments((prev) => [...prev, data.comment]);
+        }
+        if (data.issue) {
+          setCurrentIssue(data.issue);
+          setEditStatus(data.issue.status);
+          setEditResolution(data.issue.resolution || null);
+          setCommentStatus(data.issue.status);
+          setCommentResolution(data.issue.resolution || null);
+          setCommentAssigneeId(data.issue.assignee_id ? String(data.issue.assignee_id) : "");
+        }
         setNewComment("");
         setCommentNotifyUserIds([]);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("backlog:notifications-updated"));
         }
-        onUpdated(); // アクティビティや更新日時の反映
+        await refreshUsers();
+        onUpdated(); // アクティビティや親一覧の反映
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "コメントの投稿・更新に失敗しました");
       }
     } catch (err) {
       console.error("コメント投稿失敗:", err);
@@ -702,6 +740,9 @@ export default function IssueDetailModal({
           setEditPriority(data.issue.priority);
           setEditStatus(data.issue.status);
           setEditResolution(data.issue.resolution || null);
+          setCommentStatus(data.issue.status);
+          setCommentResolution(data.issue.resolution || null);
+          setCommentAssigneeId(data.issue.assignee_id ? String(data.issue.assignee_id) : "");
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
@@ -1717,6 +1758,62 @@ export default function IssueDetailModal({
                 className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
 
+              {/* 本家Backlog風 状態・完了理由・担当者の同時変更バー */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 sm:p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                {/* 状態変更 */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">状態の変更</label>
+                  <select
+                    value={commentStatus}
+                    onChange={(e) => {
+                      const nextStatus = e.target.value as IssueStatus;
+                      setCommentStatus(nextStatus);
+                      if (nextStatus === "open" || nextStatus === "in_progress") {
+                        setCommentResolution(null);
+                      } else if (!commentResolution) {
+                        setCommentResolution("fixed");
+                      }
+                    }}
+                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="open">未対応</option>
+                    <option value="in_progress">処理中</option>
+                    <option value="resolved">処理済み</option>
+                    <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
+                      完了{hasUnclosedChildren ? " (未完了あり)" : ""}
+                    </option>
+                  </select>
+                </div>
+
+                {/* 完了理由 */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">完了理由</label>
+                  <ResolutionSelect
+                    value={commentResolution}
+                    onChange={(nextRes) => setCommentResolution(nextRes)}
+                    size="sm"
+                    placeholder="-- （未設定）"
+                  />
+                </div>
+
+                {/* 担当者変更 */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">担当者の変更</label>
+                  <select
+                    value={commentAssigneeId}
+                    onChange={(e) => setCommentAssigneeId(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs cursor-pointer focus:ring-1 focus:ring-indigo-500 truncate"
+                  >
+                    <option value="">未割当</option>
+                    {users.map((u) => (
+                      <option key={u.id} value={String(u.id)}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* コメント投稿時の通知先（参加者）チェックボックス選択 */}
               <NotifyUserSelector
                 users={users}
@@ -1741,14 +1838,32 @@ export default function IssueDetailModal({
               />
 
               <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={!newComment.trim() || isPostingComment}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{isPostingComment ? "投稿中..." : "コメントを投稿"}</span>
-                </button>
+                {(() => {
+                  const isAttrChanged =
+                    commentStatus !== activeIssue.status ||
+                    (commentResolution || null) !== (activeIssue.resolution || null) ||
+                    (commentAssigneeId ? Number(commentAssigneeId) : null) !== (activeIssue.assignee_id || null);
+                  const canSubmit = (Boolean(newComment.trim()) || isAttrChanged) && !isPostingComment;
+
+                  return (
+                    <button
+                      type="submit"
+                      disabled={!canSubmit}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>
+                        {isPostingComment
+                          ? "送信中..."
+                          : newComment.trim() && isAttrChanged
+                          ? "コメントと状態を保存"
+                          : isAttrChanged
+                          ? "状態を変更して保存"
+                          : "コメントを投稿"}
+                      </span>
+                    </button>
+                  );
+                })()}
               </div>
             </form>
 
