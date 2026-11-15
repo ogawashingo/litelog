@@ -200,6 +200,18 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  // コメントリアクション（スタンプ）テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS comment_reactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      stamp TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(comment_id, user_id, stamp)
+    );
+    CREATE INDEX IF NOT EXISTS idx_comment_reactions_comment_id ON comment_reactions(comment_id);
+  `);
   // 課題変更履歴テーブル（タイトル・詳細説明等の過去バージョン保持）
   db.exec(`
     CREATE TABLE IF NOT EXISTS issue_histories (
@@ -215,6 +227,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     CREATE TABLE IF NOT EXISTS activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+      comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       action_type TEXT NOT NULL,
       content TEXT NOT NULL,
@@ -224,6 +237,9 @@ function setupSchemaAndSeed(db, isProdDb = false) {
   const activityCols = db.prepare("PRAGMA table_info(activities)").all();
   if (!activityCols.some((col) => col.name === "user_id")) {
     db.exec("ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
+  }
+  if (!activityCols.some((col) => col.name === "comment_id")) {
+    db.exec("ALTER TABLE activities ADD COLUMN comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE;");
   }
 
   // 通知（メンションなど）テーブル
@@ -1375,8 +1391,8 @@ async function runTests() {
     { id: 2, login_id: "sato", name: "佐藤 花子", color: "#ec4899" },
   ];
 
-  // 8-1. インライン要素検証（太字・斜体・取消線・コード・リンク・画像・メンション）
-  const inlineSample = "こんにちは **太字** と *斜体* と ~~取り消し~~、そして `code` と [Google](https://google.com) と ![スクリーンショット](/api/attachments/10) と @yamada です";
+  // 8-1. インライン要素検証（太字・斜体・取消線・コード・リンク・画像・メンション・課題キー自動リンク）
+  const inlineSample = "こんにちは **太字** と *斜体* と ~~取り消し~~、そして `code` と [Google](https://google.com) と ![スクリーンショット](/api/attachments/10) と @yamada、詳細は [SAMPLE-36] および HITORI-5 を参照です";
   const inlines = parseInline(inlineSample, testUsers);
   const boldNode = inlines.find((n) => n.type === "bold");
   const italicNode = inlines.find((n) => n.type === "italic");
@@ -1385,6 +1401,7 @@ async function runTests() {
   const linkNode = inlines.find((n) => n.type === "link");
   const imgNode = inlines.find((n) => n.type === "image");
   const mentionNode = inlines.find((n) => n.type === "mention");
+  const keyNodes = inlines.filter((n) => n.type === "issue_key");
 
   if (!boldNode || boldNode.children[0]?.value !== "太字") {
     throw new Error("インライン太字のパースに失敗しました");
@@ -1407,7 +1424,10 @@ async function runTests() {
   if (!mentionNode || mentionNode.raw !== "@yamada" || mentionNode.user?.login_id !== "yamada") {
     throw new Error("インラインメンションのユーザー解決に失敗しました");
   }
-  console.log("✓ インラインMarkdown（太字・斜体・取消線・コード・リンク・画像・メンション）パース成功");
+  if (keyNodes.length !== 2 || keyNodes[0].issueKey !== "SAMPLE-36" || keyNodes[1].issueKey !== "HITORI-5") {
+    throw new Error(`課題キー自動リンクのパースに失敗しました: 件数=${keyNodes.length}`);
+  }
+  console.log("✓ インラインMarkdown（太字・斜体・取消線・コード・リンク・画像・メンション・課題キー自動リンク）パース成功");
 
   // 8-2. ブロック要素検証（見出し・リスト・タスクリスト・引用・コードブロック・テーブル）
   const markdownSample = [
@@ -1638,6 +1658,124 @@ async function runTests() {
   // テスト用課題のクリーンアップ
   db.prepare("DELETE FROM issues WHERE id = ?").run(autoIssueId);
   console.log("✓ 自動通知（担当アサイン・作成者/担当者への更新＆コメント通知）＆通知先（参加者）複数選択の検証成功");
+
+  // 11. コメントスタンプ（リアクション）機能（👍, ✅）の検証
+  const reactionIssueRes = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, 'REACT-TEST-1', 9901, 'スタンプ検証課題', 'コメントへのスタンプテスト', 'task', 'open', 'medium')
+  `).run(validPrjId, userSato.id, userYamada.id);
+  const reactionIssueId = Number(reactionIssueRes.lastInsertRowid);
+
+  const reactionCommentRes = db.prepare(`
+    INSERT INTO comments (issue_id, user_id, content)
+    VALUES (?, ?, '体調不良のため本日は午後休をいただきます。')
+  `).run(reactionIssueId, userSato.id);
+  const reactionCommentId = Number(reactionCommentRes.lastInsertRowid);
+
+  // 山田が「👍」、鈴木が「✅」を押す
+  const validStamps = ["👍", "✅"];
+  if (validStamps.length !== 2) {
+    throw new Error("スタンプ種別定義エラー");
+  }
+
+  db.prepare("INSERT INTO comment_reactions (comment_id, user_id, stamp) VALUES (?, ?, ?)").run(
+    reactionCommentId,
+    userYamada.id,
+    "👍"
+  );
+  db.prepare("INSERT INTO comment_reactions (comment_id, user_id, stamp) VALUES (?, ?, ?)").run(
+    reactionCommentId,
+    userSuzuki.id,
+    "✅"
+  );
+  db.prepare("INSERT INTO comment_reactions (comment_id, user_id, stamp) VALUES (?, ?, ?)").run(
+    reactionCommentId,
+    userYamada.id,
+    "✅"
+  );
+
+  // 同一ユーザーが同じスタンプを重複登録しようとするとUNIQUE制約エラーになること
+  let duplicateBlocked = false;
+  try {
+    db.prepare("INSERT INTO comment_reactions (comment_id, user_id, stamp) VALUES (?, ?, ?)").run(
+      reactionCommentId,
+      userYamada.id,
+      "👍"
+    );
+  } catch {
+    duplicateBlocked = true;
+  }
+  if (!duplicateBlocked) {
+    throw new Error("同一ユーザー・同一スタンプの重複登録防止（UNIQUE制約）が機能していません");
+  }
+
+  // スタンプ一覧と押したユーザー名の結合取得検証
+  const reactionsList = db.prepare(`
+    SELECT cr.*, u.name AS user_name, u.color AS user_color
+    FROM comment_reactions cr
+    LEFT JOIN users u ON cr.user_id = u.id
+    WHERE cr.comment_id = ?
+    ORDER BY cr.id ASC
+  `).all(reactionCommentId);
+
+  if (reactionsList.length !== 3) {
+    throw new Error(`スタンプ件数不一致: 期待=3, 実際=${reactionsList.length}`);
+  }
+  const checkReactions = reactionsList.filter((r) => r.stamp === "✅");
+  if (checkReactions.length !== 2 || !checkReactions.some((r) => r.user_name === userYamada.name)) {
+    throw new Error("✅ スタンプの集計・ユーザー名結合に失敗しました");
+  }
+
+  // 課題削除時にカスケードで comment_reactions も削除されること
+  db.prepare("DELETE FROM issues WHERE id = ?").run(reactionIssueId);
+  const remainingReactions = db.prepare(
+    "SELECT COUNT(*) AS count FROM comment_reactions WHERE comment_id = ?"
+  ).get(reactionCommentId);
+  if (remainingReactions.count !== 0) {
+    throw new Error("コメント削除時のスタンプカスケード削除が機能していません");
+  }
+  console.log("✓ コメントスタンプ（👍, ✅）の付与・集計・カスケード削除の検証成功");
+
+  // 12. アクティビティ（最近の更新）とコメントスタンプ連携の検証
+  const actIssueRes = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, 'ACT-TEST-1', 9902, 'アクティビティ検証課題', '説明', 'task', 'open', 'medium')
+  `).run(validPrjId, userSato.id, userYamada.id);
+  const actIssueId = Number(actIssueRes.lastInsertRowid);
+
+  const actCommentRes = db.prepare(`
+    INSERT INTO comments (issue_id, user_id, content)
+    VALUES (?, ?, 'アクティビティからスタンプを押すテストです')
+  `).run(actIssueId, userSato.id);
+  const actCommentId = Number(actCommentRes.lastInsertRowid);
+
+  // コメント作成時のアクティビティ記録（comment_id を保持）
+  const actInsertRes = db.prepare(`
+    INSERT INTO activities (issue_id, comment_id, user_id, action_type, content)
+    VALUES (?, ?, ?, 'commented', 'アクティビティからスタンプを押すテストです')
+  `).run(actIssueId, actCommentId, userSato.id);
+  const actActivityId = Number(actInsertRes.lastInsertRowid);
+
+  // アクティビティに紐づくコメントに対して山田が 👍 を押す
+  db.prepare("INSERT INTO comment_reactions (comment_id, user_id, stamp) VALUES (?, ?, '👍')").run(
+    actCommentId,
+    userYamada.id
+  );
+
+  // アクティビティ取得クエリで comment_id とリアクションが正しく取得できることの検証
+  const fetchedAct = db.prepare("SELECT * FROM activities WHERE id = ?").get(actActivityId);
+  if (!fetchedAct || fetchedAct.comment_id !== actCommentId) {
+    throw new Error(`アクティビティの comment_id 保持検証失敗: ${JSON.stringify(fetchedAct)}`);
+  }
+
+  const actReactions = db.prepare("SELECT * FROM comment_reactions WHERE comment_id = ?").all(fetchedAct.comment_id);
+  if (actReactions.length !== 1 || actReactions[0].stamp !== "👍") {
+    throw new Error(`アクティビティ経由のリアクション取得失敗: ${JSON.stringify(actReactions)}`);
+  }
+
+  // クリーンアップ
+  db.prepare("DELETE FROM issues WHERE id = ?").run(actIssueId);
+  console.log("✓ アクティビティ（最近の更新）とコメントID・スタンプ連携の検証成功");
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

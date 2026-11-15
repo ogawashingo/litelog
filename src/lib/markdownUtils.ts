@@ -4,6 +4,7 @@ import type { User } from "../types";
 export type InlineNode =
   | { type: "text"; value: string }
   | { type: "mention"; raw: string; user?: User }
+  | { type: "issue_key"; issueKey: string; raw: string }
   | { type: "bold"; children: InlineNode[] }
   | { type: "italic"; children: InlineNode[] }
   | { type: "strike"; children: InlineNode[] }
@@ -41,8 +42,9 @@ export function parseInline(text: string, users: User[] = []): InlineNode[] {
   // 6: リンク: [text](url)
   // 7: 自動URL: https?://...
   // 8: メンション: @login_id または @[表示名]
+  // 9: 課題キー自動リンク: [KEY-123] または KEY-123
   const inlineRegex =
-    /(`[^`\n]+`)|(!\[[^\]\n]*\]\([^)\s]+\))|(\*\*[^*\n]+\*\*|__[^_\n]+__)|(~~[^~\n]+~~)|(\*[^*\n]+\*|_[^_\n]+_)|(\[[^\]\n]+\]\([^)\s]+\))|(https?:\/\/[a-zA-Z0-9_\-.~:/?#\[\]@!$&'()*+,;=%]+)|(@[a-zA-Z0-9_.-]+|@\[[^\]\n]+\])/g;
+    /(`[^`\n]+`)|(!\[[^\]\n]*\]\([^)\s]+\))|(\*\*[^*\n]+\*\*|__[^_\n]+__)|(~~[^~\n]+~~)|(\*[^*\n]+\*|_[^_\n]+_)|(\[[^\]\n]+\]\([^)\s]+\))|(https?:\/\/[a-zA-Z0-9_\-.~:/?#\[\]@!$&'()*+,;=%]+)|(@[a-zA-Z0-9_.-]+|@\[[^\]\n]+\])|(\[([A-Z][A-Z0-9_]*-\d+)\]|(?<![a-zA-Z0-9_\/])([A-Z][A-Z0-9_]*-\d+)(?![a-zA-Z0-9_]))/g;
 
   const result: InlineNode[] = [];
   let lastIndex = 0;
@@ -130,6 +132,16 @@ export function parseInline(text: string, users: User[] = []): InlineNode[] {
         type: "mention",
         raw: matchedStr,
         user: targetUser,
+      });
+    } else if (match[9]) {
+      // 課題キー自動リンク: [SAMPLE-36] または SAMPLE-36
+      const raw = matchedStr;
+      const keyMatch = raw.match(/^\[?([A-Z][A-Z0-9_]*-\d+)\]?$/);
+      const issueKey = keyMatch ? keyMatch[1] : raw;
+      result.push({
+        type: "issue_key",
+        issueKey,
+        raw,
       });
     }
 

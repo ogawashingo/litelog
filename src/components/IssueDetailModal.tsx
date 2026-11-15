@@ -14,6 +14,7 @@ import { DatePicker } from "./DatePicker";
 import CommentHistoryModal from "./CommentHistoryModal";
 import IssueHistoryModal from "./IssueHistoryModal";
 import NotifyUserSelector from "./NotifyUserSelector";
+import CommentReactionBar from "./CommentReactionBar";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -130,6 +131,8 @@ export default function IssueDetailModal({
     setIsEditing(false);
     contentScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
 
+    const fetchKey = target.issue_key || target.id;
+
     // 親コンポーネントのコールバックがある場合
     if (onSelectIssue) {
       if ("title" in target && target.title) {
@@ -137,7 +140,7 @@ export default function IssueDetailModal({
       } else {
         // 親課題バッジなどID情報のみの場合はAPIから完全な課題情報を取得して親に渡す
         try {
-          const res = await fetch(`/api/issues/${target.id}`);
+          const res = await fetch(`/api/issues/${fetchKey}`);
           if (res.ok) {
             const data = await res.json();
             if (data.issue) {
@@ -151,7 +154,7 @@ export default function IssueDetailModal({
     } else {
       // 親のコールバックが渡されていない場合はローカル状態で課題詳細を取得・更新
       try {
-        const res = await fetch(`/api/issues/${target.id}`);
+        const res = await fetch(`/api/issues/${fetchKey}`);
         if (res.ok) {
           const data = await res.json();
           if (data.issue) {
@@ -195,6 +198,11 @@ export default function IssueDetailModal({
         console.error("課題切り替えエラー:", err);
       }
     }
+  };
+
+  // 課題キー文字列からのモーダル内ダイレクト切り替え
+  const handleSwitchByIssueKey = (issueKey: string) => {
+    handleSwitchIssue({ id: 0, issue_key: issueKey });
   };
 
   // 課題URLをクリップボードにコピー
@@ -1199,7 +1207,11 @@ export default function IssueDetailModal({
                 </div>
                 <div className="bg-white border border-gray-200 rounded-lg p-4 text-sm text-gray-800 leading-relaxed min-h-[90px]">
                   {activeIssue.description ? (
-                    <MentionText text={activeIssue.description} users={users} />
+                    <MentionText
+                      text={activeIssue.description}
+                      users={users}
+                      onIssueClick={handleSwitchByIssueKey}
+                    />
                   ) : (
                     <span className="text-gray-400 italic">詳細メモはありません</span>
                   )}
@@ -1585,7 +1597,27 @@ export default function IssueDetailModal({
                         </div>
                       </div>
                     ) : (
-                      <MentionText text={comment.content} users={users} className="pl-6 text-sm text-slate-800" />
+                      <>
+                        <MentionText
+                          text={comment.content}
+                          users={users}
+                          onIssueClick={handleSwitchByIssueKey}
+                          className="pl-6 text-sm text-slate-800"
+                        />
+                        <CommentReactionBar
+                          issueId={activeIssue.id}
+                          commentId={comment.id}
+                          reactions={comment.reactions || []}
+                          currentUserId={currentUser?.id || null}
+                          currentUserName={currentUser?.name || null}
+                          currentUserColor={currentUser?.color || null}
+                          onReactionsUpdated={(cid, nextReactions) => {
+                            setComments((prev) =>
+                              prev.map((c) => (c.id === cid ? { ...c, reactions: nextReactions } : c))
+                            );
+                          }}
+                        />
+                      </>
                     )}
                   </div>
                 );

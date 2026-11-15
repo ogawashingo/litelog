@@ -2,14 +2,16 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { User } from "@/types";
 import { parseMarkdown, BlockNode, InlineNode, ListItem } from "@/lib/markdownUtils";
-import { Check, Copy, ExternalLink, X, ZoomIn, Download } from "lucide-react";
+import { Check, Copy, ExternalLink, X, ZoomIn, Download, Tag } from "lucide-react";
 
 interface MentionTextProps {
   text: string;
   users?: User[];
   className?: string;
+  onIssueClick?: (issueKey: string) => void;
 }
 
 /**
@@ -136,7 +138,11 @@ function ImageNodeView({ url, alt }: { url: string; alt: string }) {
 /**
  * インライン要素の描画
  */
-function renderInlineNode(node: InlineNode, key: string | number): React.ReactNode {
+function renderInlineNode(
+  node: InlineNode,
+  key: string | number,
+  onIssueClick?: (issueKey: string) => void
+): React.ReactNode {
   switch (node.type) {
     case "text":
       return <span key={key}>{node.value}</span>;
@@ -144,21 +150,21 @@ function renderInlineNode(node: InlineNode, key: string | number): React.ReactNo
     case "bold":
       return (
         <strong key={key} className="font-bold text-slate-900">
-          {node.children.map((child, idx) => renderInlineNode(child, `${key}-b-${idx}`))}
+          {node.children.map((child, idx) => renderInlineNode(child, `${key}-b-${idx}`, onIssueClick))}
         </strong>
       );
 
     case "italic":
       return (
         <em key={key} className="italic text-slate-800">
-          {node.children.map((child, idx) => renderInlineNode(child, `${key}-i-${idx}`))}
+          {node.children.map((child, idx) => renderInlineNode(child, `${key}-i-${idx}`, onIssueClick))}
         </em>
       );
 
     case "strike":
       return (
         <del key={key} className="line-through text-slate-500">
-          {node.children.map((child, idx) => renderInlineNode(child, `${key}-s-${idx}`))}
+          {node.children.map((child, idx) => renderInlineNode(child, `${key}-s-${idx}`, onIssueClick))}
         </del>
       );
 
@@ -171,6 +177,42 @@ function renderInlineNode(node: InlineNode, key: string | number): React.ReactNo
           {node.value}
         </code>
       );
+
+    case "issue_key": {
+      const issueKey = node.issueKey;
+      const displayLabel = node.raw;
+
+      if (onIssueClick) {
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIssueClick(issueKey);
+            }}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[12.5px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100/90 hover:text-indigo-900 border border-indigo-200/90 shadow-2xs hover:shadow-xs transition-all cursor-pointer select-text align-baseline"
+            title={`課題 [${issueKey}] を開く`}
+          >
+            <Tag className="w-3 h-3 text-indigo-500 shrink-0 opacity-80" />
+            <span>{displayLabel}</span>
+          </button>
+        );
+      }
+
+      return (
+        <Link
+          key={key}
+          href={`/issues/${issueKey}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[12.5px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100/90 hover:text-indigo-900 border border-indigo-200/90 shadow-2xs hover:shadow-xs transition-all cursor-pointer align-baseline"
+          title={`課題 [${issueKey}] を開く`}
+        >
+          <Tag className="w-3 h-3 text-indigo-500 shrink-0 opacity-80" />
+          <span>{displayLabel}</span>
+        </Link>
+      );
+    }
 
     case "link": {
       const isExternal = /^https?:\/\//i.test(node.url);
@@ -222,10 +264,14 @@ function renderInlineNode(node: InlineNode, key: string | number): React.ReactNo
 /**
  * ブロック要素の描画
  */
-function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
+function renderBlockNode(
+  block: BlockNode,
+  index: number,
+  onIssueClick?: (issueKey: string) => void
+): React.ReactNode {
   switch (block.type) {
     case "heading": {
-      const headingContent = block.children.map((c, i) => renderInlineNode(c, i));
+      const headingContent = block.children.map((c, i) => renderInlineNode(c, i, onIssueClick));
       if (block.level === 1) {
         return (
           <h1
@@ -271,7 +317,7 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
         >
           {block.lines.map((line, lIdx) => (
             <div key={lIdx}>
-              {line.map((c, i) => renderInlineNode(c, i))}
+              {line.map((c, i) => renderInlineNode(c, i, onIssueClick))}
             </div>
           ))}
         </blockquote>
@@ -301,7 +347,7 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
                     className="mt-1 h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-default"
                   />
                   <span className={item.checked ? "line-through text-slate-400" : "text-slate-800"}>
-                    {item.children.map((c, i) => renderInlineNode(c, i))}
+                    {item.children.map((c, i) => renderInlineNode(c, i, onIssueClick))}
                   </span>
                 </li>
               );
@@ -312,7 +358,7 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
               return (
                 <li key={itemIdx} className="flex items-start gap-1.5 list-none my-0.5">
                   <span className="text-indigo-400 select-none font-bold mt-[-1px]">•</span>
-                  <span>{item.children.map((c, i) => renderInlineNode(c, i))}</span>
+                  <span>{item.children.map((c, i) => renderInlineNode(c, i, onIssueClick))}</span>
                 </li>
               );
             }
@@ -320,7 +366,7 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
             // 通常の番号リスト
             return (
               <li key={itemIdx} className="my-0.5">
-                {item.children.map((c, i) => renderInlineNode(c, i))}
+                {item.children.map((c, i) => renderInlineNode(c, i, onIssueClick))}
               </li>
             );
           })}
@@ -336,7 +382,7 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
               <tr>
                 {block.headers.map((cell, hIdx) => (
                   <th key={hIdx} className="px-3 py-2 text-left border-r border-slate-200 last:border-r-0">
-                    {cell.map((c, i) => renderInlineNode(c, i))}
+                    {cell.map((c, i) => renderInlineNode(c, i, onIssueClick))}
                   </th>
                 ))}
               </tr>
@@ -349,7 +395,7 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
                       key={cIdx}
                       className="px-3 py-2 text-slate-800 border-r border-slate-100 last:border-r-0"
                     >
-                      {cell.map((c, i) => renderInlineNode(c, i))}
+                      {cell.map((c, i) => renderInlineNode(c, i, onIssueClick))}
                     </td>
                   ))}
                 </tr>
@@ -364,7 +410,7 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
         <p key={index} className="my-1.5 text-slate-800 leading-relaxed">
           {block.lines.map((line, lineIdx) => (
             <React.Fragment key={lineIdx}>
-              {line.map((c, i) => renderInlineNode(c, i))}
+              {line.map((c, i) => renderInlineNode(c, i, onIssueClick))}
               {lineIdx < block.lines.length - 1 && <br />}
             </React.Fragment>
           ))}
@@ -379,14 +425,19 @@ function renderBlockNode(block: BlockNode, index: number): React.ReactNode {
 /**
  * 課題詳細やコメント用のリッチテキスト・メンション表示コンポーネント
  */
-export default function MentionText({ text, users = [], className = "" }: MentionTextProps) {
+export default function MentionText({
+  text,
+  users = [],
+  className = "",
+  onIssueClick,
+}: MentionTextProps) {
   if (!text) return null;
 
   const blocks = parseMarkdown(text, users);
 
   return (
     <div className={`rich-text-content break-words leading-relaxed text-sm ${className}`}>
-      {blocks.map((block, idx) => renderBlockNode(block, idx))}
+      {blocks.map((block, idx) => renderBlockNode(block, idx, onIssueClick))}
     </div>
   );
 }
