@@ -139,32 +139,6 @@ function SearchPageContent() {
     setIsCreateOpen(true);
   };
 
-  // 全体進捗・サマリー計算
-  const summaryStats = useMemo(() => {
-    const totalIssues = issues.length;
-    const closedIssues = issues.filter((i) => i.status === "closed").length;
-    const inProgressIssues = issues.filter((i) => i.status === "in_progress" || i.status === "resolved").length;
-    const openIssues = issues.filter((i) => i.status === "open").length;
-
-    // ヒットした課題が存在するプロジェクトID一覧
-    const projectIdsWithIssues = new Set(issues.map((i) => i.project_id));
-    const hitProjectsCount = projectIdsWithIssues.size;
-    const unhitProjectsCount = Math.max(0, projects.length - hitProjectsCount);
-
-    const progressPercent = totalIssues > 0 ? Math.round((closedIssues / totalIssues) * 100) : 0;
-
-    return {
-      totalIssues,
-      closedIssues,
-      inProgressIssues,
-      openIssues,
-      hitProjectsCount,
-      unhitProjectsCount,
-      totalProjectsCount: projects.length,
-      progressPercent,
-    };
-  }, [issues, projects]);
-
   // プロジェクトごとの課題マッピング（マトリクス用）
   const projectMatrixData = useMemo(() => {
     return projects.map((proj) => {
@@ -289,60 +263,17 @@ function SearchPageContent() {
             </button>
           </form>
 
-          {/* 検索状況 ＆ サマリーメトリクス */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600">
-              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+          {/* 検索状況表示 */}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <div>
               {currentQuery ? (
                 <span>
-                  キーワード: <strong className="text-slate-900 font-bold">「{currentQuery}」</strong> の検索結果
+                  キーワード「<strong className="text-slate-900 font-bold">{currentQuery}</strong>」の検索結果:{" "}
+                  <strong className="text-indigo-600 font-bold">{issues.length}</strong> 件
                 </span>
               ) : (
-                <span>全プロジェクトの全課題を表示中</span>
+                <span>全課題を表示中: <strong className="text-slate-900 font-bold">{issues.length}</strong> 件</span>
               )}
-              <span className="text-slate-400">|</span>
-              <span>
-                該当: <strong className="text-indigo-600 font-bold">{summaryStats.totalIssues}</strong> 件
-              </span>
-              <span className="text-slate-400">|</span>
-              <span>
-                対象案件: <strong className="text-slate-900 font-bold">{summaryStats.hitProjectsCount}</strong> / {summaryStats.totalProjectsCount} プロジェクト
-              </span>
-            </div>
-
-            {/* 進捗プログレスバー＆ステータス集計 */}
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg">
-                <span className="text-slate-500">全体完了率:</span>
-                <span className="font-bold text-slate-800">{summaryStats.progressPercent}%</span>
-                <div className="w-20 h-2 bg-slate-200 rounded-full overflow-hidden ml-1">
-                  <div
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                    style={{ width: `${summaryStats.progressPercent}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  完了: {summaryStats.closedIssues}
-                </span>
-                <span className="inline-flex items-center gap-1 text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded">
-                  <Clock className="w-3.5 h-3.5 text-blue-600" />
-                  進行中: {summaryStats.inProgressIssues}
-                </span>
-                <span className="inline-flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                  未着手: {summaryStats.openIssues}
-                </span>
-                {summaryStats.unhitProjectsCount > 0 && currentQuery && (
-                  <span className="inline-flex items-center gap-1 text-rose-700 font-semibold bg-rose-50 px-2 py-0.5 rounded" title="このキーワードの課題がまだ起票されていないプロジェクト">
-                    <HelpCircle className="w-3.5 h-3.5 text-rose-500" />
-                    未起票: {summaryStats.unhitProjectsCount}件
-                  </span>
-                )}
-              </div>
             </div>
           </div>
         </section>
@@ -469,24 +400,8 @@ function SearchPageContent() {
                           )}
                         </div>
 
-                        {/* 右側アクション & プログレスバー */}
+                        {/* 右側アクション */}
                         <div className="flex items-center gap-3">
-                          {total > 0 && (
-                            <div className="flex items-center gap-2">
-                              <div className="w-24 sm:w-32 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${
-                                    progressPercent === 100 ? "bg-emerald-500" : "bg-indigo-500"
-                                  }`}
-                                  style={{ width: `${progressPercent}%` }}
-                                />
-                              </div>
-                              <span className="text-xs font-mono font-bold text-slate-600 w-9 text-right">
-                                {progressPercent}%
-                              </span>
-                            </div>
-                          )}
-
                           {/* クイック課題起票ボタン */}
                           <button
                             type="button"
@@ -579,20 +494,20 @@ function SearchPageContent() {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
                       <th className="p-3 w-56">プロジェクト</th>
-                      <th className="p-3 w-40 text-center">全体進捗</th>
+                      <th className="p-3 w-36 text-center">対応状況</th>
                       <th className="p-3 bg-amber-50/50 text-amber-900 border-l border-slate-200">
-                        未対応 ({summaryStats.openIssues})
+                        未対応
                       </th>
                       <th className="p-3 bg-blue-50/50 text-blue-900 border-l border-slate-200">
-                        進行中 ({summaryStats.inProgressIssues})
+                        進行中
                       </th>
                       <th className="p-3 bg-emerald-50/50 text-emerald-900 border-l border-slate-200">
-                        完了 ({summaryStats.closedIssues})
+                        完了
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {projectMatrixData.map(({ project, issues: projIssues, total, closed, inProgress, open, statusType, progressPercent }) => {
+                    {projectMatrixData.map(({ project, issues: projIssues, total, closed, inProgress, open, statusType }) => {
                       const openList = projIssues.filter((i) => i.status === "open");
                       const inProgressList = projIssues.filter((i) => i.status === "in_progress" || i.status === "resolved");
                       const closedList = projIssues.filter((i) => i.status === "closed");
@@ -625,27 +540,29 @@ function SearchPageContent() {
                             </button>
                           </td>
 
-                          {/* 全体進捗バー */}
-                          <td className="p-3 align-top text-center">
-                            {total > 0 ? (
-                              <div className="space-y-1">
-                                <div className="text-xs font-bold font-mono text-slate-700">
-                                  {progressPercent}%
-                                </div>
-                                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${
-                                      progressPercent === 100 ? "bg-emerald-500" : "bg-indigo-500"
-                                    }`}
-                                    style={{ width: `${progressPercent}%` }}
-                                  />
-                                </div>
-                                <span className="text-[10px] text-slate-400 block">
-                                  {closed}/{total} 件
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md inline-block">
+                          {/* 対応状況 */}
+                          <td className="p-3 align-top text-center whitespace-nowrap">
+                            {statusType === "completed" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-full">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                対応完了 ({closed}/{total})
+                              </span>
+                            )}
+                            {statusType === "in_progress" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-100/70 px-2.5 py-1 rounded-full">
+                                <Clock className="w-3 h-3 text-blue-600" />
+                                進行中 ({closed}/{total})
+                              </span>
+                            )}
+                            {statusType === "open" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100/70 px-2.5 py-1 rounded-full">
+                                <AlertCircle className="w-3 h-3 text-amber-600" />
+                                未着手 ({total})
+                              </span>
+                            )}
+                            {statusType === "none" && (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100/80 px-2.5 py-1 rounded-full">
+                                <HelpCircle className="w-3 h-3 text-rose-600" />
                                 チケット未作成
                               </span>
                             )}

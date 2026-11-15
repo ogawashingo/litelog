@@ -148,6 +148,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       issue_type TEXT NOT NULL DEFAULT 'task',
       status TEXT NOT NULL DEFAULT 'open',
       priority TEXT NOT NULL DEFAULT 'medium',
+      resolution TEXT,
       start_date TEXT,
       due_date TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -172,6 +173,10 @@ function setupSchemaAndSeed(db, isProdDb = false) {
   if (!tableCols.some((col) => col.name === "created_by")) {
     db.exec("ALTER TABLE issues ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;");
     console.log("✓ created_by カラムのマイグレーションが成功しました");
+  }
+  if (!tableCols.some((col) => col.name === "resolution")) {
+    db.exec("ALTER TABLE issues ADD COLUMN resolution TEXT;");
+    console.log("✓ resolution カラムのマイグレーションが成功しました");
   }
   db.exec(`
     CREATE TABLE IF NOT EXISTS comments (

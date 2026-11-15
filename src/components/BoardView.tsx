@@ -14,7 +14,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
-import { TypeBadge, PriorityBadge } from "./IssueBadge";
+import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
 import { useUser } from "./UserContext";
@@ -510,6 +510,7 @@ export default function BoardView({
                         <div className="flex items-center justify-between gap-1 mb-1.5">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <TypeBadge type={issue.issue_type} />
+                            <ResolutionBadge resolution={issue.resolution} />
                             <div className="flex items-center gap-1 min-w-0 flex-wrap">
                               {/* 自身の課題キー */}
                               <a
