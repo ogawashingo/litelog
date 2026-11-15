@@ -491,6 +491,41 @@ async function runTests() {
   if (clearedDue.due_date !== null) throw new Error("期限日クリアに失敗しました");
   console.log("✓ 期限日即時更新＆クリアテスト成功");
 
+  // 4-4-2. 完了理由（Resolution）即時更新＆履歴退避＆フィルタリング検証テスト
+  const origRes = updated.resolution || null;
+  db.prepare(`
+    INSERT INTO issue_histories (issue_id, user_id, field_name, old_value, created_at)
+    VALUES (?, ?, 'resolution', ?, CURRENT_TIMESTAMP)
+  `).run(createdId, 1, origRes);
+  db.prepare("UPDATE issues SET resolution = 'fixed' WHERE id = ?").run(createdId);
+  const updatedRes1 = db.prepare("SELECT resolution FROM issues WHERE id = ?").get(createdId);
+  if (updatedRes1.resolution !== "fixed") throw new Error("完了理由の更新（fixed）に失敗しました");
+
+  // 重複（duplicated）に変更し履歴を記録
+  db.prepare(`
+    INSERT INTO issue_histories (issue_id, user_id, field_name, old_value, created_at)
+    VALUES (?, ?, 'resolution', 'fixed', CURRENT_TIMESTAMP)
+  `).run(createdId, 1);
+  db.prepare("UPDATE issues SET resolution = 'duplicated' WHERE id = ?").run(createdId);
+  const updatedRes2 = db.prepare("SELECT resolution FROM issues WHERE id = ?").get(createdId);
+  if (updatedRes2.resolution !== "duplicated") throw new Error("完了理由の更新（duplicated）に失敗しました");
+
+  // 完了理由によるフィルタリング抽出テスト
+  const duplicatedIssues = db.prepare("SELECT id FROM issues WHERE resolution = 'duplicated'").all();
+  if (!duplicatedIssues.some((i) => i.id === createdId)) {
+    throw new Error("完了理由フィルタリング抽出に失敗しました");
+  }
+
+  // 完了理由のクリア（未設定化）テスト
+  db.prepare("UPDATE issues SET resolution = NULL WHERE id = ?").run(createdId);
+  const clearedRes = db.prepare("SELECT resolution FROM issues WHERE id = ?").get(createdId);
+  if (clearedRes.resolution !== null) throw new Error("完了理由クリアに失敗しました");
+
+  // 履歴件数集計の検証
+  const resHistCount = db.prepare("SELECT COUNT(*) as count FROM issue_histories WHERE issue_id = ? AND field_name = 'resolution'").get(createdId);
+  if (resHistCount.count !== 2) throw new Error(`完了理由の変更履歴件数が不正です: ${resHistCount.count}`);
+  console.log("✓ 完了理由（Resolution: fixed/duplicated/clear）更新・履歴退避・フィルター検証成功");
+
   // 4-5. 課題タイトル・詳細説明の更新および変更履歴（issue_histories）保存テスト
   const curIssueForHist = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);
   const origTitle = curIssueForHist.title;
@@ -518,27 +553,34 @@ async function runTests() {
   `).run(createdId, 1, origDueDate);
   db.prepare("UPDATE issues SET due_date = '2026-12-15' WHERE id = ?").run(createdId);
 
-  // 履歴テーブルの検証
+  // 履歴テーブルの検証（完了理由2件 + タイトル1件 + 説明1件 + 期限日1件 = 計5件）
   const issueHists = db.prepare("SELECT * FROM issue_histories WHERE issue_id = ? ORDER BY id ASC").all(createdId);
-  if (issueHists.length !== 3) throw new Error(`課題変更履歴件数不一致: ${issueHists.length}`);
-  if (issueHists[0].field_name !== "title" || issueHists[0].old_value !== origTitle) {
-    throw new Error(`タイトル変更履歴不一致: ${JSON.stringify(issueHists[0])}`);
+  if (issueHists.length !== 5) throw new Error(`課題変更履歴件数不一致: ${issueHists.length}`);
+  if (issueHists[0].field_name !== "resolution" || issueHists[0].old_value !== origRes) {
+    throw new Error(`完了理由初回変更履歴不一致: ${JSON.stringify(issueHists[0])}`);
   }
-  if (issueHists[1].field_name !== "description" || issueHists[1].old_value !== origDesc) {
-    throw new Error(`詳細説明変更履歴不一致: ${JSON.stringify(issueHists[1])}`);
+  if (issueHists[1].field_name !== "resolution" || issueHists[1].old_value !== "fixed") {
+    throw new Error(`完了理由次回変更履歴不一致: ${JSON.stringify(issueHists[1])}`);
   }
-  if (issueHists[2].field_name !== "due_date" || issueHists[2].old_value !== origDueDate) {
-    throw new Error(`期限日変更履歴不一致: ${JSON.stringify(issueHists[2])}`);
+  if (issueHists[2].field_name !== "title" || issueHists[2].old_value !== origTitle) {
+    throw new Error(`タイトル変更履歴不一致: ${JSON.stringify(issueHists[2])}`);
+  }
+  if (issueHists[3].field_name !== "description" || issueHists[3].old_value !== origDesc) {
+    throw new Error(`詳細説明変更履歴不一致: ${JSON.stringify(issueHists[3])}`);
+  }
+  if (issueHists[4].field_name !== "due_date" || issueHists[4].old_value !== origDueDate) {
+    throw new Error(`期限日変更履歴不一致: ${JSON.stringify(issueHists[4])}`);
   }
 
-  // 課題取得時の履歴カウント検証
+  // 課題取得時の履歴カウント検証（完了理由履歴カウント含む）
   const issueWithHistCount = db.prepare(`
     SELECT 
       i.*,
       (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'description') AS description_history_count,
       (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count,
       (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'due_date') AS due_date_history_count,
-      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'start_date') AS start_date_history_count
+      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'start_date') AS start_date_history_count,
+      (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'resolution') AS resolution_history_count
     FROM issues i
     WHERE i.id = ?
   `).get(createdId);
@@ -546,13 +588,14 @@ async function runTests() {
   if (
     issueWithHistCount.description_history_count !== 1 ||
     issueWithHistCount.title_history_count !== 1 ||
-    issueWithHistCount.due_date_history_count !== 1
+    issueWithHistCount.due_date_history_count !== 1 ||
+    issueWithHistCount.resolution_history_count !== 2
   ) {
     throw new Error(
-      `課題履歴カウントサブクエリ検証失敗: desc=${issueWithHistCount.description_history_count}, title=${issueWithHistCount.title_history_count}, due=${issueWithHistCount.due_date_history_count}`
+      `課題履歴カウントサブクエリ検証失敗: desc=${issueWithHistCount.description_history_count}, title=${issueWithHistCount.title_history_count}, due=${issueWithHistCount.due_date_history_count}, res=${issueWithHistCount.resolution_history_count}`
     );
   }
-  console.log(`✓ 課題タイトル・詳細説明・期限日変更履歴退避＆件数結合テスト成功: タイトル旧="${origTitle}", 説明旧="${origDesc}", 期限旧="${origDueDate}"`);
+  console.log(`✓ 課題タイトル・詳細説明・期限日・完了理由変更履歴退避＆件数結合テスト成功: タイトル旧="${origTitle}", 説明旧="${origDesc}", 期限旧="${origDueDate}", 完了理由履歴=${issueWithHistCount.resolution_history_count}件`);
 
   // 5. コメント追加テスト
   const commentRes = db.prepare(`
