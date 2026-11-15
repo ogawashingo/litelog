@@ -473,13 +473,8 @@ function SearchPageContent() {
                             ))}
                           </div>
                         ) : (
-                          <div className="py-6 px-4 text-center rounded-xl bg-white/60 border border-dashed border-slate-200">
-                            <p className="text-xs sm:text-sm text-slate-500">
-                              このプロジェクトには「{currentQuery || "検索条件"}」に該当する課題がありません
-                            </p>
-                            <p className="text-[11px] text-slate-400 mt-1">
-                              対応が必要な場合は、右上の「課題を追加」ボタンから起票してください
-                            </p>
+                          <div className="py-3 px-4 text-center rounded-lg bg-slate-50/50 border border-dashed border-slate-200 text-xs text-slate-400">
+                            該当する課題はありません
                           </div>
                         )}
                       </div>
