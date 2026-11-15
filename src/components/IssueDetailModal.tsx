@@ -1822,10 +1822,8 @@ export default function IssueDetailModal({
                     onChange={(e) => {
                       const nextStatus = e.target.value as IssueStatus;
                       setCommentStatus(nextStatus);
-                      if (nextStatus === "open" || nextStatus === "in_progress") {
+                      if (nextStatus !== "closed") {
                         setCommentResolution(null);
-                      } else if (!commentResolution) {
-                        setCommentResolution("fixed");
                       }
                     }}
                     className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-1 focus:ring-indigo-500"
@@ -1839,12 +1837,20 @@ export default function IssueDetailModal({
                   </select>
                 </div>
 
-                {/* 完了理由 */}
+                {/* 完了理由（完了時のみ有効・任意） */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">完了理由</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    完了理由
+                    {commentStatus !== "closed" && (
+                      <span className="text-[9px] font-normal text-slate-400 ml-1">
+                        (完了時のみ)
+                      </span>
+                    )}
+                  </label>
                   <ResolutionSelect
-                    value={commentResolution}
+                    value={commentStatus === "closed" ? commentResolution : null}
                     onChange={(nextRes) => setCommentResolution(nextRes)}
+                    disabled={commentStatus !== "closed"}
                     size="sm"
                     placeholder="-- （未設定）"
                   />
