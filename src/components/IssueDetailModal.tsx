@@ -403,14 +403,31 @@ export default function IssueDetailModal({
     }
 
     const previousStatus = activeIssue.status;
+    const previousResolution = activeIssue.resolution ?? null;
+    const isUnclosing = newStatus !== "closed";
+
     try {
-      setCurrentIssue((prev) => (prev ? { ...prev, status: newStatus } : null));
+      // 完了以外に戻す場合は、完了理由も即時nullにクリア
+      setCurrentIssue((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: newStatus,
+              ...(isUnclosing ? { resolution: null } : {}),
+            }
+          : null
+      );
       setEditStatus(newStatus);
+      if (isUnclosing) {
+        setEditResolution(null);
+      }
+
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: newStatus,
+          ...(isUnclosing ? { resolution: null } : {}),
           actorId: currentUser?.id || null,
         }),
       });
@@ -423,13 +440,23 @@ export default function IssueDetailModal({
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "ステータス変更に失敗しました");
-        setCurrentIssue((prev) => (prev ? { ...prev, status: previousStatus } : null));
+        setCurrentIssue((prev) =>
+          prev
+            ? { ...prev, status: previousStatus, resolution: previousResolution }
+            : null
+        );
         setEditStatus(previousStatus);
+        setEditResolution(previousResolution);
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
-      setCurrentIssue((prev) => (prev ? { ...prev, status: previousStatus } : null));
+      setCurrentIssue((prev) =>
+        prev
+          ? { ...prev, status: previousStatus, resolution: previousResolution }
+          : null
+      );
       setEditStatus(previousStatus);
+      setEditResolution(previousResolution);
     }
   };
 
@@ -1011,7 +1038,13 @@ export default function IssueDetailModal({
                   <label className="block font-bold text-gray-700 mb-1">状態</label>
                   <select
                     value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value as IssueStatus)}
+                    onChange={(e) => {
+                      const nextSt = e.target.value as IssueStatus;
+                      setEditStatus(nextSt);
+                      if (nextSt !== "closed") {
+                        setEditResolution(null);
+                      }
+                    }}
                     className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800"
                   >
                     <option value="open">未対応</option>
@@ -1029,10 +1062,18 @@ export default function IssueDetailModal({
                 </div>
 
                 <div className="min-w-0">
-                  <label className="block font-bold text-gray-700 mb-1">完了理由</label>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    完了理由
+                    {editStatus !== "closed" && (
+                      <span className="text-[9px] font-normal text-slate-400 ml-1">
+                        (完了時のみ)
+                      </span>
+                    )}
+                  </label>
                   <ResolutionSelect
-                    value={editResolution}
+                    value={editStatus === "closed" ? editResolution : null}
                     onChange={(nextRes) => setEditResolution(nextRes)}
+                    disabled={editStatus !== "closed"}
                     placeholder="-- （未設定）"
                   />
                 </div>
@@ -1250,6 +1291,11 @@ export default function IssueDetailModal({
                 <div className="min-w-0">
                   <div className="flex items-center gap-1 mb-1">
                     <span className="text-slate-500 font-medium">完了理由</span>
+                    {activeIssue.status !== "closed" && (
+                      <span className="text-[9px] text-slate-400 font-normal">
+                        (完了時のみ)
+                      </span>
+                    )}
                     {Boolean(activeIssue.resolution_history_count && activeIssue.resolution_history_count > 0) && (
                       <button
                         type="button"
@@ -1265,8 +1311,9 @@ export default function IssueDetailModal({
                     )}
                   </div>
                   <ResolutionSelect
-                    value={activeIssue.resolution}
+                    value={activeIssue.status === "closed" ? activeIssue.resolution : null}
                     onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
+                    disabled={activeIssue.status !== "closed"}
                     size="sm"
                     placeholder="--"
                   />

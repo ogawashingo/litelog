@@ -234,6 +234,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         });
       }
     }
+    // 最終ステータスの判定
+    const nextStatus = body.status !== undefined ? String(body.status) : currentIssue.status;
+
     if (body.priority !== undefined) {
       if (!VALID_PRIORITIES.has(String(body.priority))) {
         return NextResponse.json({ error: "無効な優先度です" }, { status: 400 });
@@ -249,7 +252,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         });
       }
     }
-    if (body.resolution !== undefined) {
+
+    // 完了理由（resolution）の整合性制御
+    // 課題が完了（closed）以外の場合、完了理由は存在し得ないため自動的にNULLにクリアする
+    if (nextStatus !== "closed") {
+      if (currentIssue.resolution !== null || (body.resolution !== undefined && body.resolution !== null)) {
+        updates.push("resolution = ?");
+        values.push(null);
+        if (currentIssue.resolution) {
+          historiesToInsert.push({ field: "resolution", oldValue: currentIssue.resolution });
+          activityLogs.push({
+            type: "updated",
+            msg: `課題 [${currentIssue.issue_key}] の状態が完了以外に変更されたため、完了理由を解除しました`,
+          });
+        }
+      }
+    } else if (body.resolution !== undefined) {
+      // 完了（closed）状態の場合のみ完了理由の設定・変更を許可
       const cleanResolution =
         body.resolution && String(body.resolution).trim() !== ""
           ? String(body.resolution).trim()

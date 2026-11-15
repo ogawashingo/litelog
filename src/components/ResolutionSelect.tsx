@@ -84,15 +84,19 @@ export default function ResolutionSelect({
         type="button"
         disabled={disabled}
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full flex items-center justify-between gap-1.5 rounded border border-emerald-600 bg-amber-50/40 hover:bg-amber-50/70 text-slate-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+        className={`w-full flex items-center justify-between gap-1.5 rounded border transition-colors ${
+          disabled
+            ? "border-slate-200 bg-slate-100/80 text-slate-400 cursor-not-allowed opacity-80"
+            : "border-emerald-600 bg-amber-50/40 hover:bg-amber-50/70 text-slate-800 cursor-pointer"
+        } ${
           isSmall ? "px-2 py-1 text-xs" : "px-2.5 py-1.5 text-xs font-medium"
         } ${isOpen ? "ring-2 ring-emerald-500/30 border-emerald-700" : ""}`}
-        title={`完了理由: ${currentLabel}`}
+        title={disabled ? "完了理由（課題が完了の時のみ設定可能）" : `完了理由: ${currentLabel}`}
       >
-        <span className={`truncate ${!value ? "text-slate-500" : "font-medium text-slate-800"}`}>
-          {currentLabel}
+        <span className={`truncate ${disabled ? "text-slate-400" : !value ? "text-slate-500" : "font-medium text-slate-800"}`}>
+          {disabled ? "--" : currentLabel}
         </span>
-        <span className="shrink-0 flex items-center text-emerald-700">
+        <span className={`shrink-0 flex items-center ${disabled ? "text-slate-300" : "text-emerald-700"}`}>
           <ChevronDown
             className={`transition-transform duration-150 ${isSmall ? "w-3.5 h-3.5" : "w-4 h-4"} ${
               isOpen ? "rotate-180" : ""

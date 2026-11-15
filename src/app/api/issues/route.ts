@@ -158,7 +158,10 @@ export async function POST(request: Request) {
     if (!VALID_PRIORITIES.has(String(priority))) {
       return NextResponse.json({ error: "無効な優先度です" }, { status: 400 });
     }
-    const cleanResolution = resolution && String(resolution).trim() !== "" ? String(resolution).trim() : null;
+    const cleanResolution =
+      status === "closed" && resolution && String(resolution).trim() !== ""
+        ? String(resolution).trim()
+        : null;
     if (cleanResolution && !VALID_RESOLUTIONS.has(cleanResolution)) {
       return NextResponse.json({ error: "無効な完了理由です" }, { status: 400 });
     }

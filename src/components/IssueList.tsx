@@ -679,43 +679,52 @@ export default function IssueList({
                     {/* 完了理由（完了課題が表示されている時のみ列を表示） */}
                     {isShowingClosed && (
                       <td className="py-3 px-3 whitespace-nowrap">
-                        <select
-                          value={issue.resolution || ""}
-                          onChange={async (e) => {
-                            const nextVal = e.target.value ? (e.target.value as IssueResolution) : null;
-                            if (onUpdateResolution) {
-                              onUpdateResolution(issue.id, nextVal);
-                            } else {
-                              await fetch(`/api/issues/${issue.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ resolution: nextVal }),
-                              });
-                            }
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          className={`text-xs font-medium rounded px-2 py-0.5 border cursor-pointer transition-colors focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
-                            issue.resolution === "fixed"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                              : issue.resolution === "wont_fix"
-                              ? "bg-stone-50 text-stone-600 border-stone-300"
-                              : issue.resolution === "invalid"
-                              ? "bg-zinc-100 text-zinc-600 border-zinc-300"
-                              : issue.resolution === "duplicated"
-                              ? "bg-indigo-50 text-indigo-700 border-indigo-300"
-                              : issue.resolution === "cannot_reproduce"
-                              ? "bg-amber-50 text-amber-700 border-amber-300"
-                              : "bg-slate-50 text-slate-400 border-slate-200"
-                          }`}
-                          title={`完了理由: ${issue.resolution || "未設定"}`}
-                        >
-                          <option value="">--</option>
-                          <option value="fixed">対応済み</option>
-                          <option value="wont_fix">対応しない</option>
-                          <option value="invalid">無効</option>
-                          <option value="duplicated">重複</option>
-                          <option value="cannot_reproduce">再現しない</option>
-                        </select>
+                        {issue.status === "closed" ? (
+                          <select
+                            value={issue.resolution || ""}
+                            onChange={async (e) => {
+                              const nextVal = e.target.value ? (e.target.value as IssueResolution) : null;
+                              if (onUpdateResolution) {
+                                onUpdateResolution(issue.id, nextVal);
+                              } else {
+                                await fetch(`/api/issues/${issue.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ resolution: nextVal }),
+                                });
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`text-xs font-medium rounded px-2 py-0.5 border cursor-pointer transition-colors focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                              issue.resolution === "fixed"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                : issue.resolution === "wont_fix"
+                                ? "bg-stone-50 text-stone-600 border-stone-300"
+                                : issue.resolution === "invalid"
+                                ? "bg-zinc-100 text-zinc-600 border-zinc-300"
+                                : issue.resolution === "duplicated"
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-300"
+                                : issue.resolution === "cannot_reproduce"
+                                ? "bg-amber-50 text-amber-700 border-amber-300"
+                                : "bg-slate-50 text-slate-400 border-slate-200"
+                            }`}
+                            title={`完了理由: ${issue.resolution || "未設定"}`}
+                          >
+                            <option value="">--</option>
+                            <option value="fixed">対応済み</option>
+                            <option value="wont_fix">対応しない</option>
+                            <option value="invalid">無効</option>
+                            <option value="duplicated">重複</option>
+                            <option value="cannot_reproduce">再現しない</option>
+                          </select>
+                        ) : (
+                          <span
+                            className="text-xs text-slate-300 px-2 py-0.5 select-none"
+                            title="未完了の課題には完了理由はありません"
+                          >
+                            --
+                          </span>
+                        )}
                       </td>
                     )}
 

@@ -123,8 +123,17 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
+    // 最終ステータス判定（未完了に戻す場合は完了理由を強制クリア）
+    const effectiveStatus = nextStatus !== undefined ? nextStatus : issue.status;
+    const effectiveResolution =
+      effectiveStatus === "closed"
+        ? nextResolution !== undefined
+          ? nextResolution
+          : issue.resolution
+        : null;
+
     const isStatusChanged = nextStatus !== undefined && nextStatus !== issue.status;
-    const isResolutionChanged = nextResolution !== undefined && nextResolution !== (issue.resolution || null);
+    const isResolutionChanged = effectiveResolution !== (issue.resolution || null);
     const isAssigneeChanged = nextAssigneeId !== undefined && nextAssigneeId !== (issue.assignee_id || null);
 
     if (!cleanContent && !isStatusChanged && !isResolutionChanged && !isAssigneeChanged) {
@@ -201,7 +210,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
       if (isResolutionChanged) {
         issueUpdates.push("resolution = ?");
-        issueValues.push(nextResolution);
+        issueValues.push(effectiveResolution);
 
         // 変更履歴に退避
         db.prepare(`
@@ -217,7 +226,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           cannot_reproduce: "再現しない",
         };
         const prevResLabel = issue.resolution ? (resMap[issue.resolution] || issue.resolution) : "未設定";
-        const newResLabel = nextResolution ? (resMap[nextResolution] || nextResolution) : "未設定";
+        const newResLabel = effectiveResolution ? (resMap[effectiveResolution] || effectiveResolution) : "未設定";
         db.prepare(`
           INSERT INTO activities (issue_id, user_id, action_type, content)
           VALUES (?, ?, 'updated', ?)

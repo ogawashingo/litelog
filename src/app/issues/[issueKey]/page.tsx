@@ -226,18 +226,31 @@ export default function IssueDetailPage() {
   // ステータス即時変更
   const handleQuickStatusChange = async (newStatus: IssueStatus) => {
     if (!issue) return;
+    const isUnclosing = newStatus !== "closed";
     try {
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: newStatus,
+          ...(isUnclosing ? { resolution: null } : {}),
           actorId: currentUser?.id || null,
         }),
       });
       if (res.ok) {
         setEditStatus(newStatus);
-        setIssue((prev) => (prev ? { ...prev, status: newStatus } : null));
+        if (isUnclosing) {
+          setEditResolution(null);
+        }
+        setIssue((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: newStatus,
+                ...(isUnclosing ? { resolution: null } : {}),
+              }
+            : null
+        );
         await refreshUsers();
       }
     } catch (err) {
@@ -782,7 +795,13 @@ export default function IssueDetailPage() {
                   {isEditing ? (
                     <select
                       value={editStatus}
-                      onChange={(e) => setEditStatus(e.target.value as IssueStatus)}
+                      onChange={(e) => {
+                        const nextSt = e.target.value as IssueStatus;
+                        setEditStatus(nextSt);
+                        if (nextSt !== "closed") {
+                          setEditResolution(null);
+                        }
+                      }}
                       className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="open">未対応</option>
@@ -819,6 +838,11 @@ export default function IssueDetailPage() {
                 <div>
                   <div className="flex items-center gap-1 mb-1">
                     <span className="text-slate-500 font-medium">完了理由</span>
+                    {(isEditing ? editStatus !== "closed" : issue.status !== "closed") && (
+                      <span className="text-[9px] text-slate-400 font-normal">
+                        (完了時のみ)
+                      </span>
+                    )}
                     {Boolean(issue.resolution_history_count && issue.resolution_history_count > 0) && (
                       <button
                         type="button"
@@ -835,14 +859,16 @@ export default function IssueDetailPage() {
                   </div>
                   {isEditing ? (
                     <ResolutionSelect
-                      value={editResolution}
+                      value={editStatus === "closed" ? editResolution : null}
                       onChange={(nextRes) => setEditResolution(nextRes)}
+                      disabled={editStatus !== "closed"}
                       placeholder="-- （未設定）"
                     />
                   ) : (
                     <ResolutionSelect
-                      value={issue.resolution}
+                      value={issue.status === "closed" ? issue.resolution : null}
                       onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
+                      disabled={issue.status !== "closed"}
                       size="sm"
                       placeholder="--"
                     />

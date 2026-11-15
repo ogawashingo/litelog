@@ -166,6 +166,8 @@ function initDb(db: DatabaseSync) {
     if (!hasResolution) {
       db.exec("ALTER TABLE issues ADD COLUMN resolution TEXT;");
     }
+    // 未完了（完了以外）の課題に誤って完了理由が設定されている不整合データをクリーンアップ
+    db.exec("UPDATE issues SET resolution = NULL WHERE status != 'closed' AND resolution IS NOT NULL;");
   } catch (migErr) {
     console.error("issues テーブルのカラムマイグレーション確認エラー:", migErr);
   }

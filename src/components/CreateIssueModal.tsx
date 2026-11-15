@@ -333,7 +333,13 @@ export default function CreateIssueModal({
               <label className="block text-xs font-bold text-slate-700 mb-1">状態</label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as IssueStatus)}
+                onChange={(e) => {
+                  const nextSt = e.target.value as IssueStatus;
+                  setStatus(nextSt);
+                  if (nextSt !== "closed") {
+                    setResolution(null);
+                  }
+                }}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="open">未対応</option>
@@ -343,12 +349,20 @@ export default function CreateIssueModal({
               </select>
             </div>
 
-            {/* 完了理由（任意） */}
+            {/* 完了理由（完了時のみ有効） */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">完了理由</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                完了理由
+                {status !== "closed" && (
+                  <span className="text-[9px] font-normal text-slate-400 ml-1">
+                    (完了時のみ)
+                  </span>
+                )}
+              </label>
               <ResolutionSelect
-                value={resolution}
+                value={status === "closed" ? resolution : null}
                 onChange={(nextRes) => setResolution(nextRes)}
+                disabled={status !== "closed"}
                 placeholder="-- （未設定）"
               />
             </div>

@@ -526,6 +526,15 @@ async function runTests() {
   if (resHistCount.count !== 2) throw new Error(`完了理由の変更履歴件数が不正です: ${resHistCount.count}`);
   console.log("✓ 完了理由（Resolution: fixed/duplicated/clear）更新・履歴退避・フィルター検証成功");
 
+  // 4-4-3. 未完了ステータス課題の完了理由自動クリア整合性検証（未対応なのに対応済み等の矛盾防止）
+  db.prepare("UPDATE issues SET status = 'in_progress', resolution = 'fixed' WHERE id = ?").run(createdId);
+  db.exec("UPDATE issues SET resolution = NULL WHERE status != 'closed' AND resolution IS NOT NULL;");
+  const cleanedIssue = db.prepare("SELECT status, resolution FROM issues WHERE id = ?").get(createdId);
+  if (cleanedIssue.resolution !== null) {
+    throw new Error("未完了課題の完了理由自動クリアに失敗しました");
+  }
+  console.log("✓ 未完了課題の完了理由クリア整合性検証成功");
+
   // 4-5. 課題タイトル・詳細説明の更新および変更履歴（issue_histories）保存テスト
   const curIssueForHist = db.prepare("SELECT * FROM issues WHERE id = ?").get(createdId);
   const origTitle = curIssueForHist.title;
