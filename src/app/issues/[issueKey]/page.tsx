@@ -684,120 +684,185 @@ export default function IssueDetailPage() {
                 </div>
               </div>
 
-              {/* 下段（非編集時）: 常時固定の課題件名 ＆ クイック属性セレクター（状態・完了理由・担当者） */}
+              {/* 下段（非編集時）: 常時固定の課題件名 ＆ 全属性ツールバー（状態・完了理由・担当者・優先度・期間・登録日時） */}
               {!isEditing && (
-                <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-                    {/* 件名 ＆ 親課題リンク */}
-                    <div className="min-w-0 flex-1">
-                      {issue.parent_id && issue.parent_issue_key && (
-                        <Link
-                          href={`/issues/${issue.parent_issue_key}`}
-                          className="mb-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[11px] text-slate-700 font-medium hover:bg-indigo-100 transition-colors cursor-pointer group truncate max-w-full"
-                          title={`親課題 [${issue.parent_issue_key}] を開く`}
-                        >
-                          <GitBranch className="w-3 h-3 text-indigo-500 shrink-0" />
-                          <span className="text-slate-500">親:</span>
-                          <span className="font-bold text-indigo-700">[{issue.parent_issue_key}]</span>
-                          <span className="truncate">{issue.parent_title}</span>
-                        </Link>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-snug line-clamp-2" title={issue.title}>
-                          {issue.title}
-                        </h1>
-                        {Boolean(issue.title_history_count && issue.title_history_count > 0) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIssueHistoryTab("title");
-                              setIsIssueHistoryOpen(true);
-                            }}
-                            className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium shrink-0"
-                            title="クリックしてタイトルの変更履歴を確認"
-                          >
-                            (履歴 · {issue.title_history_count}件)
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 状態・完了理由・担当者の常時固定セレクター */}
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
-                      {/* 状態セレクター */}
-                      <div className="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 shadow-2xs">
-                        <span className="text-[10px] text-slate-500 font-bold shrink-0">状態:</span>
-                        <select
-                          value={issue.status}
-                          onChange={(e) => {
-                            const nextStatus = e.target.value as IssueStatus;
-                            if (nextStatus === "closed" && hasUnclosedChildren) {
-                              alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-                              return;
-                            }
-                            handleQuickStatusChange(nextStatus);
+                <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white space-y-2">
+                  {/* 件名 ＆ 親課題リンク */}
+                  <div className="min-w-0">
+                    {issue.parent_id && issue.parent_issue_key && (
+                      <Link
+                        href={`/issues/${issue.parent_issue_key}`}
+                        className="mb-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[11px] text-slate-700 font-medium hover:bg-indigo-100 transition-colors cursor-pointer group truncate max-w-full"
+                        title={`親課題 [${issue.parent_issue_key}] を開く`}
+                      >
+                        <GitBranch className="w-3 h-3 text-indigo-500 shrink-0" />
+                        <span className="text-slate-500">親:</span>
+                        <span className="font-bold text-indigo-700">[{issue.parent_issue_key}]</span>
+                        <span className="truncate">{issue.parent_title}</span>
+                      </Link>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-snug line-clamp-2" title={issue.title}>
+                        {issue.title}
+                      </h1>
+                      {Boolean(issue.title_history_count && issue.title_history_count > 0) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIssueHistoryTab("title");
+                            setIsIssueHistoryOpen(true);
                           }}
-                          className="bg-transparent text-xs font-bold text-slate-800 cursor-pointer focus:outline-hidden"
+                          className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium shrink-0"
+                          title="クリックしてタイトルの変更履歴を確認"
                         >
-                          <option value="open">未対応</option>
-                          <option value="in_progress">処理中</option>
-                          <option value="resolved">処理済み</option>
-                          <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
-                            完了{hasUnclosedChildren ? " (未完了あり)" : ""}
-                          </option>
-                        </select>
-                      </div>
-
-                      {/* 完了理由セレクター（完了時のみ活性） */}
-                      <div className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition-colors ${
-                        issue.status === "closed" ? "bg-slate-50 border border-slate-300 shadow-2xs" : "opacity-50"
-                      }`}>
-                        <span className="text-[10px] text-slate-500 font-medium shrink-0">完了理由:</span>
-                        <ResolutionSelect
-                          value={issue.status === "closed" ? issue.resolution : null}
-                          onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
-                          disabled={issue.status !== "closed"}
-                          size="sm"
-                          placeholder="--"
-                        />
-                        {Boolean(issue.resolution_history_count && issue.resolution_history_count > 0) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIssueHistoryTab("all");
-                              setIsIssueHistoryOpen(true);
-                            }}
-                            className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
-                            title="クリックして完了理由の変更履歴を確認"
-                          >
-                            ({issue.resolution_history_count})
-                          </button>
-                        )}
-                      </div>
-
-                      {/* 担当者セレクター */}
-                      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 shadow-2xs max-w-[130px] sm:max-w-[160px]">
-                        <div
-                          style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
-                          className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[8px] font-bold shrink-0"
-                        >
-                          {getUserInitials(currentAssignee?.name)}
-                        </div>
-                        <select
-                          value={issue.assignee_id ? String(issue.assignee_id) : ""}
-                          onChange={(e) => handleQuickAssigneeChange(e.target.value)}
-                          className="bg-transparent text-xs font-medium text-slate-800 cursor-pointer focus:outline-hidden truncate w-full"
-                        >
-                          <option value="">未割当</option>
-                          {users.map((u) => (
-                            <option key={u.id} value={String(u.id)}>
-                              {u.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                          (履歴 · {issue.title_history_count}件)
+                        </button>
+                      )}
                     </div>
                   </div>
+
+                  {/* 全属性スリムツールバー */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs pt-0.5">
+                    {/* 状態セレクター */}
+                    <div className="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 font-bold shrink-0">状態:</span>
+                      <select
+                        value={issue.status}
+                        onChange={(e) => {
+                          const nextStatus = e.target.value as IssueStatus;
+                          if (nextStatus === "closed" && hasUnclosedChildren) {
+                            alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                            return;
+                          }
+                          handleQuickStatusChange(nextStatus);
+                        }}
+                        className="bg-transparent text-xs font-bold text-slate-800 cursor-pointer focus:outline-hidden"
+                      >
+                        <option value="open">未対応</option>
+                        <option value="in_progress">処理中</option>
+                        <option value="resolved">処理済み</option>
+                        <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
+                          完了{hasUnclosedChildren ? " (未完了あり)" : ""}
+                        </option>
+                      </select>
+                    </div>
+
+                    {/* 完了理由セレクター（完了時のみ活性） */}
+                    <div className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition-colors ${
+                      issue.status === "closed" ? "bg-slate-50 border border-slate-300 shadow-2xs" : "opacity-50"
+                    }`}>
+                      <span className="text-[10px] text-slate-500 font-medium shrink-0">完了理由:</span>
+                      <ResolutionSelect
+                        value={issue.status === "closed" ? issue.resolution : null}
+                        onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
+                        disabled={issue.status !== "closed"}
+                        size="sm"
+                        placeholder="--"
+                      />
+                      {Boolean(issue.resolution_history_count && issue.resolution_history_count > 0) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIssueHistoryTab("all");
+                            setIsIssueHistoryOpen(true);
+                          }}
+                          className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                          title="クリックして完了理由の変更履歴を確認"
+                        >
+                          ({issue.resolution_history_count})
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 担当者セレクター */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 shadow-2xs max-w-[130px] sm:max-w-[160px]">
+                      <div
+                        style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
+                        className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[8px] font-bold shrink-0"
+                      >
+                        {getUserInitials(currentAssignee?.name)}
+                      </div>
+                      <select
+                        value={issue.assignee_id ? String(issue.assignee_id) : ""}
+                        onChange={(e) => handleQuickAssigneeChange(e.target.value)}
+                        className="bg-transparent text-xs font-medium text-slate-800 cursor-pointer focus:outline-hidden truncate w-full"
+                      >
+                        <option value="">未割当</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={String(u.id)}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 優先度セレクター */}
+                    <div className="flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 font-bold shrink-0">優先度:</span>
+                      <select
+                        value={issue.priority}
+                        onChange={(e) => handleQuickPriorityChange(e.target.value as IssuePriority)}
+                        className={`bg-transparent text-xs font-bold cursor-pointer focus:outline-hidden ${
+                          issue.priority === "high"
+                            ? "text-rose-600"
+                            : issue.priority === "medium"
+                            ? "text-amber-600"
+                            : "text-slate-600"
+                        }`}
+                      >
+                        <option value="high">↑ 高</option>
+                        <option value="medium">→ 中</option>
+                        <option value="low">↓ 低</option>
+                      </select>
+                    </div>
+
+                    {/* 期限日（または期間） */}
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-[10px] text-slate-500 font-medium">期限:</span>
+                      <span
+                        className={`font-semibold ${
+                          issue.due_date && new Date(issue.due_date) < new Date() && issue.status !== "closed"
+                            ? "text-rose-600 font-bold"
+                            : "text-slate-800"
+                        }`}
+                        title={
+                          issue.start_date
+                            ? `開始: ${issue.start_date} 〜 期限: ${issue.due_date || "指定なし"}`
+                            : undefined
+                        }
+                      >
+                        {issue.start_date ? `${issue.start_date} 〜 ` : ""}
+                        {issue.due_date || "指定なし"}
+                      </span>
+                      {Boolean(
+                        (issue.due_date_history_count && issue.due_date_history_count > 0) ||
+                        (issue.start_date_history_count && issue.start_date_history_count > 0)
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIssueHistoryTab("dates");
+                            setIsIssueHistoryOpen(true);
+                          }}
+                          className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium ml-0.5"
+                          title="日程の変更履歴を確認"
+                        >
+                          (履歴{(issue.due_date_history_count || 0) + (issue.start_date_history_count || 0)}件)
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 登録日時 */}
+                    <div
+                      className="flex items-center gap-1 text-slate-500 text-[11px] px-1 py-1"
+                      title={`登録: ${formatTimestamp(issue.created_at, settings, true)}\n更新: ${formatTimestamp(issue.updated_at, settings, true)}`}
+                    >
+                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>登録: {formatTimestamp(issue.created_at, settings, true)}</span>
+                    </div>
+                  </div>
+
                   {hasUnclosedChildren && (
                     <span
                       className="text-[10px] text-amber-600 block mt-1 leading-tight"
@@ -812,251 +877,151 @@ export default function IssueDetailPage() {
 
             {/* 詳細コンテンツ */}
             <div className="p-6 space-y-6">
-              {/* 編集モード時のタイトル入力欄 */}
+              {/* 編集モード時のみタイトル・メタ情報を表示 */}
               {isEditing && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">件名 *</label>
-                  <input
-                    type="text"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-base font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                    placeholder="課題の件名を入力"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">件名 *</label>
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-base font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      placeholder="課題の件名を入力"
+                    />
+                  </div>
+
+                  {/* 編集モード時のメタ情報グリッド */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80 text-xs">
+                    {/* 状態 */}
+                    <div>
+                      <span className="block text-slate-500 mb-1 font-medium">状態</span>
+                      <select
+                        value={editStatus}
+                        onChange={(e) => {
+                          const nextSt = e.target.value as IssueStatus;
+                          setEditStatus(nextSt);
+                          if (nextSt !== "closed") {
+                            setEditResolution(null);
+                          }
+                        }}
+                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="open">未対応</option>
+                        <option value="in_progress">処理中</option>
+                        <option value="resolved">処理済み</option>
+                        <option value="closed">完了</option>
+                      </select>
+                    </div>
+
+                    {/* 完了理由 */}
+                    <div>
+                      <div className="flex items-center gap-1 mb-1">
+                        <span className="text-slate-500 font-medium">完了理由</span>
+                        {editStatus !== "closed" && (
+                          <span className="text-[9px] text-slate-400 font-normal">
+                            (完了時のみ)
+                          </span>
+                        )}
+                      </div>
+                      <ResolutionSelect
+                        value={editStatus === "closed" ? editResolution : null}
+                        onChange={(nextRes) => setEditResolution(nextRes)}
+                        disabled={editStatus !== "closed"}
+                        placeholder="-- （未設定）"
+                      />
+                    </div>
+
+                    {/* 優先度 */}
+                    <div>
+                      <span className="block text-slate-500 mb-1 font-medium">優先度</span>
+                      <select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value as IssuePriority)}
+                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="high">高</option>
+                        <option value="medium">中</option>
+                        <option value="low">低</option>
+                      </select>
+                    </div>
+
+                    {/* 担当者 */}
+                    <div>
+                      <span className="block text-slate-500 mb-1 font-medium">担当者</span>
+                      <select
+                        value={editAssigneeId}
+                        onChange={(e) => setEditAssigneeId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">未割当</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={String(u.id)}>
+                            {u.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* 種別 */}
+                    <div>
+                      <span className="block text-slate-500 mb-1 font-medium">種別</span>
+                      <select
+                        value={editType}
+                        onChange={(e) => setEditType(e.target.value as IssueType)}
+                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="task">タスク</option>
+                        <option value="bug">バグ</option>
+                        <option value="request">要望</option>
+                        <option value="other">その他</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 日程＆親課題設定 */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 pb-4 text-xs">
+                    {/* 開始日 */}
+                    <div>
+                      <span className="text-slate-500 font-medium block mb-1">開始日</span>
+                      <DatePicker
+                        value={editStartDate}
+                        onChange={(val) => setEditStartDate(val || "")}
+                        placeholder="開始日を選択"
+                      />
+                    </div>
+
+                    {/* 期限日 */}
+                    <div>
+                      <span className="text-slate-500 font-medium block mb-1">期限日</span>
+                      <DatePicker
+                        value={editDueDate}
+                        onChange={(val) => setEditDueDate(val || "")}
+                        placeholder="期限日を選択"
+                      />
+                    </div>
+
+                    {/* 親課題 */}
+                    <div>
+                      <span className="block text-slate-500 mb-1 font-medium">親課題</span>
+                      <select
+                        value={editParentId}
+                        onChange={(e) => setEditParentId(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">親課題なし</option>
+                        {availableParents.map((p) => (
+                          <option key={p.id} value={String(p.id)}>
+                            [{p.issue_key}] {p.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </>
               )}
 
-              {/* メタ情報グリッド */}
-              {isEditing ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80 text-xs">
-                  {/* 状態 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">状態</span>
-                    <select
-                      value={editStatus}
-                      onChange={(e) => {
-                        const nextSt = e.target.value as IssueStatus;
-                        setEditStatus(nextSt);
-                        if (nextSt !== "closed") {
-                          setEditResolution(null);
-                        }
-                      }}
-                      className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="open">未対応</option>
-                      <option value="in_progress">処理中</option>
-                      <option value="resolved">処理済み</option>
-                      <option value="closed">完了</option>
-                    </select>
-                  </div>
-
-                  {/* 完了理由 */}
-                  <div>
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="text-slate-500 font-medium">完了理由</span>
-                      {editStatus !== "closed" && (
-                        <span className="text-[9px] text-slate-400 font-normal">
-                          (完了時のみ)
-                        </span>
-                      )}
-                    </div>
-                    <ResolutionSelect
-                      value={editStatus === "closed" ? editResolution : null}
-                      onChange={(nextRes) => setEditResolution(nextRes)}
-                      disabled={editStatus !== "closed"}
-                      placeholder="-- （未設定）"
-                    />
-                  </div>
-
-                  {/* 優先度 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">優先度</span>
-                    <select
-                      value={editPriority}
-                      onChange={(e) => setEditPriority(e.target.value as IssuePriority)}
-                      className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="high">高</option>
-                      <option value="medium">中</option>
-                      <option value="low">低</option>
-                    </select>
-                  </div>
-
-                  {/* 担当者 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">担当者</span>
-                    <select
-                      value={editAssigneeId}
-                      onChange={(e) => setEditAssigneeId(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">未割当</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={String(u.id)}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* 種別 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">種別</span>
-                    <select
-                      value={editType}
-                      onChange={(e) => setEditType(e.target.value as IssueType)}
-                      className="w-full bg-white border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="task">タスク</option>
-                      <option value="bug">バグ</option>
-                      <option value="request">要望</option>
-                      <option value="other">その他</option>
-                    </select>
-                  </div>
-                </div>
-              ) : (
-                /* 非編集時のサブ属性グリッド（優先度など）※件名・状態・完了理由・担当者は上部ヘッダーに常時固定 */
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200/80 text-xs">
-                  {/* 優先度即時変更 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">優先度</span>
-                    <select
-                      value={issue.priority}
-                      onChange={(e) => handleQuickPriorityChange(e.target.value as IssuePriority)}
-                      className={`w-full border rounded px-2 py-1 font-semibold text-xs cursor-pointer focus:ring-1 focus:ring-indigo-500 transition-colors ${
-                        issue.priority === "high"
-                          ? "text-rose-600 border-rose-300 bg-rose-50/80"
-                          : issue.priority === "medium"
-                          ? "text-amber-600 border-amber-300 bg-amber-50/80"
-                          : "text-slate-600 border-slate-300 bg-slate-50/80"
-                      }`}
-                    >
-                      <option value="high">↑ 高</option>
-                      <option value="medium">→ 中</option>
-                      <option value="low">↓ 低</option>
-                    </select>
-                  </div>
-                  {/* 作成者 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">登録者</span>
-                    <span className="text-slate-800 font-medium">
-                      {users.find((u) => u.id === issue.created_by)?.name || "不明"}
-                    </span>
-                  </div>
-                  {/* 作成日時 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">登録日時</span>
-                    <span className="text-slate-700">
-                      {issue.created_at ? formatTimestamp(issue.created_at) : "--"}
-                    </span>
-                  </div>
-                  {/* 更新日時 */}
-                  <div>
-                    <span className="block text-slate-500 mb-1 font-medium">更新日時</span>
-                    <span className="text-slate-700">
-                      {issue.updated_at ? formatTimestamp(issue.updated_at) : "--"}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* 日程＆親課題設定 */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b border-slate-100 pb-4 text-xs">
-                {/* 開始日 */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-slate-500 font-medium">開始日</span>
-                    {Boolean(issue.start_date_history_count && issue.start_date_history_count > 0) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIssueHistoryTab("dates");
-                          setIsIssueHistoryOpen(true);
-                        }}
-                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
-                        title="クリックして開始日の変更履歴を確認"
-                      >
-                        (履歴{issue.start_date_history_count}件)
-                      </button>
-                    )}
-                  </div>
-                  {isEditing ? (
-                    <DatePicker
-                      value={editStartDate}
-                      onChange={(val) => setEditStartDate(val || "")}
-                      placeholder="開始日を選択"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-slate-700 py-1">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{issue.start_date || "未設定"}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 期限日 */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-slate-500 font-medium">期限日</span>
-                    {Boolean(issue.due_date_history_count && issue.due_date_history_count > 0) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIssueHistoryTab("dates");
-                          setIsIssueHistoryOpen(true);
-                        }}
-                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
-                        title="クリックして期限日の変更履歴（延期履歴）を確認"
-                      >
-                        (履歴{issue.due_date_history_count}件)
-                      </button>
-                    )}
-                  </div>
-                  {isEditing ? (
-                    <DatePicker
-                      value={editDueDate}
-                      onChange={(val) => setEditDueDate(val || "")}
-                      placeholder="期限日を選択"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-slate-700 py-1">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{issue.due_date || "未設定"}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* 親課題 */}
-                <div>
-                  <span className="block text-slate-500 mb-1 font-medium">親課題</span>
-                  {isEditing ? (
-                    <select
-                      value={editParentId}
-                      onChange={(e) => setEditParentId(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">親課題なし</option>
-                      {availableParents.map((p) => (
-                        <option key={p.id} value={String(p.id)}>
-                          [{p.issue_key}] {p.title}
-                        </option>
-                      ))}
-                    </select>
-                  ) : issue.parent_issue_key ? (
-                    <Link
-                      href={`/issues/${issue.parent_issue_key}`}
-                      className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-medium py-1"
-                    >
-                      <GitBranch className="w-3.5 h-3.5" />
-                      <span>[{issue.parent_issue_key}] {issue.parent_title}</span>
-                    </Link>
-                  ) : (
-                    <span className="text-slate-400 py-1 block">なし</span>
-                  )}
-                </div>
-              </div>
-
-              {/* 詳細説明 */}
+              {/* 詳細説明（属性は上部固定ヘッダーに集約） */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
