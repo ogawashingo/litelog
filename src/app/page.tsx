@@ -13,7 +13,7 @@ import IssueDetailModal from "@/components/IssueDetailModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
-import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType, IssueResolution } from "@/types";
+import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType } from "@/types";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 function DashboardContent() {
@@ -211,27 +211,6 @@ function DashboardContent() {
     }
   };
 
-  // 課題の完了理由即時変更
-  const handleUpdateResolution = async (issueId: number, newResolution: IssueResolution | null) => {
-    try {
-      // 楽観的UI更新
-      setIssues((prev) =>
-        prev.map((i) => (i.id === issueId ? { ...i, resolution: newResolution } : i))
-      );
-      const res = await fetch(`/api/issues/${issueId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolution: newResolution, actorId: currentUser?.id || null }),
-      });
-      if (res.ok) {
-        await refreshAll();
-      }
-    } catch (err) {
-      console.error("完了理由変更エラー:", err);
-      fetchIssues();
-    }
-  };
-
   // 課題の期限日即時変更
   const handleUpdateDueDate = async (issueId: number, newDueDate: string | null) => {
     try {
@@ -339,7 +318,6 @@ function DashboardContent() {
             onUpdateStatus={handleUpdateStatus}
             onUpdateAssignee={handleUpdateAssignee}
             onUpdatePriority={handleUpdatePriority}
-            onUpdateResolution={handleUpdateResolution}
             onUpdateDueDate={handleUpdateDueDate}
             onDeleteIssue={handleDeleteIssue}
           />
