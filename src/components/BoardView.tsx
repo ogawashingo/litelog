@@ -13,11 +13,10 @@ import {
   CornerDownRight,
   Paperclip,
 } from "lucide-react";
-import { Project, Issue, IssueStatus, IssueType, IssuePriority, IssueResolution } from "@/types";
+import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
-import CompleteIssueModal from "./CompleteIssueModal";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
@@ -26,7 +25,7 @@ interface BoardViewProps {
   projects: Project[];
   currentProject: Project | null;
   issues: Issue[];
-  onUpdateStatus: (issueId: number, newStatus: IssueStatus, resolution?: IssueResolution | null) => Promise<void>;
+  onUpdateStatus: (issueId: number, newStatus: IssueStatus) => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectProjectKey?: (key: string) => void;
 }
@@ -86,8 +85,6 @@ export default function BoardView({
   const [filterPriority, setFilterPriority] = useState<IssuePriority | "all">("all");
   const [filterRelation, setFilterRelation] = useState<"all" | "parent" | "child" | "standalone">("all");
   const [showClosed, setShowClosed] = useState(true);
-  // 完了理由選択ダイアログ対象
-  const [pendingCloseIssue, setPendingCloseIssue] = useState<Issue | null>(null);
 
   // 全課題における親・子の関連マップを事前構築
   const { parentMap, childrenMap } = useMemo(() => {
@@ -169,10 +166,6 @@ export default function BoardView({
         setDraggingIssueId(null);
         return;
       }
-      setDraggingIssueId(null);
-      // 完了理由選択ダイアログを開く
-      setPendingCloseIssue(targetIssue);
-      return;
     }
 
     setDraggingIssueId(null);
@@ -680,20 +673,6 @@ export default function BoardView({
           setDetailIssue(null);
         }}
         onSelectIssue={(issue) => setDetailIssue(issue)}
-      />
-
-      {/* 完了理由選択ダイアログ */}
-      <CompleteIssueModal
-        isOpen={Boolean(pendingCloseIssue)}
-        issueKey={pendingCloseIssue?.issue_key || ""}
-        issueTitle={pendingCloseIssue?.title || ""}
-        onClose={() => setPendingCloseIssue(null)}
-        onConfirm={async (resolution) => {
-          if (!pendingCloseIssue) return;
-          const target = pendingCloseIssue;
-          setPendingCloseIssue(null);
-          await onUpdateStatus(target.id, "closed", resolution);
-        }}
       />
     </div>
   );

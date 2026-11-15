@@ -16,7 +16,6 @@ import IssueHistoryModal from "./IssueHistoryModal";
 import NotifyUserSelector from "./NotifyUserSelector";
 import CommentReactionBar from "./CommentReactionBar";
 import ResolutionSelect from "./ResolutionSelect";
-import CompleteIssueModal from "./CompleteIssueModal";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -57,8 +56,6 @@ export default function IssueDetailModal({
   const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "dates" | "all">("description");
   const [isEditing, setIsEditing] = useState(false);
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
-  // 完了理由選択モーダル
-  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
 
   // 子課題クイック追加State
   const [isAddingChild, setIsAddingChild] = useState(false);
@@ -454,51 +451,6 @@ export default function IssueDetailModal({
         prev
           ? { ...prev, status: previousStatus, resolution: previousResolution }
           : null
-      );
-      setEditStatus(previousStatus);
-      setEditResolution(previousResolution);
-    }
-  };
-
-  // 完了理由付きで即時完了（ダイアログからの呼び出し）
-  const handleQuickCompleteWithResolution = async (resolution: IssueResolution | null) => {
-    setIsCompleteModalOpen(false);
-    const previousStatus = activeIssue.status;
-    const previousResolution = activeIssue.resolution ?? null;
-    try {
-      setCurrentIssue((prev) =>
-        prev ? { ...prev, status: "closed", resolution } : null
-      );
-      setEditStatus("closed");
-      setEditResolution(resolution);
-      const res = await fetch(`/api/issues/${issue.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "closed",
-          resolution,
-          actorId: currentUser?.id || null,
-        }),
-      });
-      if (res.ok) {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
-        }
-        await refreshUsers();
-        onUpdated();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || "完了処理に失敗しました");
-        setCurrentIssue((prev) =>
-          prev ? { ...prev, status: previousStatus, resolution: previousResolution } : null
-        );
-        setEditStatus(previousStatus);
-        setEditResolution(previousResolution);
-      }
-    } catch (err) {
-      console.error("完了処理エラー:", err);
-      setCurrentIssue((prev) =>
-        prev ? { ...prev, status: previousStatus, resolution: previousResolution } : null
       );
       setEditStatus(previousStatus);
       setEditResolution(previousResolution);
@@ -942,34 +894,14 @@ export default function IssueDetailModal({
             </button>
 
             {!isEditing ? (
-              <>
-                {/* 未完了の場合はクイック完了ボタンを表示 */}
-                {activeIssue.status !== "closed" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (hasUnclosedChildren) {
-                        alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-                        return;
-                      }
-                      setIsCompleteModalOpen(true);
-                    }}
-                    className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer"
-                    title="課題を完了にする（完了理由を選択）"
-                  >
-                    <Check className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />
-                    <span>完了にする</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  <Edit2 className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden sm:inline">編集</span>
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">編集</span>
+              </button>
             ) : (
               <button
                 type="button"
@@ -1258,12 +1190,8 @@ export default function IssueDetailModal({
                     value={activeIssue.status}
                     onChange={(e) => {
                       const nextStatus = e.target.value as IssueStatus;
-                      if (nextStatus === "closed") {
-                        if (hasUnclosedChildren) {
-                          alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-                          return;
-                        }
-                        setIsCompleteModalOpen(true);
+                      if (nextStatus === "closed" && hasUnclosedChildren) {
+                        alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
                         return;
                       }
                       handleQuickStatusChange(nextStatus);
@@ -2026,15 +1954,6 @@ export default function IssueDetailModal({
         initialTab={issueHistoryTab}
         settings={settings}
         users={users}
-      />
-
-      {/* 完了理由選択モーダル */}
-      <CompleteIssueModal
-        isOpen={isCompleteModalOpen}
-        issueKey={activeIssue.issue_key}
-        issueTitle={activeIssue.title}
-        onClose={() => setIsCompleteModalOpen(false)}
-        onConfirm={handleQuickCompleteWithResolution}
       />
     </div>
   );
