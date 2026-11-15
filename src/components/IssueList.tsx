@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip } from "lucide-react";
-import { Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
+import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -22,6 +22,7 @@ interface IssueListProps {
   onUpdateStatus: (issueId: number, status: IssueStatus) => void;
   onUpdateAssignee?: (issueId: number, assigneeId: number | null) => void;
   onUpdatePriority?: (issueId: number, priority: IssuePriority) => void;
+  onUpdateResolution?: (issueId: number, resolution: IssueResolution | null) => void;
   onUpdateDueDate?: (issueId: number, dueDate: string | null) => void;
   onDeleteIssue: (issueId: number) => void;
 }
@@ -35,6 +36,7 @@ export default function IssueList({
   onUpdateStatus,
   onUpdateAssignee,
   onUpdatePriority,
+  onUpdateResolution,
   onUpdateDueDate,
   onDeleteIssue,
 }: IssueListProps) {
@@ -44,6 +46,7 @@ export default function IssueList({
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all"); // "all" | "me" | "unassigned" | userId文字列
   const [typeFilter, setTypeFilter] = useState<IssueType | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "all">("all");
+  const [resolutionFilter, setResolutionFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"due" | "updated" | "priority">("due");
   // 親子階層表示（ツリー構造）フラグ（デフォルトON）
   const [withParentRelation, setWithParentRelation] = useState<boolean>(true);
@@ -124,6 +127,14 @@ export default function IssueList({
     // 優先度フィルター
     if (priorityFilter !== "all" && issue.priority !== priorityFilter) {
       return false;
+    }
+    // 完了理由フィルター（完了課題が表示されている時のみ有効）
+    if (isShowingClosed && resolutionFilter !== "all") {
+      if (resolutionFilter === "unspecified") {
+        if (issue.resolution) return false;
+      } else {
+        if (issue.resolution !== resolutionFilter) return false;
+      }
     }
     // キーワード検索（件名、キー、詳細、担当者名）
     if (searchQuery.trim()) {
@@ -329,6 +340,23 @@ export default function IssueList({
             <option value="low">優先度: 低</option>
           </select>
 
+          {/* 完了理由フィルター（完了課題が表示されている時のみ表示） */}
+          {isShowingClosed && (
+            <select
+              value={resolutionFilter}
+              onChange={(e) => setResolutionFilter(e.target.value)}
+              className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 animate-fadeIn"
+            >
+              <option value="all">完了理由: すべて</option>
+              <option value="unspecified">完了理由: 未設定</option>
+              <option value="fixed">完了理由: 対応済み</option>
+              <option value="wont_fix">完了理由: 対応しない</option>
+              <option value="invalid">完了理由: 無効</option>
+              <option value="duplicated">完了理由: 重複</option>
+              <option value="cannot_reproduce">完了理由: 再現しない</option>
+            </select>
+          )}
+
           {/* ソート順 */}
           <select
             value={sortBy}
@@ -397,6 +425,9 @@ export default function IssueList({
               <th className="py-2.5 px-3 min-w-[240px]">件名</th>
               <th className="py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
               <th className="py-2.5 px-3 w-28 whitespace-nowrap">状態</th>
+              {isShowingClosed && (
+                <th className="py-2.5 px-3 w-28 whitespace-nowrap">完了理由</th>
+              )}
               <th className="py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
               <th className="py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
               <th className="py-2.5 px-2 w-10 text-center"></th>
@@ -405,7 +436,7 @@ export default function IssueList({
           <tbody className="divide-y divide-slate-100">
             {displayedIssues.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-slate-400">
+                <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Filter className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-medium">該当する課題が見つかりません</p>
@@ -636,6 +667,49 @@ export default function IssueList({
                         </option>
                       </select>
                     </td>
+
+                    {/* 完了理由（完了課題が表示されている時のみ列を表示） */}
+                    {isShowingClosed && (
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <select
+                          value={issue.resolution || ""}
+                          onChange={async (e) => {
+                            const nextVal = e.target.value ? (e.target.value as IssueResolution) : null;
+                            if (onUpdateResolution) {
+                              onUpdateResolution(issue.id, nextVal);
+                            } else {
+                              await fetch(`/api/issues/${issue.id}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ resolution: nextVal }),
+                              });
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`text-xs font-medium rounded px-2 py-0.5 border cursor-pointer transition-colors focus:outline-hidden focus:ring-1 focus:ring-emerald-500 ${
+                            issue.resolution === "fixed"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                              : issue.resolution === "wont_fix"
+                              ? "bg-stone-50 text-stone-600 border-stone-300"
+                              : issue.resolution === "invalid"
+                              ? "bg-zinc-100 text-zinc-600 border-zinc-300"
+                              : issue.resolution === "duplicated"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-300"
+                              : issue.resolution === "cannot_reproduce"
+                              ? "bg-amber-50 text-amber-700 border-amber-300"
+                              : "bg-slate-50 text-slate-400 border-slate-200"
+                          }`}
+                          title={`完了理由: ${issue.resolution || "未設定"}`}
+                        >
+                          <option value="">--</option>
+                          <option value="fixed">対応済み</option>
+                          <option value="wont_fix">対応しない</option>
+                          <option value="invalid">無効</option>
+                          <option value="duplicated">重複</option>
+                          <option value="cannot_reproduce">再現しない</option>
+                        </select>
+                      </td>
+                    )}
 
                     {/* 優先度（セレクトボックスで直接変更可能） */}
                     <td className="py-3 px-3 whitespace-nowrap text-center">
