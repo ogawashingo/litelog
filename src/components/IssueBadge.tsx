@@ -3,7 +3,7 @@
 
 import React from "react";
 import { CheckSquare, Bug, Sparkles, HelpCircle, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
-import { IssueType, IssueStatus, IssuePriority } from "@/types";
+import { IssueType, IssueStatus, IssuePriority, IssueResolution } from "@/types";
 
 // 種別情報マッピング（オリジナル・コズミックカラーパレット）
 export const ISSUE_TYPE_CONFIG: Record<
@@ -131,6 +131,64 @@ export function PriorityBadge({ priority }: { priority: IssuePriority }) {
   return (
     <span className={`inline-flex items-center gap-0.5 text-xs ${config.text}`}>
       <Icon className="w-3.5 h-3.5" />
+      {config.label}
+    </span>
+  );
+}
+
+// 完了理由情報マッピング（本家Backlogライクな落ち着いたタグデザイン）
+export const ISSUE_RESOLUTION_CONFIG: Record<
+  IssueResolution,
+  { label: string; bg: string; text: string; border: string }
+> = {
+  fixed: {
+    label: "対応済み",
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-300",
+  },
+  wont_fix: {
+    label: "対応しない",
+    bg: "bg-stone-50",
+    text: "text-stone-600",
+    border: "border-stone-300",
+  },
+  invalid: {
+    label: "無効",
+    bg: "bg-zinc-100",
+    text: "text-zinc-600",
+    border: "border-zinc-300",
+  },
+  duplicated: {
+    label: "重複",
+    bg: "bg-indigo-50",
+    text: "text-indigo-700",
+    border: "border-indigo-300",
+  },
+  cannot_reproduce: {
+    label: "再現しない",
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-300",
+  },
+};
+
+// 完了理由バッジ
+export function ResolutionBadge({
+  resolution,
+  className = "",
+}: {
+  resolution?: IssueResolution | null;
+  className?: string;
+}) {
+  if (!resolution) return null;
+  const config = ISSUE_RESOLUTION_CONFIG[resolution];
+  if (!config) return null;
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${config.bg} ${config.text} ${config.border} ${className}`}
+      title={`完了理由: ${config.label}`}
+    >
       {config.label}
     </span>
   );

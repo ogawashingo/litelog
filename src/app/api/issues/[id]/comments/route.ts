@@ -1,6 +1,6 @@
 // 課題コメントAPI
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, attachReactionsToComments } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createCommentNotifications } from "@/lib/notificationUtils";
 
@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
     }
 
-    const comments = db.prepare(`
+    const rawComments = db.prepare(`
       SELECT 
         c.*,
         (SELECT COUNT(*) FROM comment_histories ch WHERE ch.comment_id = c.id) AS history_count,
@@ -33,7 +33,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.issue_id = ?
       ORDER BY c.created_at ASC
-    `).all(issue.id);
+    `).all(issue.id) as { id: number }[];
+    const comments = attachReactionsToComments(db, rawComments);
     return NextResponse.json(comments);
   } catch (error) {
     console.error("コメント取得エラー:", error);
@@ -102,11 +103,11 @@ export async function POST(request: Request, { params }: RouteParams) {
       // 課題の updated_at を更新
       db.prepare("UPDATE issues SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(issueId);
 
-      // アクティビティに記録（実際のコメント内容を保存）
+      // アクティビティに記録（コメントIDと実際のコメント内容を保存）
       db.prepare(`
-        INSERT INTO activities (issue_id, user_id, action_type, content)
-        VALUES (?, ?, 'commented', ?)
-      `).run(issueId, resolvedUserId, cleanContent);
+        INSERT INTO activities (issue_id, comment_id, user_id, action_type, content)
+        VALUES (?, ?, ?, 'commented', ?)
+      `).run(issueId, commentId, resolvedUserId, cleanContent);
 
       // コメント通知の一括作成（@メンション・通知先チェックボックス・課題の作成者/担当者への自動通知）
       createCommentNotifications(db, {
@@ -134,8 +135,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       FROM comments c
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.id = ?
-    `).get(commentId);
-    return NextResponse.json(created, { status: 201 });
+    `).get(commentId) as Record<string, unknown> | undefined;
+    return NextResponse.json({ ...created, reactions: [] }, { status: 201 });
   } catch (error) {
     console.error("コメント投稿エラー:", error);
     return NextResponse.json({ error: "コメントの投稿に失敗しました" }, { status: 500 });

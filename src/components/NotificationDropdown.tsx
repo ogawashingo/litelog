@@ -276,6 +276,10 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
                           <span className="font-semibold text-violet-700">
                             あなたを通知先に指定しました
                           </span>
+                        ) : n.type === "reaction" ? (
+                          <span className="font-semibold text-pink-600">
+                            あなたのコメントにスタンプを押しました
+                          </span>
                         ) : (
                           <span className="font-semibold text-indigo-700">
                             あなたをメンションしました

@@ -135,6 +135,7 @@ function initDb(db: DatabaseSync) {
       issue_type TEXT NOT NULL DEFAULT 'task',
       status TEXT NOT NULL DEFAULT 'open',
       priority TEXT NOT NULL DEFAULT 'medium',
+      resolution TEXT,
       start_date TEXT,
       due_date TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -160,6 +161,10 @@ function initDb(db: DatabaseSync) {
     const hasCreatedBy = tableInfo.some((col) => col.name === "created_by");
     if (!hasCreatedBy) {
       db.exec("ALTER TABLE issues ADD COLUMN created_by INTEGER REFERENCES users(id) ON DELETE SET NULL;");
+    }
+    const hasResolution = tableInfo.some((col) => col.name === "resolution");
+    if (!hasResolution) {
+      db.exec("ALTER TABLE issues ADD COLUMN resolution TEXT;");
     }
   } catch (migErr) {
     console.error("issues テーブルのカラムマイグレーション確認エラー:", migErr);
@@ -201,6 +206,19 @@ function initDb(db: DatabaseSync) {
     );
   `);
 
+  // コメントリアクション（スタンプ）テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS comment_reactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      stamp TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(comment_id, user_id, stamp)
+    );
+    CREATE INDEX IF NOT EXISTS idx_comment_reactions_comment_id ON comment_reactions(comment_id);
+  `);
+
   // 課題変更履歴テーブル（タイトル・詳細説明等の過去バージョン保持）
   db.exec(`
     CREATE TABLE IF NOT EXISTS issue_histories (
@@ -218,6 +236,7 @@ function initDb(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS activities (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       issue_id INTEGER REFERENCES issues(id) ON DELETE CASCADE,
+      comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       action_type TEXT NOT NULL,
       content TEXT NOT NULL,
@@ -231,6 +250,22 @@ function initDb(db: DatabaseSync) {
     if (!activityCols.some((col) => col.name === "user_id")) {
       db.exec("ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;");
     }
+    if (!activityCols.some((col) => col.name === "comment_id")) {
+      db.exec("ALTER TABLE activities ADD COLUMN comment_id INTEGER REFERENCES comments(id) ON DELETE CASCADE;");
+    }
+
+    // 既存のコメントアクティビティで comment_id が未設定のものに該当するコメントIDを自動補完
+    db.exec(`
+      UPDATE activities
+      SET comment_id = (
+        SELECT c.id FROM comments c
+        WHERE c.issue_id = activities.issue_id
+          AND c.content = activities.content
+        ORDER BY ABS(strftime('%s', c.created_at) - strftime('%s', activities.created_at)) ASC
+        LIMIT 1
+      )
+      WHERE action_type = 'commented' AND comment_id IS NULL;
+    `);
   } catch (migErr) {
     console.error("activities テーブルのカラムマイグレーション確認エラー:", migErr);
   }
@@ -291,6 +326,7 @@ function initDb(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_issues_project_status_updated ON issues(project_id, status, updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_issues_assignee_id ON issues(assignee_id);
     CREATE INDEX IF NOT EXISTS idx_issues_parent_id ON issues(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_issues_resolution ON issues(resolution);
     CREATE INDEX IF NOT EXISTS idx_issue_histories_issue_id ON issue_histories(issue_id);
     CREATE INDEX IF NOT EXISTS idx_comments_issue_id ON comments(issue_id);
     CREATE INDEX IF NOT EXISTS idx_comment_histories_comment_id ON comment_histories(comment_id);
@@ -476,4 +512,65 @@ function initDb(db: DatabaseSync) {
       );
     }
   }
+}
+
+// 単一コメントのリアクション一覧を取得
+export function getCommentReactions(db: DatabaseSync, commentId: number) {
+  return db.prepare(`
+    SELECT
+      cr.id,
+      cr.comment_id,
+      cr.user_id,
+      cr.stamp,
+      cr.created_at,
+      u.name AS user_name,
+      u.color AS user_color
+    FROM comment_reactions cr
+    LEFT JOIN users u ON cr.user_id = u.id
+    WHERE cr.comment_id = ?
+    ORDER BY cr.created_at ASC, cr.id ASC
+  `).all(commentId);
+}
+
+// コメント配列にリアクション一覧（reactions）を一括付与して返す
+export function attachReactionsToComments<T extends { id: number }>(
+  db: DatabaseSync,
+  comments: T[]
+): (T & { reactions: unknown[] })[] {
+  if (!comments || comments.length === 0) return [];
+  const commentIds = comments.map((c) => Number(c.id)).filter(Boolean);
+  if (commentIds.length === 0) {
+    return comments.map((c) => ({ ...c, reactions: [] }));
+  }
+
+  const placeholders = commentIds.map(() => "?").join(",");
+  const allReactions = db
+    .prepare(`
+      SELECT
+        cr.id,
+        cr.comment_id,
+        cr.user_id,
+        cr.stamp,
+        cr.created_at,
+        u.name AS user_name,
+        u.color AS user_color
+      FROM comment_reactions cr
+      LEFT JOIN users u ON cr.user_id = u.id
+      WHERE cr.comment_id IN (${placeholders})
+      ORDER BY cr.created_at ASC, cr.id ASC
+    `)
+    .all(...commentIds) as { comment_id: number }[];
+
+  const mapByCommentId = new Map<number, unknown[]>();
+  for (const r of allReactions) {
+    const cid = Number(r.comment_id);
+    const list = mapByCommentId.get(cid) || [];
+    list.push(r);
+    mapByCommentId.set(cid, list);
+  }
+
+  return comments.map((c) => ({
+    ...c,
+    reactions: mapByCommentId.get(Number(c.id)) || [],
+  }));
 }

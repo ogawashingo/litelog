@@ -1777,6 +1777,77 @@ async function runTests() {
   db.prepare("DELETE FROM issues WHERE id = ?").run(actIssueId);
   console.log("✓ アクティビティ（最近の更新）とコメントID・スタンプ連携の検証成功");
 
+  // 13. プロジェクト横断 全体キーワード検索（タイトル・本文・コメント・プロジェクト結合）の検証
+  const searchPrj1Res = db.prepare("INSERT INTO projects (name, key, color) VALUES ('横断テストPJ1', 'SRCH1', '#3b82f6')").run();
+  const searchPrj1Id = Number(searchPrj1Res.lastInsertRowid);
+  const searchPrj2Res = db.prepare("INSERT INTO projects (name, key, color) VALUES ('横断テストPJ2', 'SRCH2', '#10b981')").run();
+  const searchPrj2Id = Number(searchPrj2Res.lastInsertRowid);
+
+  // PJ1: タイトルに「Dependabot」を含む課題
+  const sIssue1Res = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, 'SRCH1-1', 1, 'Dependabotの脆弱性アラート対応', 'ライブラリの更新を行う', 'task', 'open', 'high')
+  `).run(searchPrj1Id, userYamada.id, userYamada.id);
+  const sIssue1Id = Number(sIssue1Res.lastInsertRowid);
+
+  // PJ2: 詳細説明に「Next.js」を含む課題
+  const sIssue2Res = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, 'SRCH2-1', 1, 'Webフロントエンドの刷新', 'Next.js 15 へのメジャーバージョンアップ対応', 'task', 'in_progress', 'medium')
+  `).run(searchPrj2Id, userSato.id, userYamada.id);
+  const sIssue2Id = Number(sIssue2Res.lastInsertRowid);
+
+  // PJ2: コメントに「Dependabot」を含む課題
+  const sIssue3Res = db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority)
+    VALUES (?, ?, ?, 'SRCH2-2', 2, '定期セキュリティチェック', '各種チェック', 'task', 'closed', 'low')
+  `).run(searchPrj2Id, userSato.id, userYamada.id);
+  const sIssue3Id = Number(sIssue3Res.lastInsertRowid);
+
+  db.prepare(`
+    INSERT INTO comments (issue_id, user_id, content)
+    VALUES (?, ?, 'Dependabotによる週次PRを確認してマージ完了しました')
+  `).run(sIssue3Id, userSato.id);
+
+  // 横断検索クエリ（api/issues/route.ts の実装と同一のSQLロジック）
+  const querySearchSql = `
+    SELECT i.*, p.name AS project_name, p.key AS project_key, p.color AS project_color
+    FROM issues i
+    JOIN projects p ON i.project_id = p.id
+    WHERE (
+      i.title LIKE ? 
+      OR i.issue_key LIKE ? 
+      OR i.description LIKE ? 
+      OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = i.id AND c.content LIKE ?)
+    )
+    ORDER BY i.id ASC
+  `;
+
+  // 検証1: 「Dependabot」で検索 -> PJ1のSRCH1-1 (タイトル一致) と PJ2のSRCH2-2 (コメント一致) の2件がヒットすること
+  const patternDep = "%Dependabot%";
+  const depResults = db.prepare(querySearchSql).all(patternDep, patternDep, patternDep, patternDep);
+  if (depResults.length !== 2) {
+    throw new Error(`「Dependabot」横断検索件数不一致: 期待=2, 実際=${depResults.length}`);
+  }
+  if (!depResults.some((r) => r.issue_key === "SRCH1-1" && r.project_key === "SRCH1")) {
+    throw new Error("「Dependabot」検索でSRCH1-1（タイトル一致＆project_key結合）が取得できませんでした");
+  }
+  if (!depResults.some((r) => r.issue_key === "SRCH2-2" && r.project_key === "SRCH2")) {
+    throw new Error("「Dependabot」検索でSRCH2-2（コメント一致＆project_key結合）が取得できませんでした");
+  }
+
+  // 検証2: 「Next.js」で検索 -> PJ2のSRCH2-1 (詳細説明一致) がヒットすること
+  const patternNext = "%Next.js%";
+  const nextResults = db.prepare(querySearchSql).all(patternNext, patternNext, patternNext, patternNext);
+  if (nextResults.length !== 1 || nextResults[0].issue_key !== "SRCH2-1") {
+    throw new Error(`「Next.js」横断検索失敗: ${JSON.stringify(nextResults)}`);
+  }
+
+  // クリーンアップ
+  db.prepare("DELETE FROM issues WHERE id IN (?, ?, ?)").run(sIssue1Id, sIssue2Id, sIssue3Id);
+  db.prepare("DELETE FROM projects WHERE id IN (?, ?)").run(searchPrj1Id, searchPrj2Id);
+  console.log("✓ プロジェクト横断 全体キーワード検索（タイトル・本文・コメント・プロジェクト結合）の検証成功");
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

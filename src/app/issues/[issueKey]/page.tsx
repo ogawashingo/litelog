@@ -25,16 +25,18 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import CommentHistoryModal from "@/components/CommentHistoryModal";
 import IssueHistoryModal from "@/components/IssueHistoryModal";
-import { TypeBadge, StatusBadge, PriorityBadge } from "@/components/IssueBadge";
+import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "@/components/IssueBadge";
 import { DatePicker } from "@/components/DatePicker";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, Project } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project } from "@/types";
 import { setStoredProjectId } from "@/lib/projectStorage";
 import MentionTextarea from "@/components/MentionTextarea";
 import MentionText from "@/components/MentionText";
 import NotifyUserSelector from "@/components/NotifyUserSelector";
+import CommentReactionBar from "@/components/CommentReactionBar";
+import ResolutionSelect from "@/components/ResolutionSelect";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -68,6 +70,7 @@ export default function IssueDetailPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState<IssueStatus>("open");
   const [editPriority, setEditPriority] = useState<IssuePriority>("medium");
+  const [editResolution, setEditResolution] = useState<IssueResolution | null>(null);
   const [editType, setEditType] = useState<IssueType>("task");
   const [editAssigneeId, setEditAssigneeId] = useState<string>("");
   const [editParentId, setEditParentId] = useState<string>("");
@@ -127,6 +130,7 @@ export default function IssueDetailPage() {
       setEditDescription(currentIssue.description || "");
       setEditStatus(currentIssue.status);
       setEditPriority(currentIssue.priority);
+      setEditResolution(currentIssue.resolution || null);
       setEditType(currentIssue.issue_type);
       setEditAssigneeId(currentIssue.assignee_id ? String(currentIssue.assignee_id) : "");
       setEditParentId(currentIssue.parent_id ? String(currentIssue.parent_id) : "");
@@ -183,6 +187,7 @@ export default function IssueDetailPage() {
           description: editDescription.trim(),
           status: editStatus,
           priority: editPriority,
+          resolution: editResolution || null,
           issueType: editType,
           assigneeId: editAssigneeId ? Number(editAssigneeId) : null,
           parentId: editParentId ? Number(editParentId) : null,
@@ -228,6 +233,28 @@ export default function IssueDetailPage() {
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
+    }
+  };
+
+  // 完了理由即時変更
+  const handleQuickResolutionChange = async (newRes: IssueResolution | null) => {
+    if (!issue) return;
+    try {
+      setIssue((prev) => (prev ? { ...prev, resolution: newRes } : null));
+      setEditResolution(newRes);
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resolution: newRes,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        await refreshUsers();
+      }
+    } catch (err) {
+      console.error("完了理由変更エラー:", err);
     }
   };
 
@@ -586,6 +613,7 @@ export default function IssueDetailPage() {
             <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <TypeBadge type={isEditing ? editType : issue.issue_type} />
+                <ResolutionBadge resolution={isEditing ? editResolution : issue.resolution} />
                 <span className="font-bold text-slate-800 text-base font-mono tracking-wide">
                   {issue.issue_key}
                 </span>
@@ -659,7 +687,7 @@ export default function IssueDetailPage() {
               )}
 
               {/* メタ情報グリッド */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80 text-xs">
                 {/* 状態 */}
                 <div>
                   <span className="block text-slate-500 mb-1 font-medium">状態</span>
@@ -685,6 +713,40 @@ export default function IssueDetailPage() {
                       <option value="resolved">処理済み</option>
                       <option value="closed">完了</option>
                     </select>
+                  )}
+                </div>
+
+                {/* 完了理由 */}
+                <div>
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-slate-500 font-medium">完了理由</span>
+                    {Boolean(issue.resolution_history_count && issue.resolution_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("all");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                        title="クリックして完了理由の変更履歴を確認"
+                      >
+                        ({issue.resolution_history_count})
+                      </button>
+                    )}
+                  </div>
+                  {isEditing ? (
+                    <ResolutionSelect
+                      value={editResolution}
+                      onChange={(nextRes) => setEditResolution(nextRes)}
+                      placeholder="-- （未設定）"
+                    />
+                  ) : (
+                    <ResolutionSelect
+                      value={issue.resolution}
+                      onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
+                      size="sm"
+                      placeholder="--"
+                    />
                   )}
                 </div>
 
@@ -1190,7 +1252,24 @@ export default function IssueDetailPage() {
                               </div>
                             </div>
                           ) : (
-                            <MentionText text={c.content} users={users} className="pl-6 text-sm text-slate-800" />
+                            <>
+                              <MentionText text={c.content} users={users} className="pl-6 text-sm text-slate-800" />
+                              <CommentReactionBar
+                                issueId={issue.id}
+                                commentId={c.id}
+                                reactions={c.reactions || []}
+                                currentUserId={currentUser?.id || null}
+                                currentUserName={currentUser?.name || null}
+                                currentUserColor={currentUser?.color || null}
+                                onReactionsUpdated={(cid, nextReactions) => {
+                                  setComments((prev) =>
+                                    prev.map((item) =>
+                                      item.id === cid ? { ...item, reactions: nextReactions } : item
+                                    )
+                                  );
+                                }}
+                              />
+                            </>
                           )}
                         </div>
                       );

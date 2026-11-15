@@ -3,11 +3,12 @@
 
 import React, { useState, useEffect } from "react";
 import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft } from "lucide-react";
-import { Project, Issue, IssueType, IssueStatus, IssuePriority } from "@/types";
+import { Project, Issue, IssueType, IssueStatus, IssuePriority, IssueResolution } from "@/types";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
 import MentionTextarea from "./MentionTextarea";
 import NotifyUserSelector from "./NotifyUserSelector";
+import ResolutionSelect from "./ResolutionSelect";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface CreateIssueModalProps {
   selectedProjectId: number | null;
   defaultStatus?: IssueStatus;
   defaultParentId?: number | null;
+  defaultTitle?: string; // 初期タイトル（横断検索からの起票時など）
   onClose: () => void;
   onCreated: () => void;
 }
@@ -25,6 +27,7 @@ export default function CreateIssueModal({
   selectedProjectId,
   defaultStatus = "open",
   defaultParentId = null,
+  defaultTitle = "",
   onClose,
   onCreated,
 }: CreateIssueModalProps) {
@@ -41,6 +44,7 @@ export default function CreateIssueModal({
   const [issueType, setIssueType] = useState<IssueType>("task");
   const [status, setStatus] = useState<IssueStatus>(defaultStatus);
   const [priority, setPriority] = useState<IssuePriority>("medium");
+  const [resolution, setResolution] = useState<IssueResolution | null>(null);
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [attachmentIds, setAttachmentIds] = useState<number[]>([]);
@@ -59,17 +63,18 @@ export default function CreateIssueModal({
       setParentId(defaultParentId ? String(defaultParentId) : "");
       setAssigneeId(currentUser ? String(currentUser.id) : "");
       setStatus(defaultStatus);
-      setTitle("");
+      setTitle(defaultTitle || "");
       setDescription("");
       setStartDate("");
       setDueDate("");
       setAttachmentIds([]);
       setNotifyUserIds([]);
       setPriority("medium");
+      setResolution(null);
       setIssueType("task");
       setErrorMessage("");
     }
-  }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, projects, currentUser]);
+  }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, defaultTitle, projects, currentUser]);
 
   // プロジェクトが変わったら親課題候補一覧を取得
   useEffect(() => {
@@ -110,6 +115,7 @@ export default function CreateIssueModal({
           issueType,
           status,
           priority,
+          resolution: resolution || null,
           startDate: startDate || null,
           dueDate: dueDate || null,
           attachmentIds,
@@ -320,8 +326,8 @@ export default function CreateIssueModal({
             />
           </div>
 
-          {/* 属性設定行（状態、優先度、開始日、期限日） */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* 属性設定行（状態、完了理由、優先度、開始日、期限日） */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
             {/* 状態 */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">状態</label>
@@ -335,6 +341,16 @@ export default function CreateIssueModal({
                 <option value="resolved">処理済み</option>
                 <option value="closed">完了</option>
               </select>
+            </div>
+
+            {/* 完了理由（任意） */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">完了理由</label>
+              <ResolutionSelect
+                value={resolution}
+                onChange={(nextRes) => setResolution(nextRes)}
+                placeholder="-- （未設定）"
+              />
             </div>
 
             {/* 優先度 */}

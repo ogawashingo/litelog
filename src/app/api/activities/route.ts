@@ -12,6 +12,7 @@ export async function GET(request: Request) {
       SELECT 
         a.id,
         a.issue_id,
+        a.comment_id,
         COALESCE(a.user_id, i.assignee_id, i.created_by, du.id) AS user_id,
         COALESCE(u.name, iu.name, cu.name, du.name) AS user_name,
         COALESCE(u.color, iu.color, cu.color, du.color) AS user_color,
@@ -44,7 +45,46 @@ export async function GET(request: Request) {
 
     sql += " ORDER BY a.created_at DESC, a.id DESC LIMIT 50";
 
-    const activities = db.prepare(sql).all(...params);
+    const activities = db.prepare(sql).all(...params) as Record<string, unknown>[];
+
+    // コメントに紐づくリアクション（スタンプ）を一括取得してマッピング
+    const commentIds = activities
+      .map((a) => (a.comment_id ? Number(a.comment_id) : null))
+      .filter((id): id is number => id !== null && id > 0);
+
+    if (commentIds.length > 0) {
+      const placeholders = commentIds.map(() => "?").join(",");
+      const allReactions = db
+        .prepare(`
+          SELECT
+            cr.id,
+            cr.comment_id,
+            cr.user_id,
+            cr.stamp,
+            cr.created_at,
+            u.name AS user_name,
+            u.color AS user_color
+          FROM comment_reactions cr
+          LEFT JOIN users u ON cr.user_id = u.id
+          WHERE cr.comment_id IN (${placeholders})
+          ORDER BY cr.created_at ASC, cr.id ASC
+        `)
+        .all(...commentIds) as { comment_id: number }[];
+
+      const mapByCommentId = new Map<number, unknown[]>();
+      for (const r of allReactions) {
+        const cid = Number(r.comment_id);
+        const list = mapByCommentId.get(cid) || [];
+        list.push(r);
+        mapByCommentId.set(cid, list);
+      }
+
+      for (const act of activities) {
+        if (act.comment_id) {
+          act.reactions = mapByCommentId.get(Number(act.comment_id)) || [];
+        }
+      }
+    }
 
     return NextResponse.json(activities);
   } catch (error) {

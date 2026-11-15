@@ -2,13 +2,14 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
 import fs from "node:fs";
-import { getDb, ATTACHMENTS_DIR } from "@/lib/db";
+import { getDb, ATTACHMENTS_DIR, attachReactionsToComments } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createIssueUpdatedNotifications } from "@/lib/notificationUtils";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
 const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated", "cannot_reproduce"]);
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -35,6 +36,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'title') AS title_history_count,
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'due_date') AS due_date_history_count,
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'start_date') AS start_date_history_count,
+        (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'resolution') AS resolution_history_count,
         COALESCE(cmt_stat.comment_count, 0) AS comment_count,
         latest_c.content AS latest_comment_content,
         latest_c.created_at AS latest_comment_created_at,
@@ -76,8 +78,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       ORDER BY i.issue_number ASC
     `).all(targetIssueId);
 
-    // コメント取得（投稿者情報・編集履歴件数も結合）
-    const comments = db.prepare(`
+    // コメント取得（投稿者情報・編集履歴件数・リアクション一覧も結合）
+    const rawComments = db.prepare(`
       SELECT 
         c.*,
         (SELECT COUNT(*) FROM comment_histories ch WHERE ch.comment_id = c.id) AS history_count,
@@ -87,7 +89,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.issue_id = ?
       ORDER BY c.created_at ASC
-    `).all(targetIssueId);
+    `).all(targetIssueId) as { id: number }[];
+    const comments = attachReactionsToComments(db, rawComments);
 
     // 添付ファイル取得（アップロード者情報も結合）
     const attachments = db.prepare(`
@@ -136,6 +139,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       created_by: number | null;
       start_date: string | null;
       due_date: string | null;
+      resolution?: string | null;
     } | undefined;
 
     if (!currentIssue) {
@@ -242,6 +246,35 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         activityLogs.push({
           type: "updated",
           msg: `課題 [${currentIssue.issue_key}] の優先度を「${newPrio}」に変更しました`,
+        });
+      }
+    }
+    if (body.resolution !== undefined) {
+      const cleanResolution =
+        body.resolution && String(body.resolution).trim() !== ""
+          ? String(body.resolution).trim()
+          : null;
+      if (cleanResolution && !VALID_RESOLUTIONS.has(cleanResolution)) {
+        return NextResponse.json({ error: "無効な完了理由です" }, { status: 400 });
+      }
+      updates.push("resolution = ?");
+      values.push(cleanResolution);
+
+      const currentRes = currentIssue.resolution || null;
+      if (cleanResolution !== currentRes) {
+        historiesToInsert.push({ field: "resolution", oldValue: currentIssue.resolution || "" });
+        const resLabels: Record<string, string> = {
+          fixed: "対応済み",
+          wont_fix: "対応しない",
+          invalid: "無効",
+          duplicated: "重複",
+          cannot_reproduce: "再現しない",
+        };
+        const prevLabel = currentRes ? (resLabels[currentRes] || currentRes) : "未設定";
+        const newLabel = cleanResolution ? (resLabels[cleanResolution] || cleanResolution) : "未設定";
+        activityLogs.push({
+          type: "updated",
+          msg: `課題 [${currentIssue.issue_key}] の完了理由を「${prevLabel}」から「${newLabel}」に変更しました`,
         });
       }
     }

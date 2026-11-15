@@ -3,8 +3,8 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon } from "lucide-react";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, Attachment } from "@/types";
-import { TypeBadge, StatusBadge, PriorityBadge } from "./IssueBadge";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment } from "@/types";
+import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
@@ -15,6 +15,7 @@ import CommentHistoryModal from "./CommentHistoryModal";
 import IssueHistoryModal from "./IssueHistoryModal";
 import NotifyUserSelector from "./NotifyUserSelector";
 import CommentReactionBar from "./CommentReactionBar";
+import ResolutionSelect from "./ResolutionSelect";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -223,6 +224,7 @@ export default function IssueDetailModal({
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState<IssueStatus>("open");
   const [editPriority, setEditPriority] = useState<IssuePriority>("medium");
+  const [editResolution, setEditResolution] = useState<IssueResolution | null>(null);
   const [editType, setEditType] = useState<IssueType>("task");
   const [editAssigneeId, setEditAssigneeId] = useState<string>("");
   const [editParentId, setEditParentId] = useState<string>("");
@@ -240,6 +242,7 @@ export default function IssueDetailModal({
     setEditDescription(issue.description || "");
     setEditStatus(issue.status);
     setEditPriority(issue.priority);
+    setEditResolution(issue.resolution || null);
     setEditType(issue.issue_type);
     setEditAssigneeId(issue.assignee_id ? String(issue.assignee_id) : "");
     setEditParentId(issue.parent_id ? String(issue.parent_id) : "");
@@ -260,6 +263,7 @@ export default function IssueDetailModal({
           setCurrentIssue(data.issue);
           setEditPriority(data.issue.priority);
           setEditStatus(data.issue.status);
+          setEditResolution(data.issue.resolution || null);
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
@@ -316,6 +320,7 @@ export default function IssueDetailModal({
               description: editDescription.trim(),
               status: editStatus,
               priority: editPriority,
+              resolution: editResolution || null,
               issue_type: editType,
               assignee_id: editAssigneeId ? Number(editAssigneeId) : null,
               parent_id: editParentId ? Number(editParentId) : null,
@@ -333,6 +338,7 @@ export default function IssueDetailModal({
           description: editDescription.trim(),
           status: editStatus,
           priority: editPriority,
+          resolution: editResolution || null,
           issueType: editType,
           assigneeId: editAssigneeId ? Number(editAssigneeId) : null,
           parentId: editParentId ? Number(editParentId) : null,
@@ -412,6 +418,39 @@ export default function IssueDetailModal({
       console.error("ステータス変更エラー:", err);
       setCurrentIssue((prev) => (prev ? { ...prev, status: previousStatus } : null));
       setEditStatus(previousStatus);
+    }
+  };
+
+  // 完了理由即時変更
+  const handleQuickResolutionChange = async (newResolution: IssueResolution | null) => {
+    const previousResolution = activeIssue.resolution || null;
+    try {
+      setCurrentIssue((prev) => (prev ? { ...prev, resolution: newResolution } : null));
+      setEditResolution(newResolution);
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resolution: newResolution,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
+        await refreshUsers();
+        onUpdated();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "完了理由の変更に失敗しました");
+        setCurrentIssue((prev) => (prev ? { ...prev, resolution: previousResolution } : null));
+        setEditResolution(previousResolution);
+      }
+    } catch (err) {
+      console.error("完了理由変更エラー:", err);
+      setCurrentIssue((prev) => (prev ? { ...prev, resolution: previousResolution } : null));
+      setEditResolution(previousResolution);
     }
   };
 
@@ -662,6 +701,7 @@ export default function IssueDetailModal({
           setCurrentIssue(data.issue);
           setEditPriority(data.issue.priority);
           setEditStatus(data.issue.status);
+          setEditResolution(data.issue.resolution || null);
         }
         if (Array.isArray(data.comments)) {
           setComments(data.comments);
@@ -748,6 +788,7 @@ export default function IssueDetailModal({
             </button>
 
             <TypeBadge type={isEditing ? editType : activeIssue.issue_type} />
+            <ResolutionBadge resolution={isEditing ? editResolution : activeIssue.resolution} />
             <span className="font-bold text-gray-800 text-xs sm:text-sm tracking-wide shrink-0">
               {activeIssue.issue_key}
             </span>
@@ -842,7 +883,7 @@ export default function IssueDetailModal({
               </div>
 
               {/* 編集モード時の属性グリッド（担当者と優先度等の横隙間を十分に確保） */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 gap-y-3.5 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-x-5 gap-y-3.5 text-xs">
                 <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">種別</label>
                   <select
@@ -876,6 +917,15 @@ export default function IssueDetailModal({
                       ※未完了の子課題あり（{unclosedChildrenCount}件）
                     </p>
                   )}
+                </div>
+
+                <div className="min-w-0">
+                  <label className="block font-bold text-gray-700 mb-1">完了理由</label>
+                  <ResolutionSelect
+                    value={editResolution}
+                    onChange={(nextRes) => setEditResolution(nextRes)}
+                    placeholder="-- （未設定）"
+                  />
                 </div>
 
                 <div className="min-w-0">
@@ -1049,8 +1099,8 @@ export default function IssueDetailModal({
                 </div>
               </div>
 
-              {/* 属性グリッド（状態、担当者、優先度、開始日、期限日、登録日時。担当者と優先度等に十分な隙間を確保） */}
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 sm:p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-6 gap-y-3.5 text-xs">
+              {/* 属性グリッド（状態、完了理由、担当者、優先度、開始日、期限日、登録日時） */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 sm:p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-x-5 gap-y-3.5 text-xs">
                 {/* 状態変更セレクター */}
                 <div className="min-w-0">
                   <span className="text-slate-500 block mb-1 font-medium">状態</span>
@@ -1074,6 +1124,32 @@ export default function IssueDetailModal({
                       子課題未完了({unclosedChildrenCount})
                     </span>
                   )}
+                </div>
+
+                {/* 完了理由即時変更セレクター */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-slate-500 font-medium">完了理由</span>
+                    {Boolean(activeIssue.resolution_history_count && activeIssue.resolution_history_count > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIssueHistoryTab("all");
+                          setIsIssueHistoryOpen(true);
+                        }}
+                        className="text-[9px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1 py-0.2 rounded cursor-pointer font-medium"
+                        title="クリックして完了理由の変更履歴を確認"
+                      >
+                        ({activeIssue.resolution_history_count})
+                      </button>
+                    )}
+                  </div>
+                  <ResolutionSelect
+                    value={activeIssue.resolution}
+                    onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
+                    size="sm"
+                    placeholder="--"
+                  />
                 </div>
 
                 {/* 担当者即時変更セレクター */}

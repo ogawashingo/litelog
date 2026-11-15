@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { X, History, Clock, FileText, Type, Calendar } from "lucide-react";
 import { formatTimestamp } from "@/lib/dateUtils";
-import { Issue, IssueHistory, SystemSettings, User } from "@/types";
+import { Issue, IssueHistory, SystemSettings, User, RESOLUTION_LABELS, IssueResolution } from "@/types";
 import MentionText from "./MentionText";
 
 interface IssueHistoryModalProps {
@@ -308,6 +308,7 @@ export default function IssueHistoryModal({
                 const isFieldTitle = h.field_name === "title";
                 const isFieldDue = h.field_name === "due_date";
                 const isFieldStart = h.field_name === "start_date";
+                const isFieldResolution = h.field_name === "resolution";
 
                 const fieldLabel = isFieldDesc
                   ? "説明"
@@ -317,6 +318,8 @@ export default function IssueHistoryModal({
                   ? "期限日"
                   : isFieldStart
                   ? "開始日"
+                  : isFieldResolution
+                  ? "完了理由"
                   : h.field_name;
 
                 return (
@@ -358,6 +361,10 @@ export default function IssueHistoryModal({
                           {h.old_value !== null && h.old_value !== undefined && h.old_value !== "" ? (
                             isFieldDesc ? (
                               <MentionText text={h.old_value} users={users} className="text-sm text-slate-700" />
+                            ) : isFieldResolution ? (
+                              <p className="text-slate-700 font-semibold text-sm">
+                                {RESOLUTION_LABELS[h.old_value as IssueResolution] || h.old_value}
+                              </p>
                             ) : (
                               <p className="text-slate-700 whitespace-pre-wrap text-sm">{h.old_value}</p>
                             )

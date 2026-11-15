@@ -7,6 +7,7 @@ import { createIssueCreatedNotifications } from "@/lib/notificationUtils";
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
 const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated", "cannot_reproduce"]);
 
 // 課題一覧取得
 export async function GET(request: Request) {
@@ -19,12 +20,14 @@ export async function GET(request: Request) {
     const issueType = searchParams.get("type");
     const priority = searchParams.get("priority");
     const assigneeId = searchParams.get("assigneeId");
+    const resolution = searchParams.get("resolution");
     const querySearch = searchParams.get("q");
 
     let sql = `
       SELECT 
         i.*,
         p.name AS project_name,
+        p.key AS project_key,
         p.color AS project_color,
         parent.issue_key AS parent_issue_key,
         parent.title AS parent_title,
@@ -88,10 +91,25 @@ export async function GET(request: Request) {
       }
     }
 
+    if (resolution && resolution !== "all") {
+      if (resolution === "none" || resolution === "unassigned") {
+        sql += " AND (i.resolution IS NULL OR i.resolution = '')";
+      } else {
+        sql += " AND i.resolution = ?";
+        params.push(resolution);
+      }
+    }
+
     if (querySearch) {
-      sql += " AND (i.title LIKE ? OR i.issue_key LIKE ? OR i.description LIKE ?)";
+      // 課題件名・課題キー・詳細説明、およびコメント本文を横断検索
+      sql += ` AND (
+        i.title LIKE ? 
+        OR i.issue_key LIKE ? 
+        OR i.description LIKE ? 
+        OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = i.id AND c.content LIKE ?)
+      )`;
       const pattern = `%${querySearch}%`;
-      params.push(pattern, pattern, pattern);
+      params.push(pattern, pattern, pattern, pattern);
     }
 
     sql += " ORDER BY CASE WHEN i.status = 'closed' THEN 1 ELSE 0 END ASC, i.updated_at DESC, i.id DESC";
@@ -123,6 +141,7 @@ export async function POST(request: Request) {
       issueType = "task",
       status = "open",
       priority = "medium",
+      resolution = null,
       startDate = null,
       dueDate = null,
     } = body;
@@ -138,6 +157,10 @@ export async function POST(request: Request) {
     }
     if (!VALID_PRIORITIES.has(String(priority))) {
       return NextResponse.json({ error: "無効な優先度です" }, { status: 400 });
+    }
+    const cleanResolution = resolution && String(resolution).trim() !== "" ? String(resolution).trim() : null;
+    if (cleanResolution && !VALID_RESOLUTIONS.has(cleanResolution)) {
+      return NextResponse.json({ error: "無効な完了理由です" }, { status: 400 });
     }
 
     // 対象プロジェクトの存在確認
@@ -170,8 +193,8 @@ export async function POST(request: Request) {
       const issueKey = `${project.key}-${nextNum}`;
 
       const insert = db.prepare(`
-        INSERT INTO issues (project_id, parent_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO issues (project_id, parent_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, resolution, start_date, due_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       const result = insert.run(
@@ -186,6 +209,7 @@ export async function POST(request: Request) {
         issueType,
         status,
         priority,
+        cleanResolution,
         startDate || null,
         dueDate || null
       );

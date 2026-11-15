@@ -1,9 +1,9 @@
 // オリジナリティ溢れるコズミック・インディゴ＆コーラルアンバー グローバルヘッダー
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Plus,
   FolderGit2,
@@ -15,8 +15,11 @@ import {
   Sparkles,
   Menu,
   X,
+  Search,
+  ArrowRight,
 } from "lucide-react";
-import { Project } from "@/types";
+import { Project, Issue } from "@/types";
+import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import NotificationDropdown from "./NotificationDropdown";
@@ -28,7 +31,7 @@ interface HeaderProps {
   onOpenCreateIssue: () => void;
   onOpenBackup?: () => void;
   onSelectIssue?: (issueKey: string) => void;
-  activeNav?: "dashboard" | "board" | "gantt" | "admin";
+  activeNav?: "dashboard" | "board" | "gantt" | "admin" | "search";
 }
 
 export default function Header({
@@ -40,14 +43,27 @@ export default function Header({
   activeNav,
 }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const isBoard = activeNav ? activeNav === "board" : Boolean(pathname?.startsWith("/board"));
   const isGantt = activeNav ? activeNav === "gantt" : Boolean(pathname?.startsWith("/gantt"));
   const isAdmin = activeNav ? activeNav === "admin" : Boolean(pathname?.startsWith("/admin"));
-  const isDashboard = activeNav ? activeNav === "dashboard" : (pathname === "/" || (!isBoard && !isGantt && !isAdmin));
+  const isSearch = activeNav ? activeNav === "search" : Boolean(pathname?.startsWith("/search"));
+  const isDashboard = activeNav ? activeNav === "dashboard" : (pathname === "/" || (!isBoard && !isGantt && !isAdmin && !isSearch));
 
   const { currentUser, openPasswordChangeModal } = useUser();
   // モバイル用ナビゲーションメニューの開閉ステート
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // モバイル用検索バー展開ステート
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+
+  // 全体キーワード検索用ステート
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchSuggestions, setSearchSuggestions] = useState<Issue[]>([]);
+  const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
+  const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // 選択中プロジェクトの特定と各画面への連動リンク生成
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
@@ -56,6 +72,92 @@ export default function Header({
   const dashboardHref = selectedProjectId ? `/?projectId=${selectedProjectId}` : "/";
   const boardHref = projectKey ? `/board/${projectKey}` : "/board";
   const ganttHref = projectKey ? `/gantt/${projectKey}` : "/gantt";
+  const searchHref = "/search";
+
+  // キーボードショートカット（Cmd+K / Ctrl+K / '/' で全体検索入力へフォーカス）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      } else if (
+        e.key === "/" &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      } else if (e.key === "Escape") {
+        setIsSearchDropdownOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // 検索ドロップダウン外クリック時の非表示処理
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsSearchDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // 検索サジェスト取得（デバウンス）
+  useEffect(() => {
+    const trimmed = searchKeyword.trim();
+    if (!trimmed) {
+      setSearchSuggestions([]);
+      setIsSearchingSuggestions(false);
+      return;
+    }
+
+    setIsSearchingSuggestions(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/issues?q=${encodeURIComponent(trimmed)}`);
+        if (res.ok) {
+          const data: Issue[] = await res.json();
+          setSearchSuggestions(data.slice(0, 6)); // 直近上位6件を表示
+        }
+      } catch (err) {
+        console.error("サジェスト取得失敗:", err);
+      } finally {
+        setIsSearchingSuggestions(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [searchKeyword]);
+
+  // 全体検索ページへ遷移
+  const executeSearch = (query: string) => {
+    const targetQuery = query.trim();
+    setIsSearchDropdownOpen(false);
+    setIsMobileSearchOpen(false);
+    if (targetQuery) {
+      router.push(`/search?q=${encodeURIComponent(targetQuery)}`);
+    } else {
+      router.push("/search");
+    }
+  };
+
+  // 課題選択ハンドラ
+  const handleSelectSuggestedIssue = (issue: Issue) => {
+    setIsSearchDropdownOpen(false);
+    setIsMobileSearchOpen(false);
+    if (onSelectIssue) {
+      onSelectIssue(issue.issue_key);
+    } else {
+      router.push(`/search?q=${encodeURIComponent(issue.issue_key)}`);
+    }
+  };
 
   return (
     <header className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150">
@@ -119,6 +221,19 @@ export default function Header({
                 <span>ガントチャート</span>
               </Link>
 
+              {/* 横断検索タブ */}
+              <Link
+                href={searchHref}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  isSearch
+                    ? "app-nav-active text-white font-semibold shadow-2xs"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Search className="w-3.5 h-3.5 app-nav-indicator" />
+                <span>横断検索</span>
+              </Link>
+
               {/* 管理ページタブ（Admin権限のみ） */}
               {Boolean(currentUser?.is_admin) && (
                 <Link
@@ -155,8 +270,110 @@ export default function Header({
             </nav>
           </div>
 
-          {/* 右側: 課題の追加ボタン ＆ 通知ベル ＆ 操作ユーザー表示 ＆ モバイル用メニューボタン */}
+          {/* 右側: 全体キーワード検索バー ＆ 課題の追加ボタン ＆ 通知ベル ＆ 操作ユーザー表示 ＆ モバイル用メニューボタン */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto">
+            {/* 全体キーワード検索バー（本家Backlog風、Cmd+K対応、PC用） */}
+            <div className="relative hidden lg:block" ref={searchContainerRef}>
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 text-white/60 absolute left-2.5 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchKeyword}
+                  onChange={(e) => {
+                    setSearchKeyword(e.target.value);
+                    if (e.target.value.trim()) setIsSearchDropdownOpen(true);
+                  }}
+                  onFocus={() => {
+                    if (searchKeyword.trim()) setIsSearchDropdownOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      executeSearch(searchKeyword);
+                    }
+                  }}
+                  placeholder="課題を検索... (⌘K)"
+                  className="w-44 xl:w-60 bg-white/15 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 focus:placeholder-slate-400 text-xs rounded-lg pl-8 pr-7 py-1.5 border border-white/20 focus:border-amber-400 focus:outline-hidden focus:ring-2 focus:ring-amber-400/40 transition-all shadow-inner"
+                />
+                {searchKeyword ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchKeyword("");
+                      setSearchSuggestions([]);
+                      setIsSearchDropdownOpen(false);
+                    }}
+                    className="absolute right-2 text-white/60 hover:text-white p-0.5 rounded cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <kbd className="hidden xl:inline-block absolute right-2 text-[10px] bg-black/25 text-white/60 px-1 py-0.5 rounded font-mono pointer-events-none select-none">
+                    ⌘K
+                  </kbd>
+                )}
+              </div>
+
+              {/* クイックサジェストドロップダウンプレビュー */}
+              {isSearchDropdownOpen && searchKeyword.trim() && (
+                <div className="absolute right-0 top-full mt-1.5 bg-slate-900/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl overflow-hidden z-50 text-slate-100 min-w-[340px] animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between text-[11px] text-white/60 font-medium">
+                    <span>クイック候補</span>
+                    {isSearchingSuggestions ? <span>検索中...</span> : <span>{searchSuggestions.length} 件</span>}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-white/5 py-1">
+                    {searchSuggestions.length > 0 ? (
+                      searchSuggestions.map((issue) => (
+                        <button
+                          key={issue.id}
+                          type="button"
+                          onClick={() => handleSelectSuggestedIssue(issue)}
+                          className="w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
+                        >
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: issue.project_color || "#3b82f6" }}
+                          />
+                          <span className="font-mono text-[11px] font-bold text-amber-300 group-hover:underline shrink-0">
+                            {issue.issue_key}
+                          </span>
+                          <span className="text-xs text-white/90 truncate flex-1">
+                            {issue.title}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 shrink-0">
+                            {ISSUE_STATUS_CONFIG[issue.status]?.label || issue.status}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-4 text-center text-xs text-white/50">
+                        該当する課題が見つかりません
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => executeSearch(searchKeyword)}
+                    className="w-full px-3 py-2.5 bg-white/5 hover:bg-amber-500/20 text-amber-300 border-t border-white/10 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span>「{searchKeyword}」で全体検索・マトリクスを開く</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* モバイル＆タブレット用 検索トグルボタン (lg:hidden) */}
+            <button
+              type="button"
+              onClick={() => setIsMobileSearchOpen((prev) => !prev)}
+              className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
+              title="キーワード横断検索"
+            >
+              <Search className="w-4 h-4" />
+            </button>
+
             {/* 課題追加ボタン（テーマ連動） */}
             <button
               onClick={onOpenCreateIssue}
@@ -237,6 +454,45 @@ export default function Header({
         </div>
       </div>
 
+      {/* モバイル用検索入力バー展開 (lg:hidden) */}
+      {isMobileSearchOpen && (
+        <div className="lg:hidden border-t border-white/15 bg-slate-900/95 px-3 py-2 animate-in slide-in-from-top-1 duration-150">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              executeSearch(searchKeyword);
+            }}
+            className="flex items-center gap-2"
+          >
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-white/60 absolute left-2.5 top-2.5 pointer-events-none" />
+              <input
+                ref={mobileSearchInputRef}
+                autoFocus
+                type="text"
+                value={searchKeyword}
+                onChange={(e) => setSearchKeyword(e.target.value)}
+                placeholder="全プロジェクト横断で課題を検索..."
+                className="w-full bg-white/10 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 text-xs rounded-lg pl-8 pr-3 py-1.5 border border-white/20 focus:outline-hidden"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-3 py-1.5 app-primary-btn rounded-lg text-xs font-bold shrink-0 cursor-pointer"
+            >
+              検索
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMobileSearchOpen(false)}
+              className="p-1.5 text-white/60 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      )}
+
       {/* モバイル常時表示: プロジェクト切り替えバー (md:hidden) */}
       <div className="md:hidden border-t border-white/10 bg-black/15 px-3 py-1.5">
         <div className="relative flex items-center w-full">
@@ -305,6 +561,20 @@ export default function Header({
             >
               <ChartGantt className="w-4 h-4 app-nav-indicator" />
               <span>ガントチャート</span>
+            </Link>
+
+            {/* 横断検索 */}
+            <Link
+              href={searchHref}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                isSearch
+                  ? "app-nav-active text-white font-semibold shadow-xs"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <Search className="w-4 h-4 app-nav-indicator" />
+              <span>横断検索</span>
             </Link>
 
             {/* 管理ページ */}

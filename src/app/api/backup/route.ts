@@ -35,6 +35,7 @@ export async function GET() {
     const issueHistories = db.prepare("SELECT * FROM issue_histories").all();
     const comments = db.prepare("SELECT * FROM comments").all();
     const commentHistories = db.prepare("SELECT * FROM comment_histories").all();
+    const commentReactions = db.prepare("SELECT * FROM comment_reactions").all();
     const activities = db.prepare("SELECT * FROM activities").all();
     const attachments = db.prepare("SELECT * FROM attachments").all();
     const settings = db
@@ -50,6 +51,7 @@ export async function GET() {
       issueHistories,
       comments,
       commentHistories,
+      commentReactions,
       activities,
       attachments,
       settings,
@@ -78,7 +80,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = await request.json();
-    const { users, projects, issues, issueHistories, comments, commentHistories, activities, attachments, settings } = body;
+    const { users, projects, issues, issueHistories, comments, commentHistories, commentReactions, activities, attachments, settings } = body;
 
     if (!Array.isArray(projects) || !Array.isArray(issues)) {
       return NextResponse.json({ error: "有効なバックアップデータ形式ではありません" }, { status: 400 });
@@ -105,6 +107,7 @@ export async function POST(request: Request) {
       // 既存データをクリア
       db.exec("DELETE FROM attachments;");
       db.exec("DELETE FROM activities;");
+      db.exec("DELETE FROM comment_reactions;");
       db.exec("DELETE FROM comment_histories;");
       db.exec("DELETE FROM comments;");
       db.exec("DELETE FROM issue_histories;");
@@ -255,6 +258,29 @@ export async function POST(request: Request) {
             h.content,
             h.created_at || new Date().toISOString()
           );
+        }
+      }
+
+      if (Array.isArray(commentReactions)) {
+        const validCommentIds = new Set(
+          (db.prepare("SELECT id FROM comments").all() as { id: number }[]).map((c) => c.id)
+        );
+        const insertReaction = db.prepare(`
+          INSERT OR IGNORE INTO comment_reactions (id, comment_id, user_id, stamp, created_at)
+          VALUES (?, ?, ?, ?, ?)
+        `);
+        for (const r of commentReactions) {
+          const userId = r.user_id && validUserIds.has(r.user_id) ? r.user_id : null;
+          const commentId = r.comment_id && validCommentIds.has(r.comment_id) ? r.comment_id : null;
+          if (userId && commentId && r.stamp) {
+            insertReaction.run(
+              r.id,
+              commentId,
+              userId,
+              String(r.stamp),
+              r.created_at || new Date().toISOString()
+            );
+          }
         }
       }
 

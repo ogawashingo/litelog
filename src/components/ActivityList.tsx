@@ -1,7 +1,7 @@
 // 最近の更新・アクティビティウィジェットコンポーネント（本家Backlog風の日付別グルーピング＆課題詳細モーダル直接起動対応）
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   History,
   PlusCircle,
@@ -13,9 +13,10 @@ import {
   ChevronDown,
   ExternalLink,
 } from "lucide-react";
-import { Activity, Issue, Project } from "@/types";
+import { Activity, Issue, Project, CommentReaction } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 import { useUser } from "./UserContext";
+import CommentReactionBar from "./CommentReactionBar";
 import {
   formatActivityTimestamp,
   formatTimestamp,
@@ -98,10 +99,28 @@ export default function ActivityList({
   selectedProjectId = null,
   onSelectIssue,
 }: ActivityListProps) {
-  const { settings } = useUser();
+  const { settings, currentUser } = useUser();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [loadingIssueId, setLoadingIssueId] = useState<number | null>(null);
+  const [localActivities, setLocalActivities] = useState<Activity[]>(activities);
+
+  // 親からの activities 変更をローカル state に同期
+  useEffect(() => {
+    setLocalActivities(activities);
+  }, [activities]);
+
+  // アクティビティ内のコメントへのリアクション更新ハンドラ
+  const handleActivityReactionUpdated = (
+    commentId: number,
+    nextReactions: CommentReaction[]
+  ) => {
+    setLocalActivities((prev) =>
+      prev.map((act) =>
+        act.comment_id === commentId ? { ...act, reactions: nextReactions } : act
+      )
+    );
+  };
 
   // アクションタイプ別のアイコンと本家Backlog風アクションバッジ設定
   const getActionMeta = (actionType: Activity["action_type"]) => {
@@ -147,10 +166,10 @@ export default function ActivityList({
 
   // ダッシュボード選択プロジェクトに応じたアクティビティの絞り込み（未選択時は全件表示）
   const filteredActivities = useMemo(() => {
-    if (!selectedProjectId) return activities;
+    if (!selectedProjectId) return localActivities;
 
     const targetProj = projects.find((p) => p.id === selectedProjectId);
-    return activities.filter((act) => {
+    return localActivities.filter((act) => {
       if (act.project_id === selectedProjectId) return true;
       // 削除済み課題などで project_id が NULL の場合はキープレフィックスで判定
       if (!act.project_id && targetProj) {
@@ -161,7 +180,7 @@ export default function ActivityList({
       }
       return false;
     });
-  }, [activities, selectedProjectId, projects]);
+  }, [localActivities, selectedProjectId, projects]);
 
   // 日付（YYYY年M月D日(曜日)）ごとにアクティビティをグルーピング
   const groupedTimeline = useMemo(() => {
@@ -366,17 +385,35 @@ export default function ActivityList({
 
                             {/* 変更差分バッジ ([ 状態: 処理中 ] 等) または コメント本文プレビュー (stream-update__content-block) */}
                             {act.action_type === "commented" ? (
-                              <div
-                                onClick={() => {
-                                  if (isClickable) handleOpenIssue(act, issueKey);
-                                }}
-                                className={`stream-update__content-block bg-slate-50 border border-slate-200/90 rounded-md px-3 py-2 text-slate-800 whitespace-pre-wrap break-words leading-relaxed font-medium ${
-                                  isClickable
-                                    ? "hover:border-indigo-300 hover:bg-indigo-50/20 cursor-pointer transition-colors"
-                                    : ""
-                                }`}
-                              >
-                                {cleanMessage}
+                              <div className="space-y-1.5">
+                                <div
+                                  onClick={() => {
+                                    if (isClickable) handleOpenIssue(act, issueKey);
+                                  }}
+                                  className={`stream-update__content-block bg-slate-50 border border-slate-200/90 rounded-md px-3 py-2 text-slate-800 whitespace-pre-wrap break-words leading-relaxed font-medium ${
+                                    isClickable
+                                      ? "hover:border-indigo-300 hover:bg-indigo-50/20 cursor-pointer transition-colors"
+                                      : ""
+                                  }`}
+                                >
+                                  {cleanMessage}
+                                </div>
+                                {act.comment_id && act.issue_id && (
+                                  <div onClick={(e) => e.stopPropagation()}>
+                                    <CommentReactionBar
+                                      issueId={act.issue_id}
+                                      commentId={act.comment_id}
+                                      reactions={act.reactions || []}
+                                      currentUserId={currentUser?.id || null}
+                                      currentUserName={currentUser?.name || null}
+                                      currentUserColor={currentUser?.color || null}
+                                      className="pl-0"
+                                      onReactionsUpdated={(cid, nextReactions) => {
+                                        handleActivityReactionUpdated(cid, nextReactions);
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             ) : diffBadges.length > 0 ? (
                               <div className="stream-update__content-block flex flex-wrap items-center gap-1.5">

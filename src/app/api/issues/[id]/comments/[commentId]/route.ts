@@ -1,6 +1,6 @@
 // 課題コメント個別操作（更新）API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getCommentReactions } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createMentionNotifications } from "@/lib/notificationUtils";
 
@@ -82,8 +82,11 @@ export async function PUT(request: Request, { params }: RouteParams) {
         FROM comments c
         LEFT JOIN users u ON c.user_id = u.id
         WHERE c.id = ?
-      `).get(commentIdNum);
-      return NextResponse.json(current);
+      `).get(commentIdNum) as Record<string, unknown> | undefined;
+      return NextResponse.json({
+        ...current,
+        reactions: getCommentReactions(db, commentIdNum),
+      });
     }
 
     // トランザクション処理：変更前の本文を履歴テーブルに保存し、コメントを更新
@@ -145,9 +148,12 @@ export async function PUT(request: Request, { params }: RouteParams) {
       FROM comments c
       LEFT JOIN users u ON c.user_id = u.id
       WHERE c.id = ?
-    `).get(comment.id);
+    `).get(comment.id) as Record<string, unknown> | undefined;
 
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      reactions: getCommentReactions(db, comment.id),
+    });
   } catch (error) {
     console.error("コメント編集エラー:", error);
     return NextResponse.json({ error: "コメントの更新に失敗しました" }, { status: 500 });

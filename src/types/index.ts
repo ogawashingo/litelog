@@ -33,6 +33,32 @@ export type IssueStatus = "open" | "in_progress" | "resolved" | "closed";
 // 課題の優先度
 export type IssuePriority = "high" | "medium" | "low";
 
+// 課題の完了理由（Resolution）
+export type IssueResolution =
+  | "fixed"             // 対応済み
+  | "wont_fix"          // 対応しない
+  | "invalid"           // 無効
+  | "duplicated"        // 重複
+  | "cannot_reproduce"; // 再現しない
+
+// 完了理由の表示名マッピング
+export const RESOLUTION_LABELS: Record<IssueResolution, string> = {
+  fixed: "対応済み",
+  wont_fix: "対応しない",
+  invalid: "無効",
+  duplicated: "重複",
+  cannot_reproduce: "再現しない",
+};
+
+// 完了理由のセレクトボックス選択肢
+export const RESOLUTION_OPTIONS: { value: IssueResolution; label: string }[] = [
+  { value: "fixed", label: "対応済み" },
+  { value: "wont_fix", label: "対応しない" },
+  { value: "invalid", label: "無効" },
+  { value: "duplicated", label: "重複" },
+  { value: "cannot_reproduce", label: "再現しない" },
+];
+
 // 課題（タスク）情報
 export interface Issue {
   id: number;
@@ -49,9 +75,11 @@ export interface Issue {
   priority: IssuePriority;// 優先度
   start_date: string | null; // 開始日 (YYYY-MM-DD)
   due_date: string | null;// 期限日 (YYYY-MM-DD)
+  resolution?: IssueResolution | null; // 完了理由（対応済み・対応しない・無効・重複・再現しない等）
   created_at: string;
   updated_at: string;
   project_name?: string;  // 結合時のプロジェクト名
+  project_key?: string;   // 結合時のプロジェクトキー（例: 'MYPRJ'）
   project_color?: string; // 結合時のプロジェクトカラー
   parent_issue_key?: string | null; // 結合時の親課題キー
   parent_title?: string | null;     // 結合時の親課題タイトル
@@ -67,8 +95,32 @@ export interface Issue {
   title_history_count?: number;             // タイトルの変更履歴件数
   due_date_history_count?: number;          // 期限日の変更履歴件数
   start_date_history_count?: number;        // 開始日の変更履歴件数
+  resolution_history_count?: number;        // 完了理由の変更履歴件数
   attachment_count?: number;                // 添付ファイル総数
   children?: Issue[];     // 親子ツリー時の子課題リスト
+}
+
+// コメントスタンプ（リアクション）種別（👍 いいね / ✅ 確認）
+export type CommentStamp = "👍" | "✅";
+
+// コメントスタンプ選択肢の定義（余計な文字は省き、シンプルに絵文字のみで直感操作）
+export const COMMENT_STAMP_OPTIONS: {
+  stamp: CommentStamp;
+  label: string;
+}[] = [
+  { stamp: "👍", label: "いいね" },
+  { stamp: "✅", label: "確認" },
+];
+
+// コメントリアクション（スタンプ）情報
+export interface CommentReaction {
+  id: number;
+  comment_id: number;
+  user_id: number;            // リアクションしたユーザーID
+  user_name?: string | null;  // 結合時のユーザー名
+  user_color?: string | null; // 結合時のユーザーカラー
+  stamp: CommentStamp;        // スタンプ絵文字
+  created_at: string;
 }
 
 // コメント情報
@@ -82,6 +134,7 @@ export interface Comment {
   created_at: string;
   updated_at?: string | null; // 最終更新日時
   history_count?: number;     // 編集履歴の件数
+  reactions?: CommentReaction[]; // コメントに付与されたスタンプ一覧
 }
 
 // コメント編集履歴情報
@@ -111,6 +164,7 @@ export interface IssueHistory {
 export interface Activity {
   id: number;
   issue_id: number | null;
+  comment_id?: number | null; // コメント追加時のコメントID
   user_id?: number | null;    // 操作者ユーザーID
   user_name?: string | null;  // 結合時の操作者名
   user_color?: string | null; // 結合時の操作者カラー
@@ -125,6 +179,7 @@ export interface Activity {
   project_key?: string | null;
   project_name?: string | null;
   project_color?: string | null;
+  reactions?: CommentReaction[]; // コメントに紐づくスタンプ一覧
 }
 
 // ダッシュボードに表示するサマリー統計
@@ -179,7 +234,8 @@ export type NotificationType =
   | "assigned"   // 担当者に設定（アサイン）された時
   | "commented"  // 作成課題・担当課題にコメントされた時
   | "updated"    // 作成課題・担当課題が更新された時
-  | "notify";    // 通知先（参加者）チェックボックスで指定された時
+  | "notify"     // 通知先（参加者）チェックボックスで指定された時
+  | "reaction";  // 自分のコメントにスタンプ（リアクション）された時
 
 // 通知情報（メンション・自動通知・参加者通知等）
 export interface Notification {
