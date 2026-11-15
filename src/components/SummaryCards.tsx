@@ -30,15 +30,20 @@ interface UrgentItem {
 
 interface SummaryCardsProps {
   issues: Issue[];
+  selectedProjectId?: number | null;
   onSelectIssue: (issue: Issue) => void;
 }
 
 export default function SummaryCards({
   issues,
+  selectedProjectId,
   onSelectIssue,
 }: SummaryCardsProps) {
   const { settings } = useUser();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // プロジェクト名バッジを表示するか判定（全プロジェクト表示時、または複数プロジェクトの課題が混在している場合）
+  const showProjectBadge = !selectedProjectId;
 
   // 本日の日付文字列
   const todayStr = getTodayDateString(settings);
@@ -225,6 +230,20 @@ export default function SummaryCards({
                 <div className="shrink-0">
                   <TypeBadge type={issue.issue_type} showLabel={false} />
                 </div>
+
+                {/* プロジェクト名バッジ（全プロジェクト表示時） */}
+                {showProjectBadge && issue.project_name && (
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100/90 text-slate-700 border border-slate-200/80 shrink-0 max-w-[130px] sm:max-w-[160px] truncate"
+                    title={`プロジェクト: ${issue.project_name}`}
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
+                      style={{ backgroundColor: issue.project_color || "#6366f1" }}
+                    />
+                    <span className="truncate">{issue.project_name}</span>
+                  </span>
+                )}
 
                 {/* 課題キー */}
                 <span className="text-xs font-mono font-bold text-slate-500 shrink-0">
