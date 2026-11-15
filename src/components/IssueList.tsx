@@ -12,6 +12,7 @@ import { DatePicker } from "./DatePicker";
 import CommentPreviewBadge from "./CommentPreviewBadge";
 import { getIssueAlert } from "@/lib/issueAlerts";
 import IssueAlertBadge from "./IssueAlertBadge";
+import CompleteIssueModal from "./CompleteIssueModal";
 
 interface IssueListProps {
   issues: Issue[];
@@ -19,7 +20,7 @@ interface IssueListProps {
   onSelectStatus?: (status: IssueStatus | "all") => void;
   onSelectIssue: (issue: Issue) => void;
   onUpdateType?: (issueId: number, type: IssueType) => void;
-  onUpdateStatus: (issueId: number, status: IssueStatus) => void;
+  onUpdateStatus: (issueId: number, status: IssueStatus, resolution?: IssueResolution | null) => void;
   onUpdateAssignee?: (issueId: number, assigneeId: number | null) => void;
   onUpdatePriority?: (issueId: number, priority: IssuePriority) => void;
   onUpdateResolution?: (issueId: number, resolution: IssueResolution | null) => void;
@@ -48,6 +49,8 @@ export default function IssueList({
   const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "all">("all");
   const [resolutionFilter, setResolutionFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<"due" | "updated" | "priority">("due");
+  // 完了ダイアログ対象の課題
+  const [pendingCloseIssue, setPendingCloseIssue] = useState<Issue | null>(null);
   // 親子階層表示（ツリー構造）フラグ（デフォルトON）
   const [withParentRelation, setWithParentRelation] = useState<boolean>(true);
   // ダッシュボードでは完了済み（closed）のタスクはデフォルトで非表示
@@ -645,8 +648,13 @@ export default function IssueList({
                         value={issue.status}
                         onChange={(e) => {
                           const nextStatus = e.target.value as IssueStatus;
-                          if (nextStatus === "closed" && hasUnclosedChildren) {
-                            alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                          if (nextStatus === "closed") {
+                            if (hasUnclosedChildren) {
+                              alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                              return;
+                            }
+                            // 完了理由選択ダイアログを開く
+                            setPendingCloseIssue(issue);
                             return;
                           }
                           onUpdateStatus(issue.id, nextStatus);
@@ -801,6 +809,20 @@ export default function IssueList({
           </tbody>
         </table>
       </div>
+
+      {/* 完了理由選択モーダル */}
+      <CompleteIssueModal
+        isOpen={Boolean(pendingCloseIssue)}
+        issueKey={pendingCloseIssue?.issue_key || ""}
+        issueTitle={pendingCloseIssue?.title || ""}
+        onClose={() => setPendingCloseIssue(null)}
+        onConfirm={(resolution) => {
+          if (!pendingCloseIssue) return;
+          const target = pendingCloseIssue;
+          setPendingCloseIssue(null);
+          onUpdateStatus(target.id, "closed", resolution);
+        }}
+      />
     </div>
   );
 }

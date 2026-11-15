@@ -127,17 +127,36 @@ function DashboardContent() {
     }
   }, []);
 
-  // 課題のステータス即時変更
-  const handleUpdateStatus = async (issueId: number, newStatus: IssueStatus) => {
+  // 課題のステータス即時変更（完了理由の同時指定にも対応）
+  const handleUpdateStatus = async (
+    issueId: number,
+    newStatus: IssueStatus,
+    resolution?: IssueResolution | null
+  ) => {
     try {
       // 楽観的UI更新
       setIssues((prev) =>
-        prev.map((i) => (i.id === issueId ? { ...i, status: newStatus } : i))
+        prev.map((i) =>
+          i.id === issueId
+            ? {
+                ...i,
+                status: newStatus,
+                ...(resolution !== undefined ? { resolution } : {}),
+              }
+            : i
+        )
       );
+      const payload: Record<string, any> = {
+        status: newStatus,
+        actorId: currentUser?.id || null,
+      };
+      if (resolution !== undefined) {
+        payload.resolution = resolution;
+      }
       const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         await refreshAll();

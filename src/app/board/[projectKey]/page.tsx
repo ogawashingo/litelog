@@ -8,7 +8,7 @@ import BoardView from "@/components/BoardView";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
-import { Project, Issue, IssueStatus } from "@/types";
+import { Project, Issue, IssueStatus, IssueResolution } from "@/types";
 import { setStoredProjectId } from "@/lib/projectStorage";
 
 export default function ProjectBoardPage() {
@@ -92,18 +92,38 @@ export default function ProjectBoardPage() {
     init();
   }, [fetchProjects, fetchIssues, projectKey]);
 
-  // 課題ステータスの更新処理（ドラッグ＆ドロップまたはモーダルから実行）
-  const handleUpdateStatus = async (issueId: number, newStatus: IssueStatus) => {
+  // 課題ステータスの更新処理（ドラッグ＆ドロップまたはモーダルから実行、完了理由の同時指定にも対応）
+  const handleUpdateStatus = async (
+    issueId: number,
+    newStatus: IssueStatus,
+    resolution?: IssueResolution | null
+  ) => {
     try {
       // 楽観的UI更新（画面上を即座に反映）
       setIssues((prev) =>
-        prev.map((i) => (i.id === issueId ? { ...i, status: newStatus } : i))
+        prev.map((i) =>
+          i.id === issueId
+            ? {
+                ...i,
+                status: newStatus,
+                ...(resolution !== undefined ? { resolution } : {}),
+              }
+            : i
+        )
       );
+
+      const payload: Record<string, any> = {
+        status: newStatus,
+        actorId: currentUser?.id || null,
+      };
+      if (resolution !== undefined) {
+        payload.resolution = resolution;
+      }
 
       const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {

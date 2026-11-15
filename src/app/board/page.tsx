@@ -8,7 +8,7 @@ import BoardView from "@/components/BoardView";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
-import { Project, Issue, IssueStatus } from "@/types";
+import { Project, Issue, IssueStatus, IssueResolution } from "@/types";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 export default function BoardIndexPage() {
@@ -59,15 +59,34 @@ export default function BoardIndexPage() {
   }, [fetchData]);
 
   // ステータス更新処理
-  const handleUpdateStatus = async (issueId: number, newStatus: IssueStatus) => {
+  const handleUpdateStatus = async (
+    issueId: number,
+    newStatus: IssueStatus,
+    resolution?: IssueResolution | null
+  ) => {
     try {
       setIssues((prev) =>
-        prev.map((i) => (i.id === issueId ? { ...i, status: newStatus } : i))
+        prev.map((i) =>
+          i.id === issueId
+            ? {
+                ...i,
+                status: newStatus,
+                ...(resolution !== undefined ? { resolution } : {}),
+              }
+            : i
+        )
       );
+      const payload: Record<string, any> = {
+        status: newStatus,
+        actorId: currentUser?.id || null,
+      };
+      if (resolution !== undefined) {
+        payload.resolution = resolution;
+      }
       const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus, actorId: currentUser?.id || null }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

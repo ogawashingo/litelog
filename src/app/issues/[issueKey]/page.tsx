@@ -37,6 +37,7 @@ import MentionText from "@/components/MentionText";
 import NotifyUserSelector from "@/components/NotifyUserSelector";
 import CommentReactionBar from "@/components/CommentReactionBar";
 import ResolutionSelect from "@/components/ResolutionSelect";
+import CompleteIssueModal from "@/components/CompleteIssueModal";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -89,6 +90,8 @@ export default function IssueDetailPage() {
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [createIssueDefaultParentId, setCreateIssueDefaultParentId] = useState<number | null>(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  // 完了理由選択ダイアログState
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
 
   // 子課題クイック追加State
   const [isAddingChild, setIsAddingChild] = useState(false);
@@ -239,6 +242,31 @@ export default function IssueDetailPage() {
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
+    }
+  };
+
+  // 完了理由付きで即時完了（ダイアログからの呼び出し）
+  const handleQuickCompleteWithResolution = async (resolution: IssueResolution | null) => {
+    if (!issue) return;
+    setIsCompleteModalOpen(false);
+    try {
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "closed",
+          resolution,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        setEditStatus("closed");
+        setEditResolution(resolution);
+        setIssue((prev) => (prev ? { ...prev, status: "closed", resolution } : null));
+        await refreshUsers();
+      }
+    } catch (err) {
+      console.error("完了処理エラー:", err);
     }
   };
 
@@ -666,13 +694,33 @@ export default function IssueDetailPage() {
 
               <div className="flex items-center gap-2">
                 {!isEditing ? (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>編集</span>
-                  </button>
+                  <>
+                    {/* 未完了の場合はクイック完了ボタンを表示 */}
+                    {issue.status !== "closed" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (hasUnclosedChildren) {
+                            alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                            return;
+                          }
+                          setIsCompleteModalOpen(true);
+                        }}
+                        className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-colors cursor-pointer"
+                        title="課題を完了にする（完了理由を選択）"
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>完了にする</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>編集</span>
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={handleSaveEdit}
@@ -745,7 +793,18 @@ export default function IssueDetailPage() {
                   ) : (
                     <select
                       value={issue.status}
-                      onChange={(e) => handleQuickStatusChange(e.target.value as IssueStatus)}
+                      onChange={(e) => {
+                        const nextStatus = e.target.value as IssueStatus;
+                        if (nextStatus === "closed") {
+                          if (hasUnclosedChildren) {
+                            alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                            return;
+                          }
+                          setIsCompleteModalOpen(true);
+                          return;
+                        }
+                        handleQuickStatusChange(nextStatus);
+                      }}
                       className="w-full bg-white border border-slate-300 rounded px-2 py-1 font-medium cursor-pointer"
                     >
                       <option value="open">未対応</option>
@@ -1484,6 +1543,17 @@ export default function IssueDetailPage() {
           initialTab={issueHistoryTab}
           settings={settings}
           users={users}
+        />
+      )}
+
+      {/* 完了理由選択ダイアログ */}
+      {issue && (
+        <CompleteIssueModal
+          isOpen={isCompleteModalOpen}
+          issueKey={issue.issue_key}
+          issueTitle={issue.title}
+          onClose={() => setIsCompleteModalOpen(false)}
+          onConfirm={handleQuickCompleteWithResolution}
         />
       )}
     </div>
