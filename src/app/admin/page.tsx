@@ -588,35 +588,25 @@ export default function AdminPage() {
                 {announcementEnabled && announcementMessage.trim() ? (
                   <div className="p-0">
                     <div
-                      className={`px-3 py-2 text-xs flex items-center justify-between gap-3 border-b ${
+                      className={`px-3 py-2 text-xs flex items-center justify-between gap-3 ${
                         announcementType === "warning"
-                          ? "bg-amber-950/90 border-amber-500/35 text-amber-100"
+                          ? "bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white"
                           : announcementType === "alert"
-                          ? "bg-rose-950/90 border-rose-500/40 text-rose-100"
+                          ? "bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 text-white"
                           : announcementType === "success"
-                          ? "bg-emerald-950/90 border-emerald-500/35 text-emerald-100"
-                          : "bg-sky-950/90 border-sky-500/30 text-sky-100"
+                          ? "bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-600 text-white"
+                          : "bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-600 text-white"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span
-                          className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
-                            announcementType === "warning"
-                              ? "bg-amber-500/20 text-amber-300 border-amber-400/30"
-                              : announcementType === "alert"
-                              ? "bg-rose-500/25 text-rose-200 border-rose-400/40"
-                              : announcementType === "success"
-                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
-                              : "bg-sky-500/20 text-sky-300 border-sky-400/30"
-                          }`}
-                        >
+                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-white/20 text-white border-white/35">
                           {ANNOUNCEMENT_TYPE_OPTIONS.find((o) => o.value === announcementType)?.badge || "お知らせ"}
                         </span>
-                        <span className="truncate text-[12px] font-medium">
+                        <span className="truncate text-[12px] font-medium text-white">
                           {announcementMessage}
                         </span>
                       </div>
-                      <div className="text-white/40 text-[10px]">× (閉じる)</div>
+                      <div className="text-white/70 text-[10px]">× (閉じる)</div>
                     </div>
                   </div>
                 ) : (
