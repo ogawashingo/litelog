@@ -1,7 +1,7 @@
-// データバックアップ・復元モーダルコンポーネント
+// データバックアップ・復元モーダルコンポーネント（Modern Web Guidance: dialog 準拠）
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { X, Download, Upload, Database, CheckCircle, AlertTriangle } from "lucide-react";
 
 interface BackupModalProps {
@@ -11,11 +11,39 @@ interface BackupModalProps {
 }
 
 export default function BackupModal({ isOpen, onClose, onRestored }: BackupModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
-  if (!isOpen) return null;
+  // ネイティブ <dialog> の表示制御（showModal / close）
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (isOpen) {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else {
+      if (dialog.open) {
+        dialog.close();
+      }
+    }
+  }, [isOpen]);
+
+  // Escキーキャンセル時の状態同期
+  const handleCancel = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    onClose();
+  };
+
+  // 背景（Backdrop）クリック時のLight Dismiss
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+    if (e.target === dialogRef.current) {
+      onClose();
+    }
+  };
 
   // JSONエクスポート処理
   const handleExport = async () => {
@@ -95,9 +123,12 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-      onClick={onClose}
+    <dialog
+      ref={dialogRef}
+      onCancel={handleCancel}
+      onClick={handleBackdropClick}
+      aria-labelledby="backup-modal-title"
+      className="m-auto rounded-xl p-0 backdrop:backdrop-blur-xs outline-none bg-transparent"
     >
       <div
         className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
@@ -106,9 +137,14 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
         <div className="app-header px-5 py-3.5 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
             <Database className="w-5 h-5 app-nav-indicator" />
-            <h3 className="font-bold text-base">データバックアップ・復元</h3>
+            <h3 id="backup-modal-title" className="font-bold text-base">データバックアップ・復元</h3>
           </div>
-          <button onClick={onClose} className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="閉じる"
+            className="p-1 rounded hover:bg-white/20 transition-colors cursor-pointer"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -178,14 +214,15 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
 
           <div className="flex justify-end pt-2 border-t border-gray-100">
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              className="px-4 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
             >
               閉じる
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
