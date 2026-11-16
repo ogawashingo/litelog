@@ -1033,7 +1033,7 @@ export default function IssueDetailModal({
                       alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
                       return;
                     }
-                    if (nextStatus === "resolved") {
+                    if (nextStatus === "resolved" && !currentUser?.is_admin) {
                       setIsReviewModalOpen(true);
                       return;
                     }

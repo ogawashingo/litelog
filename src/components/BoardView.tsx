@@ -172,8 +172,8 @@ export default function BoardView({
       }
     }
 
-    // 処理済みレーンへの移動時は、こっそり処理済み放置を防ぐためレビュー依頼モーダルを起動
-    if (newStatus === "resolved") {
+    // 処理済みレーンへの移動時は、こっそり処理済み放置を防ぐためレビュー依頼モーダルを起動（管理者Adminはスキップして即時更新）
+    if (newStatus === "resolved" && !currentUser?.is_admin) {
       setReviewTargetIssue(targetIssue);
       setDraggingIssueId(null);
       return;
