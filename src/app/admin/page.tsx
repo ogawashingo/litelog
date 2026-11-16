@@ -1624,7 +1624,7 @@ export default function AdminPage() {
                   return (
                     <div
                       key={p.id}
-                      className={`px-3 py-2 flex flex-col gap-2 text-xs ${
+                      className={`px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
                         isArchived ? "bg-slate-50/70" : "bg-white"
                       }`}
                     >
@@ -1670,8 +1670,8 @@ export default function AdminPage() {
                           </button>
                         </form>
                       ) : (
-                        <div className="flex items-center justify-between gap-2 w-full">
-                          <div className="flex items-center gap-2 min-w-0">
+                        <>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span
                               style={{ backgroundColor: p.color || "#4f46e5" }}
                               className="w-3 h-3 rounded-xs shrink-0"
@@ -1683,6 +1683,7 @@ export default function AdminPage() {
                               className={`font-semibold truncate ${
                                 isArchived ? "text-slate-500 line-through decoration-slate-400" : "text-slate-800"
                               }`}
+                              title={p.name}
                             >
                               {p.name}
                             </span>
@@ -1699,70 +1700,65 @@ export default function AdminPage() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] text-slate-400 hidden sm:inline">
-                              {formatTimestamp(p.created_at, draftSettings, false)}
-                            </span>
-                            {Boolean(currentUser?.is_admin) && (
-                              <>
-                                {/* クローズ／再オープントグルボタン */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleArchiveProject(p)}
-                                  disabled={isThisUpdatingArchive}
-                                  title={
-                                    isArchived
-                                      ? "プロジェクトを再オープンして日常一覧に復帰"
-                                      : "プロジェクトをクローズ（日常一覧から非表示）"
-                                  }
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors cursor-pointer ${
-                                    isArchived
-                                      ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
-                                      : "border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700"
-                                  }`}
-                                >
-                                  {isArchived ? (
-                                    <>
-                                      <RotateCcw className="w-3 h-3" />
-                                      <span>再オープン</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Archive className="w-3 h-3" />
-                                      <span>クローズ</span>
-                                    </>
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEditProject(p)}
-                                  title="プロジェクト名を変更 (Admin専用)"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors cursor-pointer"
-                                >
-                                  <Edit2 className="w-3 h-3" />
-                                  <span>名称変更</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartDeleteProject(p)}
-                                  title={
-                                    projects.length > 1
-                                      ? "プロジェクトを削除 (Admin専用)"
-                                      : "最低1件のプロジェクトが必要なため削除できません"
-                                  }
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors ${
-                                    projects.length > 1
-                                      ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
-                                      : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
-                                  }`}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>削除</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                          {Boolean(currentUser?.is_admin) && (
+                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                              {/* クローズ／再オープントグルボタン */}
+                              <button
+                                type="button"
+                                onClick={() => handleToggleArchiveProject(p)}
+                                disabled={isThisUpdatingArchive}
+                                title={
+                                  isArchived
+                                    ? "プロジェクトを再オープンして日常一覧に復帰"
+                                    : "プロジェクトをクローズ（日常一覧から非表示）"
+                                }
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors cursor-pointer ${
+                                  isArchived
+                                    ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
+                                    : "border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700"
+                                }`}
+                              >
+                                {isArchived ? (
+                                  <>
+                                    <RotateCcw className="w-3 h-3" />
+                                    <span>再オープン</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Archive className="w-3 h-3" />
+                                    <span>クローズ</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditProject(p)}
+                                title="プロジェクト名を変更 (Admin専用)"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors cursor-pointer"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>名称変更</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleStartDeleteProject(p)}
+                                title={
+                                  projects.length > 1
+                                    ? "プロジェクトを削除 (Admin専用)"
+                                    : "最低1件のプロジェクトが必要なため削除できません"
+                                }
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors ${
+                                  projects.length > 1
+                                    ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                    : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
+                                }`}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>削除</span>
+                              </button>
+                            </div>
+                          )}
+                        </>
                       )}
 
                       {/* プロジェクト削除確認ボックス（Admin専用） */}
