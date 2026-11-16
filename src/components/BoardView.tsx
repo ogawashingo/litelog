@@ -160,8 +160,19 @@ export default function BoardView({
       return;
     }
 
-    // 未完了の子課題が存在する場合、親課題を完了レーンへ移動できないように制御
+    // 完了レーンへ移動できるのは起票者または管理者のみ（セルフ完了・クローズ防止）
     if (newStatus === "closed") {
+      const canClose = Boolean(
+        currentUser?.is_admin ||
+        (targetIssue.created_by && currentUser?.id === targetIssue.created_by)
+      );
+      if (!canClose) {
+        alert("課題を完了にできるのは、課題の起票者または管理者のみです。\n作業が完了した場合は「処理済み」へ移動してレビューを依頼してください。");
+        setDraggingIssueId(null);
+        return;
+      }
+
+      // 未完了の子課題が存在する場合、親課題を完了レーンへ移動できないように制御
       const unclosedChildren = issues.filter(
         (i) => i.parent_id === issueId && i.status !== "closed"
       );

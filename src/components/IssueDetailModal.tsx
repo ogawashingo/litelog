@@ -303,14 +303,25 @@ export default function IssueDetailModal({
   const activeIssue = currentIssue || issue;
   // 所属プロジェクトのアーカイブ状態判定（is_archivedフラグまたは名前に「アーカイブ」が含まれるか）
   const isProjectArchived = isArchivedProject(activeIssue);
+  // 課題を完了にできる権限判定（起票者または管理者のみ）
+  const canClose = Boolean(
+    currentUser?.is_admin ||
+    (activeIssue.created_by && currentUser?.id === activeIssue.created_by)
+  );
 
   // 課題の更新を保存
   const handleSaveEdit = async () => {
     if (!editTitle.trim()) return;
 
-    if (editStatus === "closed" && hasUnclosedChildren) {
-      alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-      return;
+    if (editStatus === "closed") {
+      if (!canClose) {
+        alert("課題を完了にできるのは、課題の起票者または管理者のみです。");
+        return;
+      }
+      if (hasUnclosedChildren) {
+        alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+        return;
+      }
     }
 
     try {
@@ -389,9 +400,15 @@ export default function IssueDetailModal({
 
   // ステータス即時変更
   const handleQuickStatusChange = async (newStatus: IssueStatus) => {
-    if (newStatus === "closed" && hasUnclosedChildren) {
-      alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-      return;
+    if (newStatus === "closed") {
+      if (!canClose) {
+        alert("課題を完了にできるのは、課題の起票者または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
+        return;
+      }
+      if (hasUnclosedChildren) {
+        alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+        return;
+      }
     }
 
     const previousStatus = activeIssue.status;
@@ -1029,9 +1046,15 @@ export default function IssueDetailModal({
                   onChange={(e) => {
                     const nextStatus = e.target.value as IssueStatus;
                     if (nextStatus === activeIssue.status) return;
-                    if (nextStatus === "closed" && hasUnclosedChildren) {
-                      alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
-                      return;
+                    if (nextStatus === "closed") {
+                      if (!canClose) {
+                        alert("課題を完了にできるのは、課題の起票者または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
+                        return;
+                      }
+                      if (hasUnclosedChildren) {
+                        alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                        return;
+                      }
                     }
                     if (nextStatus === "resolved" && !currentUser?.is_admin) {
                       setIsReviewModalOpen(true);
@@ -1046,8 +1069,23 @@ export default function IssueDetailModal({
                   <option value="open">未対応</option>
                   <option value="in_progress">処理中</option>
                   <option value="resolved">処理済み</option>
-                  <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
-                    完了{hasUnclosedChildren ? " (未完了あり)" : ""}
+                  <option
+                    value="closed"
+                    disabled={!canClose || hasUnclosedChildren}
+                    title={
+                      !canClose
+                        ? "課題を完了にできるのは起票者または管理者のみです"
+                        : hasUnclosedChildren
+                        ? `未完了の子課題が ${unclosedChildrenCount} 件あります`
+                        : undefined
+                    }
+                  >
+                    完了
+                    {!canClose
+                      ? " (起票者/管理者限定)"
+                      : hasUnclosedChildren
+                      ? " (未完了あり)"
+                      : ""}
                   </option>
                 </select>
               </div>
@@ -1232,8 +1270,23 @@ export default function IssueDetailModal({
                     <option value="open">未対応</option>
                     <option value="in_progress">処理中</option>
                     <option value="resolved">処理済み</option>
-                    <option value="closed" disabled={hasUnclosedChildren} title={hasUnclosedChildren ? `未完了の子課題が ${unclosedChildrenCount} 件あります` : undefined}>
-                      完了{hasUnclosedChildren ? " (未完了の子課題あり)" : ""}
+                    <option
+                      value="closed"
+                      disabled={!canClose || hasUnclosedChildren}
+                      title={
+                        !canClose
+                          ? "課題を完了にできるのは起票者または管理者のみです"
+                          : hasUnclosedChildren
+                          ? `未完了の子課題が ${unclosedChildrenCount} 件あります`
+                          : undefined
+                      }
+                    >
+                      完了
+                      {!canClose
+                        ? " (起票者/管理者限定)"
+                        : hasUnclosedChildren
+                        ? " (未完了の子課題あり)"
+                        : ""}
                     </option>
                   </select>
                   {hasUnclosedChildren && (

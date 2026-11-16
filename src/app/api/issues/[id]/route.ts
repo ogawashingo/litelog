@@ -223,6 +223,20 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
       }
 
+      // 課題を完了（closed）にできるのは、課題の起票者または管理者のみ
+      if (body.status === "closed" && currentIssue.status !== "closed") {
+        const canClose = Boolean(
+          sessionUser.is_admin ||
+          (currentIssue.created_by && sessionUser.id === currentIssue.created_by)
+        );
+        if (!canClose) {
+          return NextResponse.json(
+            { error: "課題を完了にできるのは、課題の起票者または管理者のみです" },
+            { status: 403 }
+          );
+        }
+      }
+
       // 未完了の子課題が存在する場合、親課題を完了（closed）にできないバリデーション
       if (body.status === "closed") {
         const unclosedChildren = db

@@ -130,6 +130,20 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "無効な完了理由です" }, { status: 400 });
     }
 
+    // 課題を完了（closed）にできるのは、課題の起票者または管理者のみ
+    if (nextStatus === "closed" && issue.status !== "closed") {
+      const canClose = Boolean(
+        sessionUser.is_admin ||
+        (issue.created_by && sessionUser.id === issue.created_by)
+      );
+      if (!canClose) {
+        return NextResponse.json(
+          { error: "課題を完了にできるのは、課題の起票者または管理者のみです" },
+          { status: 403 }
+        );
+      }
+    }
+
     // 未完了の子課題バリデーション（closedに変更時）
     if (nextStatus === "closed" && issue.status !== "closed") {
       const unclosedChildren = db

@@ -2148,6 +2148,38 @@ async function runTests() {
     console.log("✓ レビュー依頼連動の処理済みステータス更新＆担当者レビュアー変更＆コメント保存テスト成功");
   }
 
+  // 41. 課題完了（closed）の権限制御（起票者または管理者のみ完了可能、一般作業者の自己クローズ遮断）検証テスト
+  const closeTestIssueRes = db.prepare(`
+    INSERT INTO issues (project_id, issue_key, issue_number, title, status, priority, issue_type, created_by, assignee_id)
+    VALUES (1, 'MYPRJ-1000', 1000, '完了権限制御検証課題', 'resolved', 'high', 'task', 1, 2)
+  `).run();
+  const closeTestIssueId = closeTestIssueRes.lastInsertRowid;
+  const targetIssueForClose = db.prepare("SELECT * FROM issues WHERE id = ?").get(closeTestIssueId);
+
+  // 一般ユーザー（担当者・ID=2・非管理者）が完了にできるか判定 -> false
+  const assigneeUser = db.prepare("SELECT * FROM users WHERE id = 2").get();
+  const canAssigneeClose = Boolean(
+    assigneeUser.is_admin ||
+    (targetIssueForClose.created_by && assigneeUser.id === targetIssueForClose.created_by)
+  );
+  if (canAssigneeClose) {
+    throw new Error("一般担当者が課題を完了できる権限を持ってしまっています");
+  }
+
+  // 起票者本人（ID=1）が完了にできるか判定 -> true
+  const creatorUser = db.prepare("SELECT * FROM users WHERE id = 1").get();
+  const canCreatorClose = Boolean(
+    creatorUser.is_admin ||
+    (targetIssueForClose.created_by && creatorUser.id === targetIssueForClose.created_by)
+  );
+  if (!canCreatorClose) {
+    throw new Error("起票者が課題を完了できません");
+  }
+
+  // 後始末
+  db.prepare("DELETE FROM issues WHERE id = ?").run(closeTestIssueId);
+  console.log("✓ 課題完了（closed）の権限制御（起票者または管理者のみ完了可能、一般作業者の自己クローズ遮断）テスト成功");
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 
