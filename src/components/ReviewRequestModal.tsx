@@ -66,10 +66,10 @@ export default function ReviewRequestModal({
       }
       setSelectedReviewerId(initialReviewerId);
 
-      // シンプルな初期一言メッセージ（大げさな箇条書きやテンプレートは廃止）
+      // 初期表示はメンションのみ（依頼文は自分で考えさせる）
       const reviewer = users.find((u) => u.id === initialReviewerId);
       const reviewerName = reviewer ? reviewer.name : "レビュアー";
-      setComment(`@${reviewerName} 対応が完了しましたので、ご確認・レビューをお願いします！`);
+      setComment(`@${reviewerName} `);
     }
   }, [isOpen, reporterId, currentUserId, candidateUsers, users]);
 
@@ -88,6 +88,12 @@ export default function ReviewRequestModal({
     }
   };
 
+  // メンションを除いた純粋な依頼メッセージ本文があるか判定
+  const currentReviewer = users.find((u) => u.id === selectedReviewerId);
+  const mentionPrefix = currentReviewer ? `@${currentReviewer.name}` : "";
+  const bodyText = comment.replace(mentionPrefix, "").trim();
+  const isFormValid = Boolean(selectedReviewerId && bodyText.length > 0 && !isSubmitting);
+
   // 送信ハンドラー
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,8 +101,8 @@ export default function ReviewRequestModal({
       setErrorMessage("レビューをお願いする相手（レビュアー）を選択してください");
       return;
     }
-    if (!comment.trim()) {
-      setErrorMessage("確認依頼メッセージを入力してください");
+    if (!bodyText) {
+      setErrorMessage("相手に何を確認してほしいか、メッセージを入力してください（メンションのみは不可）");
       return;
     }
 
@@ -129,8 +135,6 @@ export default function ReviewRequestModal({
   }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
-
-  const isFormValid = Boolean(selectedReviewerId && comment.trim() && !isSubmitting);
 
   return (
     <div
@@ -222,17 +226,31 @@ export default function ReviewRequestModal({
 
           {/* 依頼メッセージ入力欄 */}
           <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-700">
-              メッセージ（一言）
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700">
+                依頼メッセージ <span className="text-rose-500">*</span>
+              </label>
+              <span className="text-[11px] text-slate-400">
+                ※ メンションに続けて要件を記入
+              </span>
+            </div>
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               disabled={isSubmitting}
               rows={3}
-              placeholder="一言メッセージを入力してください"
+              placeholder="例: Stripe連携を実装しました。Webhookの疎通確認をお願いできますか？"
               className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-colors leading-relaxed resize-none"
             />
+            {bodyText.length === 0 ? (
+              <p className="text-[11px] text-amber-600 font-medium">
+                相手に何を確認してほしいか、一言メッセージを入力してください
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-400">
+                相手に何を確認してほしいか、一言添えてバトンを渡しましょう
+              </p>
+            )}
           </div>
 
           {/* モーダルフッター */}
