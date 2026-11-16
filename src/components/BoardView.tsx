@@ -18,6 +18,7 @@ import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProjec
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
+import ReviewRequestModal from "./ReviewRequestModal";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
@@ -111,6 +112,7 @@ export default function BoardView({
   const [createInitialStatus, setCreateInitialStatus] = useState<IssueStatus>("open");
   const [detailIssue, setDetailIssue] = useState<Issue | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [reviewTargetIssue, setReviewTargetIssue] = useState<Issue | null>(null);
 
   // 課題のドラッグ開始
   const handleDragStart = (e: React.DragEvent, issueId: number) => {
@@ -170,8 +172,43 @@ export default function BoardView({
       }
     }
 
+    // 処理済みレーンへの移動時は、こっそり処理済み放置を防ぐためレビュー依頼モーダルを起動
+    if (newStatus === "resolved") {
+      setReviewTargetIssue(targetIssue);
+      setDraggingIssueId(null);
+      return;
+    }
+
     setDraggingIssueId(null);
     await onUpdateStatus(issueId, newStatus);
+  };
+
+  // レビュー・確認依頼モーダル経由での処理済みステータス更新
+  const handleReviewRequestSubmit = async (data: {
+    reviewerId: number;
+    changeAssignee: boolean;
+    comment: string;
+  }) => {
+    if (!reviewTargetIssue) return;
+    const res = await fetch(`/api/issues/${reviewTargetIssue.id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: data.comment,
+        status: "resolved",
+        resolution: null,
+        ...(data.changeAssignee ? { assigneeId: data.reviewerId } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "レビュー依頼の送信に失敗しました");
+    }
+    setReviewTargetIssue(null);
+    await onRefresh();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("backlog:notifications-updated"));
+    }
   };
 
   // 各ステータスレーンへの新規追加モーダル表示
@@ -696,6 +733,21 @@ export default function BoardView({
         }}
         onSelectIssue={(issue) => setDetailIssue(issue)}
       />
+
+      {/* レビュー・確認依頼モーダル（処理済みへのドロップ時ガード） */}
+      {reviewTargetIssue && (
+        <ReviewRequestModal
+          isOpen={reviewTargetIssue !== null}
+          issueKey={reviewTargetIssue.issue_key}
+          issueTitle={reviewTargetIssue.title}
+          reporterId={reviewTargetIssue.created_by}
+          currentAssigneeId={reviewTargetIssue.assignee_id}
+          users={users}
+          currentUserId={currentUser?.id}
+          onClose={() => setReviewTargetIssue(null)}
+          onSubmit={handleReviewRequestSubmit}
+        />
+      )}
     </div>
   );
 }

@@ -2117,6 +2117,37 @@ async function runTests() {
   restoreDb.close();
   console.log("✓ バックアップJSON復元時のアーカイブ済みステータス（is_archived=1）および完了理由（resolution）保持検証成功");
 
+  // 40. レビュー依頼連動の処理済みステータス更新＆担当者レビュアー変更＆コメント投稿テスト
+  const reviewTestIssueRes = db.prepare(`
+    INSERT INTO issues (project_id, issue_key, issue_number, title, status, priority, issue_type, created_by, assignee_id)
+    VALUES (1, 'MYPRJ-999', 999, 'レビュー依頼検証課題', 'in_progress', 'high', 'task', 1, 1)
+  `).run();
+  const reviewTestIssueId = reviewTestIssueRes.lastInsertRowid;
+  const reviewerUser = db.prepare("SELECT * FROM users WHERE login_id = 'sato'").get();
+  if (reviewerUser) {
+    const reviewCommentText = `@${reviewerUser.name}\n実装完了しました。コードレビューをお願いします！\n【PR】https://github.com/example/repo/pull/123`;
+    db.prepare(`
+      INSERT INTO comments (issue_id, user_id, content, created_at, updated_at)
+      VALUES (?, 1, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `).run(reviewTestIssueId, reviewCommentText);
+    db.prepare(`
+      UPDATE issues SET status = 'resolved', assignee_id = ?, resolution = NULL WHERE id = ?
+    `).run(reviewerUser.id, reviewTestIssueId);
+
+    const checkResolved = db.prepare("SELECT * FROM issues WHERE id = ?").get(reviewTestIssueId);
+    if (checkResolved.status !== "resolved" || checkResolved.assignee_id !== reviewerUser.id) {
+      throw new Error("レビュー依頼連動での処理済みステータスおよび担当者レビュアー変更に失敗しました");
+    }
+    const checkComment = db.prepare("SELECT * FROM comments WHERE issue_id = ? ORDER BY id DESC LIMIT 1").get(reviewTestIssueId);
+    if (!checkComment || !checkComment.content.includes("コードレビューをお願いします")) {
+      throw new Error("レビュー依頼コメントの保存に失敗しました");
+    }
+    // 後始末
+    db.prepare("DELETE FROM comments WHERE issue_id = ?").run(reviewTestIssueId);
+    db.prepare("DELETE FROM issues WHERE id = ?").run(reviewTestIssueId);
+    console.log("✓ レビュー依頼連動の処理済みステータス更新＆担当者レビュアー変更＆コメント保存テスト成功");
+  }
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

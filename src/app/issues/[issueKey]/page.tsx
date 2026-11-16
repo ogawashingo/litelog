@@ -38,6 +38,7 @@ import MentionText from "@/components/MentionText";
 import NotifyUserSelector from "@/components/NotifyUserSelector";
 import CommentReactionBar from "@/components/CommentReactionBar";
 import ResolutionSelect from "@/components/ResolutionSelect";
+import ReviewRequestModal from "@/components/ReviewRequestModal";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -64,6 +65,7 @@ export default function IssueDetailPage() {
   const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
   const [isIssueHistoryOpen, setIsIssueHistoryOpen] = useState(false);
   const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "dates" | "all">("description");
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // 編集モードState
   const [isEditing, setIsEditing] = useState(false);
@@ -247,6 +249,35 @@ export default function IssueDetailPage() {
       }
     } catch (err) {
       console.error("ステータス変更エラー:", err);
+    }
+  };
+
+  // レビュー・確認依頼モーダル経由での処理済みステータス更新
+  const handleReviewRequestSubmit = async (data: {
+    reviewerId: number;
+    changeAssignee: boolean;
+    comment: string;
+  }) => {
+    if (!issue) return;
+    const res = await fetch(`/api/issues/${issue.id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: data.comment,
+        status: "resolved",
+        resolution: null,
+        ...(data.changeAssignee ? { assigneeId: data.reviewerId } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "レビュー依頼の送信に失敗しました");
+    }
+    // 課題詳細とコメント一覧を再取得
+    await fetchIssueDetail();
+    await refreshUsers();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("backlog:notifications-updated"));
     }
   };
 
@@ -752,8 +783,13 @@ export default function IssueDetailPage() {
                         disabled={isProjectArchived}
                         onChange={(e) => {
                           const nextStatus = e.target.value as IssueStatus;
+                          if (nextStatus === issue.status) return;
                           if (nextStatus === "closed" && hasUnclosedChildren) {
                             alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                            return;
+                          }
+                          if (nextStatus === "resolved") {
+                            setIsReviewModalOpen(true);
                             return;
                           }
                           handleQuickStatusChange(nextStatus);
@@ -1498,6 +1534,21 @@ export default function IssueDetailPage() {
           initialTab={issueHistoryTab}
           settings={settings}
           users={users}
+        />
+      )}
+
+      {/* レビュー・確認依頼モーダル（処理済みへのステータス変更ガード） */}
+      {issue && (
+        <ReviewRequestModal
+          isOpen={isReviewModalOpen}
+          issueKey={issue.issue_key}
+          issueTitle={issue.title}
+          reporterId={issue.created_by}
+          currentAssigneeId={issue.assignee_id}
+          users={users}
+          currentUserId={currentUser?.id}
+          onClose={() => setIsReviewModalOpen(false)}
+          onSubmit={handleReviewRequestSubmit}
         />
       )}
     </div>

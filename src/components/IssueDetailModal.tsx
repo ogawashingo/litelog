@@ -16,6 +16,7 @@ import IssueHistoryModal from "./IssueHistoryModal";
 import NotifyUserSelector from "./NotifyUserSelector";
 import CommentReactionBar from "./CommentReactionBar";
 import ResolutionSelect from "./ResolutionSelect";
+import ReviewRequestModal from "./ReviewRequestModal";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -53,6 +54,7 @@ export default function IssueDetailModal({
   const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "dates" | "all">("description");
   const [isEditing, setIsEditing] = useState(false);
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
   // 子課題クイック追加State
   const [isAddingChild, setIsAddingChild] = useState(false);
@@ -447,6 +449,54 @@ export default function IssueDetailModal({
       );
       setEditStatus(previousStatus);
       setEditResolution(previousResolution);
+    }
+  };
+
+  // レビュー・確認依頼モーダル経由での処理済みステータス更新
+  const handleReviewRequestSubmit = async (data: {
+    reviewerId: number;
+    changeAssignee: boolean;
+    comment: string;
+  }) => {
+    if (!issue) return;
+    const res = await fetch(`/api/issues/${issue.id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: data.comment,
+        status: "resolved",
+        resolution: null,
+        ...(data.changeAssignee ? { assigneeId: data.reviewerId } : {}),
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "レビュー依頼の送信に失敗しました");
+    }
+
+    // 課題詳細とコメントを再取得
+    try {
+      const detailRes = await fetch(`/api/issues/${issue.id}`);
+      if (detailRes.ok) {
+        const detailData = await detailRes.json();
+        if (detailData.issue) {
+          setCurrentIssue(detailData.issue);
+          setEditStatus(detailData.issue.status);
+          setEditResolution(detailData.issue.resolution || null);
+          setEditAssigneeId(detailData.issue.assignee_id ? String(detailData.issue.assignee_id) : "");
+        }
+        if (Array.isArray(detailData.comments)) {
+          setComments(detailData.comments);
+        }
+      }
+    } catch (e) {
+      console.error("更新後の再取得エラー:", e);
+    }
+
+    await refreshUsers();
+    onUpdated();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("backlog:notifications-updated"));
     }
   };
 
@@ -978,8 +1028,13 @@ export default function IssueDetailModal({
                   disabled={isProjectArchived}
                   onChange={(e) => {
                     const nextStatus = e.target.value as IssueStatus;
+                    if (nextStatus === activeIssue.status) return;
                     if (nextStatus === "closed" && hasUnclosedChildren) {
                       alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
+                      return;
+                    }
+                    if (nextStatus === "resolved") {
+                      setIsReviewModalOpen(true);
                       return;
                     }
                     handleQuickStatusChange(nextStatus);
@@ -1873,6 +1928,21 @@ export default function IssueDetailModal({
         settings={settings}
         users={users}
       />
+
+      {/* レビュー・確認依頼モーダル（処理済みへのステータス変更ガード） */}
+      {activeIssue && (
+        <ReviewRequestModal
+          isOpen={isReviewModalOpen}
+          issueKey={activeIssue.issue_key}
+          issueTitle={activeIssue.title}
+          reporterId={activeIssue.created_by}
+          currentAssigneeId={activeIssue.assignee_id}
+          users={users}
+          currentUserId={currentUser?.id}
+          onClose={() => setIsReviewModalOpen(false)}
+          onSubmit={handleReviewRequestSubmit}
+        />
+      )}
     </div>
   );
 }
