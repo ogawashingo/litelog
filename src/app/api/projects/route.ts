@@ -30,16 +30,16 @@ export async function GET() {
   }
 }
 
-// プロジェクト新規作成（Admin管理者のみ実行可能）
+// プロジェクト新規作成（Admin管理者またはPMOが実行可能）
 export async function POST(request: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
       return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
     }
-    if (sessionUser.is_admin !== 1) {
+    if (sessionUser.is_admin !== 1 && sessionUser.role_type !== "pmo") {
       return NextResponse.json(
-        { error: "新規プロジェクトの作成は管理者（Admin権限）のみ実行できます" },
+        { error: "新規プロジェクトの作成は管理者（Admin）またはPMOのみ実行できます" },
         { status: 403 }
       );
     }

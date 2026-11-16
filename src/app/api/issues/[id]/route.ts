@@ -217,6 +217,20 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
       updates.push("issue_type = ?");
       values.push(body.issueType);
+      if (currentIssue.issue_type !== body.issueType) {
+        const typeMap: Record<string, string> = {
+          task: "タスク",
+          bug: "バグ",
+          request: "要望",
+          other: "その他",
+        };
+        const prevTypeLabel = typeMap[currentIssue.issue_type] || currentIssue.issue_type;
+        const newTypeLabel = typeMap[body.issueType] || body.issueType;
+        activityLogs.push({
+          type: "updated",
+          msg: `課題 [${currentIssue.issue_key}] の種別を「${prevTypeLabel}」から「${newTypeLabel}」に変更しました`,
+        });
+      }
     }
     if (body.status !== undefined) {
       if (!VALID_STATUSES.has(String(body.status))) {

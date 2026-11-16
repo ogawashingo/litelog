@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip } from "lucide-react";
-import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution } from "@/types";
+import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDeleteIssue } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -815,20 +815,22 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 操作（削除：PC・タブレットのみ表示） */}
+                    {/* 操作（削除：PC・タブレットのみ表示、作成者または管理者のみ） */}
                     <td className="hidden md:table-cell py-3 px-2 text-center whitespace-nowrap">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm(`課題 [${issue.issue_key}] 「${issue.title}」を削除してもよろしいですか？`)) {
-                            onDeleteIssue(issue.id);
-                          }
-                        }}
-                        title="課題を削除"
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded transition-all cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canDeleteIssue(currentUser, issue) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`課題 [${issue.issue_key}] 「${issue.title}」を削除してもよろしいですか？`)) {
+                              onDeleteIssue(issue.id);
+                            }
+                          }}
+                          title="課題を削除（作成者または管理者のみ）"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );

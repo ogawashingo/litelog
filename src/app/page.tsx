@@ -272,16 +272,20 @@ function DashboardContent() {
     }
   };
 
-  // 課題削除
+  // 課題削除（作成者または管理者のみ）
   const handleDeleteIssue = async (issueId: number) => {
     try {
       const actorQuery = currentUser?.id ? `?actorId=${currentUser.id}` : "";
       const res = await fetch(`/api/issues/${issueId}${actorQuery}`, { method: "DELETE" });
       if (res.ok) {
         await refreshAll();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "課題の削除に失敗しました");
       }
     } catch (err) {
       console.error("課題削除エラー:", err);
+      alert("課題の削除に失敗しました");
     }
   };
 

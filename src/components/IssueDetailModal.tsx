@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon, Archive } from "lucide-react";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject, canManageIssues } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject, canManageIssues, canDeleteIssue } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -308,6 +308,8 @@ export default function IssueDetailModal({
     canManageIssues(currentUser) ||
     (activeIssue.created_by && currentUser?.id === activeIssue.created_by)
   );
+  // 課題を削除できる権限判定（作成者または管理者のみ）
+  const canDelete = canDeleteIssue(currentUser, activeIssue);
 
   // 課題の更新を保存
   const handleSaveEdit = async () => {
@@ -609,6 +611,40 @@ export default function IssueDetailModal({
     }
   };
 
+  // 種別即時変更（モーダル上で直接変更可能）
+  const handleQuickTypeChange = async (newType: IssueType) => {
+    const previousType = activeIssue.issue_type;
+    if (newType === previousType) return;
+    try {
+      setCurrentIssue((prev) => (prev ? { ...prev, issue_type: newType } : null));
+      setEditType(newType);
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issueType: newType,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
+        await refreshUsers();
+        onUpdated();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "種別の変更に失敗しました");
+        setCurrentIssue((prev) => (prev ? { ...prev, issue_type: previousType } : null));
+        setEditType(previousType);
+      }
+    } catch (err) {
+      console.error("種別変更エラー:", err);
+      setCurrentIssue((prev) => (prev ? { ...prev, issue_type: previousType } : null));
+      setEditType(previousType);
+    }
+  };
+
   // 優先度即時変更（モーダル上で直接変更可能）
   const handleQuickPriorityChange = async (newPriority: IssuePriority) => {
     try {
@@ -778,8 +814,12 @@ export default function IssueDetailModal({
     }
   };
 
-  // 課題の削除
+  // 課題の削除（作成者または管理者のみ実行可能）
   const handleDelete = async () => {
+    if (!canDelete) {
+      alert("課題を削除できるのは、課題の作成者または管理者のみです。");
+      return;
+    }
     if (!confirm(`課題 [${issue.issue_key}] 「${issue.title}」を完全に削除しますか？`)) {
       return;
     }
@@ -790,9 +830,13 @@ export default function IssueDetailModal({
         await refreshUsers();
         onDeleted();
         onClose();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "課題の削除に失敗しました");
       }
     } catch (err) {
       console.error("削除エラー:", err);
+      alert("課題の削除に失敗しました");
     }
   };
 
@@ -894,13 +938,26 @@ export default function IssueDetailModal({
               <span>戻る</span>
             </button>
 
-            <TypeBadge type={isEditing ? editType : activeIssue.issue_type} />
-            <ResolutionBadge resolution={isEditing ? editResolution : activeIssue.resolution} />
-            <span className="font-bold text-gray-800 text-xs sm:text-sm tracking-wide shrink-0">
+            <TypeBadge
+              type={isEditing ? editType : activeIssue.issue_type}
+              disabled={isProjectArchived}
+              onChange={(nextType) => {
+                if (isEditing) {
+                  setEditType(nextType);
+                } else {
+                  handleQuickTypeChange(nextType);
+                }
+              }}
+            />
+            <ResolutionBadge
+              resolution={isEditing ? editResolution : activeIssue.resolution}
+              className="hidden sm:inline-flex"
+            />
+            <span className="font-bold text-gray-800 text-xs sm:text-sm tracking-wide shrink-0 whitespace-nowrap">
               {activeIssue.issue_key}
             </span>
             {activeIssue.project_name && (
-              <span className="text-[11px] sm:text-xs bg-white border border-gray-200 px-1.5 sm:px-2 py-0.5 rounded text-gray-600 truncate max-w-[90px] sm:max-w-none">
+              <span className="hidden sm:inline-block text-xs bg-white border border-gray-200 px-2 py-0.5 rounded text-gray-600 truncate max-w-[160px] md:max-w-none">
                 {activeIssue.project_name}
               </span>
             )}
@@ -960,14 +1017,16 @@ export default function IssueDetailModal({
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
-                  title="課題を削除"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                    title="課題を削除（作成者または管理者のみ）"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </>
             )}
 

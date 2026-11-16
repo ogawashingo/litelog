@@ -34,16 +34,18 @@ export async function GET() {
   }
 }
 
-// メンバーの新規登録（Admin管理者のみ実行可能）
+// メンバーの新規登録（Admin管理者またはPMOが実行可能。ただしAdmin権限の付与はAdminのみ）
 export async function POST(request: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
       return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
     }
-    if (sessionUser.is_admin !== 1) {
+    const isAdmin = sessionUser.is_admin === 1;
+    const isPmo = sessionUser.role_type === "pmo";
+    if (!isAdmin && !isPmo) {
       return NextResponse.json(
-        { error: "メンバーの追加には管理者（Admin）権限が必要です" },
+        { error: "メンバーの追加には管理者（Admin）またはPMO権限が必要です" },
         { status: 403 }
       );
     }
@@ -55,12 +57,20 @@ export async function POST(request: Request) {
       password = "pass123",
       name,
       role = "メンバー",
-      isAdmin = false,
+      isAdmin: reqIsAdmin = false,
       roleType,
       color = "#4f46e5",
       weekStart = "monday",
       showHolidays = true,
     } = body;
+
+    // PMOによるシステム管理者（Admin）権限付与は禁止
+    if (!isAdmin && (roleType === "admin" || reqIsAdmin)) {
+      return NextResponse.json(
+        { error: "システム管理者（Admin）権限の付与はAdminのみ実行できます" },
+        { status: 403 }
+      );
+    }
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "メンバー名は必須です" }, { status: 400 });
@@ -89,7 +99,7 @@ export async function POST(request: Request) {
 
     // 3段階ロール（admin / pmo / member）の正規化
     const effectiveRoleType =
-      roleType === "admin" || isAdmin
+      roleType === "admin" || reqIsAdmin
         ? "admin"
         : roleType === "pmo"
         ? "pmo"

@@ -2201,9 +2201,37 @@ async function runTests() {
     throw new Error("起票者が課題を完了できません");
   }
 
+  // 課題削除の権限制御検証（作成者本人またはAdminのみ削除可能、一般担当者や非起票PMOは削除不可）
+  const canAssigneeDelete = Boolean(
+    assigneeUser.is_admin ||
+    assigneeUser.role_type === "admin" ||
+    (targetIssueForClose.created_by && assigneeUser.id === targetIssueForClose.created_by)
+  );
+  if (canAssigneeDelete) {
+    throw new Error("一般担当者が他人の起票課題を削除できる権限を持ってしまっています");
+  }
+
+  const canPmoDeleteOtherIssue = Boolean(
+    pmoUser.is_admin ||
+    pmoUser.role_type === "admin" ||
+    (targetIssueForClose.created_by && pmoUser.id === targetIssueForClose.created_by)
+  );
+  if (canPmoDeleteOtherIssue) {
+    throw new Error("PMOロールのユーザーが他人の起票課題を削除できる権限を持ってしまっています");
+  }
+
+  const canCreatorDelete = Boolean(
+    creatorUser.is_admin ||
+    creatorUser.role_type === "admin" ||
+    (targetIssueForClose.created_by && creatorUser.id === targetIssueForClose.created_by)
+  );
+  if (!canCreatorDelete) {
+    throw new Error("課題の作成者（またはAdmin）が課題を削除できません");
+  }
+
   // 後始末
   db.prepare("DELETE FROM issues WHERE id = ?").run(closeTestIssueId);
-  console.log("✓ 3段階ロール（Admin / PMO / 一般）および課題完了の権限制御テスト成功");
+  console.log("✓ 3段階ロール（Admin / PMO / 一般）および課題完了・課題削除の権限制御テスト成功");
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

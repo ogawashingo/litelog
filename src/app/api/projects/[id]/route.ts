@@ -7,7 +7,7 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// プロジェクト名の変更・情報更新（Admin管理者のみ実行可能）
+// プロジェクト名の変更・アーカイブ情報更新（Admin管理者またはPMOが実行可能）
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
@@ -17,9 +17,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         { status: 401 }
       );
     }
-    if (sessionUser.is_admin !== 1) {
+    if (sessionUser.is_admin !== 1 && sessionUser.role_type !== "pmo") {
       return NextResponse.json(
-        { error: "プロジェクト名の変更は管理者（Admin権限）のみ実行できます" },
+        { error: "プロジェクトの設定変更は管理者（Admin）またはPMOのみ実行できます" },
         { status: 403 }
       );
     }

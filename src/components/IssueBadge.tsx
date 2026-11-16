@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { CheckSquare, Bug, Sparkles, HelpCircle, ArrowUp, ArrowRight, ArrowDown } from "lucide-react";
+import { CheckSquare, Bug, Sparkles, HelpCircle, ArrowUp, ArrowRight, ArrowDown, ChevronDown } from "lucide-react";
 import { IssueType, IssueStatus, IssuePriority, IssueResolution } from "@/types";
 
 // 種別情報マッピング（オリジナル・コズミックカラーパレット）
@@ -89,24 +89,62 @@ export const ISSUE_PRIORITY_CONFIG: Record<
   },
 };
 
-// 種別バッジ
+// 種別バッジ（onChange指定時はタップ・クリックで直接種別を変更できるセレクトバッジとして表示）
 export function TypeBadge({
   type,
   showLabel = true,
+  onChange,
+  disabled = false,
 }: {
   type: IssueType;
   showLabel?: boolean;
+  onChange?: (nextType: IssueType) => void;
+  disabled?: boolean;
 }) {
   const config = ISSUE_TYPE_CONFIG[type] || ISSUE_TYPE_CONFIG.task;
   const Icon = config.icon;
+
+  if (onChange && !disabled && showLabel) {
+    return (
+      <div
+        className={`relative inline-flex items-center whitespace-nowrap shrink-0 rounded-md text-xs font-semibold ${config.bg} ${config.text} shadow-2xs transition-opacity hover:opacity-95`}
+        title={`種別: ${config.label}（タップして変更）`}
+      >
+        <Icon className="w-3 h-3 left-2 absolute shrink-0 pointer-events-none" />
+        <select
+          name="issueType"
+          aria-label="課題の種別"
+          value={type}
+          onChange={(e) => onChange(e.target.value as IssueType)}
+          onClick={(e) => e.stopPropagation()}
+          className="appearance-none bg-transparent text-inherit text-xs font-semibold pl-6 pr-5 py-0.5 cursor-pointer rounded-md focus:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-1"
+        >
+          <option value="task" className="text-slate-900 bg-white">
+            タスク
+          </option>
+          <option value="bug" className="text-slate-900 bg-white">
+            バグ
+          </option>
+          <option value="request" className="text-slate-900 bg-white">
+            要望
+          </option>
+          <option value="other" className="text-slate-900 bg-white">
+            その他
+          </option>
+        </select>
+        <ChevronDown className="w-3 h-3 right-1.5 absolute shrink-0 pointer-events-none opacity-85" />
+      </div>
+    );
+  }
+
   return (
     <span
-      className={`inline-flex items-center gap-1 ${
+      className={`inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${
         showLabel ? "px-2 py-0.5" : "p-1"
       } rounded-md text-xs font-semibold ${config.bg} ${config.text} shadow-2xs`}
       title={config.label}
     >
-      <Icon className="w-3 h-3" />
+      <Icon className="w-3 h-3 shrink-0" />
       {showLabel && <span>{config.label}</span>}
     </span>
   );
@@ -117,7 +155,7 @@ export function StatusBadge({ status }: { status: IssueStatus }) {
   const config = ISSUE_STATUS_CONFIG[status] || ISSUE_STATUS_CONFIG.open;
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${config.bg} ${config.text} ${config.border}`}
+      className={`inline-flex items-center whitespace-nowrap shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${config.bg} ${config.text} ${config.border}`}
     >
       {config.label}
     </span>
@@ -129,8 +167,8 @@ export function PriorityBadge({ priority }: { priority: IssuePriority }) {
   const config = ISSUE_PRIORITY_CONFIG[priority] || ISSUE_PRIORITY_CONFIG.medium;
   const Icon = config.icon;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs ${config.text}`}>
-      <Icon className="w-3.5 h-3.5" />
+    <span className={`inline-flex items-center gap-0.5 whitespace-nowrap shrink-0 text-xs ${config.text}`}>
+      <Icon className="w-3.5 h-3.5 shrink-0" />
       {config.label}
     </span>
   );
@@ -186,7 +224,7 @@ export function ResolutionBadge({
   if (!config) return null;
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${config.bg} ${config.text} ${config.border} ${className}`}
+      className={`inline-flex items-center whitespace-nowrap shrink-0 px-2 py-0.5 rounded text-xs font-medium border ${config.bg} ${config.text} ${config.border} ${className}`}
       title={`完了理由: ${config.label}`}
     >
       {config.label}

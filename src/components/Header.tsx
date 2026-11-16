@@ -19,7 +19,7 @@ import {
   Search,
   ArrowRight,
 } from "lucide-react";
-import { Project, Issue, isArchivedProject, getUserRoleType } from "@/types";
+import { Project, Issue, isArchivedProject, getUserRoleType, canManageIssues } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -302,8 +302,8 @@ export default function Header({
               </Link>
 
 
-              {/* 管理ページタブ（Admin権限のみ） */}
-              {Boolean(currentUser?.is_admin) && (
+              {/* 管理ページタブ（AdminおよびPMO権限） */}
+              {canManageIssues(currentUser) && (
                 <Link
                   href="/admin"
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
@@ -764,7 +764,7 @@ export default function Header({
             </Link>
 
             {/* 管理ページ（スマホ幅ではガントチャートは非表示） */}
-            {Boolean(currentUser?.is_admin) && (
+            {canManageIssues(currentUser) && (
               <Link
                 href="/admin"
                 onClick={() => setIsMobileMenuOpen(false)}

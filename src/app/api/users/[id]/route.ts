@@ -22,9 +22,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
 
     const isAdmin = sessionUser.is_admin === 1;
+    const isPmo = sessionUser.role_type === "pmo";
+    const canManageMember = isAdmin || isPmo;
     const isSelf = sessionUser.id === targetId;
 
-    if (!isAdmin && !isSelf) {
+    if (!canManageMember && !isSelf) {
       return NextResponse.json(
         { error: "他のメンバーのアカウント情報は変更できません" },
         { status: 403 }
@@ -45,8 +47,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "対象のメンバーが見つかりません" }, { status: 404 });
     }
 
-    // 一般ユーザー・PMOが権限(isAdmin/roleType)・ログインID・ロールを変更しようとした場合は拒否
-    if (!isAdmin) {
+    // PMOはシステム管理者（Admin）アカウントの編集や、Admin権限の付与は不可
+    if (isPmo && !isAdmin) {
+      if (targetUser.is_admin === 1) {
+        return NextResponse.json(
+          { error: "システム管理者（Admin）のアカウント情報は変更できません" },
+          { status: 403 }
+        );
+      }
+      if (body.isAdmin === true || body.isAdmin === 1 || body.roleType === "admin") {
+        return NextResponse.json(
+          { error: "システム管理者（Admin）権限の付与はAdminのみ実行できます" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // 一般ユーザーが権限(isAdmin/roleType)・ログインID・ロールを変更しようとした場合は拒否
+    if (!canManageMember) {
       if (
         body.isAdmin !== undefined ||
         body.roleType !== undefined ||
@@ -54,7 +72,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         body.role !== undefined
       ) {
         return NextResponse.json(
-          { error: "ログインID・役割・権限ロールの変更には管理者（Admin）権限が必要です" },
+          { error: "ログインID・役割・権限ロールの変更には管理者（Admin）またはPMO権限が必要です" },
           { status: 403 }
         );
       }
@@ -96,15 +114,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         );
       }
       hashedPasswordToUpdate = hashPassword(nextPw);
-    } else if (isAdmin && body.password !== undefined && String(body.password).trim() !== "") {
-      // Adminによるメンバー管理画面からのパスワード変更
+    } else if (canManageMember && body.password !== undefined && String(body.password).trim() !== "") {
+      // AdminまたはPMOによるメンバー管理画面からのパスワード変更
       hashedPasswordToUpdate = hashPassword(String(body.password).trim());
     }
 
     const updates: string[] = [];
     const values: (string | number)[] = [];
 
-    if (isAdmin && body.loginId !== undefined) {
+    if (canManageMember && body.loginId !== undefined) {
       const cleanLoginId = String(body.loginId).trim().toLowerCase();
       if (!cleanLoginId) {
         return NextResponse.json({ error: "ログインIDは空にできません" }, { status: 400 });
@@ -132,11 +150,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updates.push("name = ?");
       values.push(body.name.trim());
     }
-    if (isAdmin && body.role !== undefined) {
+    if (canManageMember && body.role !== undefined) {
       updates.push("role = ?");
       values.push(body.role.trim() || "メンバー");
     }
-    if (isAdmin && (body.roleType !== undefined || body.isAdmin !== undefined)) {
+    if (canManageMember && (body.roleType !== undefined || body.isAdmin !== undefined)) {
       let nextRoleType: string;
       let nextAdmin: number;
       if (body.roleType !== undefined) {

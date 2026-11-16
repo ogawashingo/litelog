@@ -31,7 +31,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project, isArchivedProject, canManageIssues } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project, isArchivedProject, canManageIssues, canDeleteIssue } from "@/types";
 import { setStoredProjectId } from "@/lib/projectStorage";
 import MentionTextarea from "@/components/MentionTextarea";
 import MentionText from "@/components/MentionText";
@@ -303,6 +303,40 @@ export default function IssueDetailPage() {
     }
   };
 
+  // 種別即時変更
+  const handleQuickTypeChange = async (newType: IssueType) => {
+    if (!issue) return;
+    const previousType = issue.issue_type;
+    if (newType === previousType) return;
+    try {
+      setIssue((prev) => (prev ? { ...prev, issue_type: newType } : null));
+      setEditType(newType);
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          issueType: newType,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("backlog:notifications-updated"));
+        }
+        await refreshUsers();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "種別の変更に失敗しました");
+        setIssue((prev) => (prev ? { ...prev, issue_type: previousType } : null));
+        setEditType(previousType);
+      }
+    } catch (err) {
+      console.error("種別変更エラー:", err);
+      setIssue((prev) => (prev ? { ...prev, issue_type: previousType } : null));
+      setEditType(previousType);
+    }
+  };
+
   // 優先度即時変更
   const handleQuickPriorityChange = async (newPriority: IssuePriority) => {
     if (!issue) return;
@@ -356,6 +390,8 @@ export default function IssueDetailPage() {
     canManageIssues(currentUser) ||
     (issue?.created_by && currentUser?.id === issue.created_by)
   );
+  // 課題を削除できる権限判定（作成者または管理者のみ）
+  const canDelete = canDeleteIssue(currentUser, issue);
 
   // コメントの投稿
   const handlePostComment = async (e: React.FormEvent) => {
@@ -470,9 +506,13 @@ export default function IssueDetailPage() {
     }
   };
 
-  // 課題の削除
+  // 課題の削除（作成者または管理者のみ実行可能）
   const handleDelete = async () => {
     if (!issue) return;
+    if (!canDelete) {
+      alert("課題を削除できるのは、課題の作成者または管理者のみです。");
+      return;
+    }
     if (!confirm(`課題 [${issue.issue_key}] 「${issue.title}」を完全に削除しますか？`)) {
       return;
     }
@@ -482,9 +522,13 @@ export default function IssueDetailPage() {
       if (res.ok) {
         await refreshUsers();
         router.push("/");
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || "課題の削除に失敗しました");
       }
     } catch (err) {
       console.error("削除エラー:", err);
+      alert("課題の削除に失敗しました");
     }
   };
 
@@ -692,13 +736,23 @@ export default function IssueDetailPage() {
               {/* 上段: メタバッジ・キー・操作アクション */}
               <div className="px-4 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200/60">
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                  <TypeBadge type={isEditing ? editType : issue.issue_type} />
+                  <TypeBadge
+                    type={isEditing ? editType : issue.issue_type}
+                    disabled={isProjectArchived}
+                    onChange={(nextType) => {
+                      if (isEditing) {
+                        setEditType(nextType);
+                      } else {
+                        handleQuickTypeChange(nextType);
+                      }
+                    }}
+                  />
                   <ResolutionBadge resolution={isEditing ? editResolution : issue.resolution} />
-                  <span className="font-bold text-slate-800 text-sm sm:text-base font-mono tracking-wide">
+                  <span className="font-bold text-slate-800 text-sm sm:text-base font-mono tracking-wide whitespace-nowrap shrink-0">
                     {issue.issue_key}
                   </span>
                   {issue.project_name && (
-                    <span className="text-xs bg-white border border-slate-200 px-2 py-0.5 rounded font-medium text-slate-700">
+                    <span className="text-xs bg-white border border-slate-200 px-2 py-0.5 rounded font-medium text-slate-700 truncate max-w-[180px] sm:max-w-none">
                       {issue.project_name}
                     </span>
                   )}
@@ -730,13 +784,15 @@ export default function IssueDetailPage() {
                           <span>{isSaving ? "保存中..." : "保存"}</span>
                         </button>
                       )}
-                      <button
-                        onClick={handleDelete}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                        title="課題を削除"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={handleDelete}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                          title="課題を削除（作成者または管理者のみ）"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </>
                   )}
                 </div>
