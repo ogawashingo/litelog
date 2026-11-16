@@ -1314,7 +1314,7 @@ export default function IssueDetailPage() {
                           {isEditingThis ? (
                             <div className="space-y-2 pt-1 pl-6">
                               <MentionTextarea
-                                rows={3}
+                                rows={4}
                                 value={editCommentContent}
                                 onChange={(val) => setEditCommentContent(val)}
                                 users={users}
@@ -1371,7 +1371,7 @@ export default function IssueDetailPage() {
                 {/* コメント投稿フォーム */}
                 <form onSubmit={handlePostComment} className="pt-2 space-y-2.5">
                   <MentionTextarea
-                    rows={2}
+                    rows={5}
                     value={newComment}
                     onChange={(val) => setNewComment(val)}
                     users={users}

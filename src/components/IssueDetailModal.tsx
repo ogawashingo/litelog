@@ -1690,7 +1690,7 @@ export default function IssueDetailModal({
                     {isEditingThis ? (
                       <div className="space-y-2 pt-1 pl-6">
                         <MentionTextarea
-                          rows={3}
+                          rows={4}
                           value={editCommentContent}
                           onChange={(val) => setEditCommentContent(val)}
                           users={users}
@@ -1751,7 +1751,7 @@ export default function IssueDetailModal({
             {/* コメント入力フォーム */}
             <form onSubmit={handlePostComment} className="space-y-2.5 pt-2">
               <MentionTextarea
-                rows={2}
+                rows={5}
                 placeholder={
                   currentUser
                     ? `${currentUser.name} としてコメント・進捗を入力... (@でメンバーをメンション、画像ペースト・添付対応)`
