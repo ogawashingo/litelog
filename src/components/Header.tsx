@@ -280,6 +280,10 @@ export default function Header({
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
+                      // 日本語IMEなどの変換確定時のEnter押下では検索を実行しない（Modern Web Guidance: ime-safe-enter-submit）
+                      if (e.nativeEvent.isComposing || e.keyCode === 229) {
+                        return;
+                      }
                       e.preventDefault();
                       executeSearch(searchKeyword);
                     }

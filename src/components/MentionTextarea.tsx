@@ -404,6 +404,10 @@ export default function MentionTextarea({
       e.preventDefault();
       setSelectedIndex((prev) => (prev - 1 + filteredUsers.length) % filteredUsers.length);
     } else if (e.key === "Enter" || e.key === "Tab") {
+      // 日本語IMEなどの変換確定時のEnter押下ではメンション挿入を実行しない（Modern Web Guidance: ime-safe-enter-submit）
+      if (e.nativeEvent.isComposing || e.keyCode === 229) {
+        return;
+      }
       e.preventDefault();
       const selectedUser = filteredUsers[selectedIndex];
       if (selectedUser) {
