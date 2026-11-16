@@ -328,8 +328,8 @@ export default function BoardView({
         </div>
       )}
 
-      {/* ボードヘッダー / フィルターツールバー（画面スクロール時も常に上部に固定表示） */}
-      <div className="sticky top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow">
+      {/* ボードヘッダー / フィルターツールバー（PC・タブレットでは画面スクロール時も上部に固定表示） */}
+      <div className="md:sticky md:top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* 左側: プロジェクト情報（タイトル・キー） */}
           <div className="flex flex-wrap items-center gap-3">
@@ -459,12 +459,12 @@ export default function BoardView({
               onDragOver={(e) => handleDragOver(e, col.status)}
               onDragLeave={(e) => handleDragLeave(e, col.status)}
               onDrop={(e) => handleDrop(e, col.status)}
-              className={`flex flex-col bg-slate-50/90 rounded-xl border-t-4 border border-indigo-100/80 min-h-[300px] transition-all duration-150 ${
+              className={`flex flex-col bg-slate-50/90 rounded-xl border-t-4 border border-indigo-100/80 md:min-h-[300px] transition-all duration-150 ${
                 col.headerBorder
               } ${isOver ? "bg-indigo-50/70 ring-2 ring-indigo-500 border-indigo-400" : ""}`}
             >
               {/* レーンヘッダー（スクロール時もツールバー直下に留まりカラム見出しが隠れるのを防止） */}
-              <div className="flex items-center justify-between p-3 border-b border-slate-200/80 bg-white rounded-t-lg sticky top-[calc(var(--app-header-height,56px)+66px)] z-10 shadow-2xs">
+              <div className="flex items-center justify-between p-3 border-b border-slate-200/80 bg-white rounded-t-lg sticky top-[var(--app-header-height,56px)] md:top-[calc(var(--app-header-height,56px)+66px)] z-10 shadow-2xs">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-base text-slate-800">{col.title}</span>
                   <span
@@ -482,8 +482,8 @@ export default function BoardView({
                 </button>
               </div>
 
-              {/* カード一覧（ビューポートに最適化し、スクロールチェーンによる画面全体のズレを防止） */}
-              <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto overscroll-y-contain max-h-[calc(100vh-var(--app-header-height,56px)-180px)]">
+              {/* カード一覧（スマホでは画面全体で自然にスクロールできるよう内部スクロール封じ込めを解除、PC・タブレットでは列別スクロール） */}
+              <div className="p-2.5 space-y-2.5 flex-1 md:overflow-y-auto md:overscroll-y-contain md:max-h-[calc(100vh-var(--app-header-height,56px)-180px)]">
                 {columnIssues.length === 0 ? (
                   <div
                     className={`h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-3 text-center transition-colors ${
