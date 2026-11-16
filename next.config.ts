@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
             value: "SAMEORIGIN",
           },
           {
+            // モダンブラウザ向けクリックジャッキング保護（Modern Web Guidance: security §1.4）
+            key: "Content-Security-Policy",
+            value: "frame-ancestors 'self';",
+          },
+          {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },

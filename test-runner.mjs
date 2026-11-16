@@ -12,7 +12,7 @@ import {
   createCommentNotifications,
 } from "./src/lib/notificationUtils.ts";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES, getAvatarColorLabel } from "./src/lib/avatarColors.ts";
-import { parseMarkdown, parseInline } from "./src/lib/markdownUtils.ts";
+import { parseMarkdown, parseInline, isSafeUrl } from "./src/lib/markdownUtils.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -1488,6 +1488,25 @@ async function runTests() {
     throw new Error(`課題キー自動リンクのパースに失敗しました: 件数=${keyNodes.length}`);
   }
   console.log("✓ インラインMarkdown（太字・斜体・取消線・コード・リンク・画像・メンション・課題キー自動リンク）パース成功");
+
+  // 8-1. URL安全性検証（XSS・危険スキーム遮断テスト Modern Web Guidance: sanitize-untrusted-html）
+  if (
+    !isSafeUrl("https://example.com") ||
+    !isSafeUrl("http://localhost:3000") ||
+    !isSafeUrl("/api/attachments/1") ||
+    !isSafeUrl("#heading") ||
+    !isSafeUrl("mailto:test@example.com")
+  ) {
+    throw new Error("安全なURLの判定に失敗しました");
+  }
+  if (
+    isSafeUrl("javascript:alert(1)") ||
+    isSafeUrl("data:text/html,<script>alert(1)</script>") ||
+    isSafeUrl("vbscript:msgbox")
+  ) {
+    throw new Error("危険なURLスキームが安全と誤判定されました");
+  }
+  console.log("✓ Markdown・外部リンク安全性検証（XSS・危険スキーム遮断）成功");
 
   // 8-2. ブロック要素検証（見出し・リスト・タスクリスト・引用・コードブロック・テーブル）
   const markdownSample = [

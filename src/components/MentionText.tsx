@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { User } from "@/types";
-import { parseMarkdown, BlockNode, InlineNode, ListItem } from "@/lib/markdownUtils";
+import { parseMarkdown, BlockNode, InlineNode, ListItem, isSafeUrl } from "@/lib/markdownUtils";
 import { Check, Copy, ExternalLink, X, ZoomIn, Download, Tag } from "lucide-react";
 
 interface MentionTextProps {
@@ -64,6 +64,15 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 function ImageNodeView({ url, alt }: { url: string; alt: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const isSafe = isSafeUrl(url, true);
+
+  if (!isSafe) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs my-2">
+        ⚠️ 安全でない画像URLです
+      </span>
+    );
+  }
 
   return (
     <>
@@ -215,6 +224,14 @@ function renderInlineNode(
     }
 
     case "link": {
+      // 危険なスキーム（javascript:, data: 等）を遮断してXSSを防止（Modern Web Guidance: sanitize-untrusted-html）
+      if (!isSafeUrl(node.url)) {
+        return (
+          <span key={key} className="text-slate-700">
+            {node.text}
+          </span>
+        );
+      }
       const isExternal = /^https?:\/\//i.test(node.url);
       return (
         <a

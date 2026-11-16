@@ -362,3 +362,32 @@ export function parseMarkdown(text: string, users: User[] = []): BlockNode[] {
 
   return blocks;
 }
+
+/**
+ * リンクや画像URLが安全なプロトコルを使用しているか検証する（XSS対策・Modern Web Guidance: security, sanitize-untrusted-html）
+ * - 許可: http, https, mailto, 相対パス (/ または #)
+ * - 危険スキーム（javascript:, data:, vbscript: 等）を遮断
+ */
+export function isSafeUrl(url: string, allowDataImage = false): boolean {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+
+  // 相対パスまたはアンカーリンクは許可
+  if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("./") || trimmed.startsWith("../")) {
+    return true;
+  }
+
+  // 画像ノードにおいて安全な data:image/ のみ許可する場合
+  if (allowDataImage && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(trimmed)) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const protocol = parsed.protocol.toLowerCase();
+    return protocol === "http:" || protocol === "https:" || protocol === "mailto:";
+  } catch {
+    // URL パースに失敗した場合は危険とみなして不許可
+    return false;
+  }
+}
