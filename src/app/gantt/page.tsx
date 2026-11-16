@@ -83,7 +83,7 @@ function GanttIndexContent() {
         onOpenBackup={() => setIsBackupOpen(true)}
       />
 
-      <main className="flex-1 max-w-[1800px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-3 sm:py-4">
+      <main className="flex-1 max-w-[1800px] w-full mx-auto px-2 sm:px-5 lg:px-6 py-2 sm:py-4">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-gray-500 text-sm animate-pulse">
