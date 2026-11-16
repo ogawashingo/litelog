@@ -1430,7 +1430,275 @@ export default function AdminPage() {
           </div>
         </form>
 
-        {/* 下部2カラム: メンバー・権限管理 ＆ プロジェクト・データバックアップ */}
+        {/* プロジェクト管理カード（全幅表示でプロジェクト名や操作ボタンの視認性を確保） */}
+        <div className="bg-white rounded-xl shadow-xs border border-indigo-100/80 p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <FolderGit2 className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-800 text-sm">
+                  プロジェクト管理 ({projects.length}件)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                登録プロジェクトの確認・名称変更・クローズ（アーカイブ）・削除（Admin専用）を行えます。
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* プロジェクトフィルター切り替えタブ */}
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs">
+                <button
+                  type="button"
+                  onClick={() => setProjectFilterTab("all")}
+                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    projectFilterTab === "all"
+                      ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  すべて ({projects.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectFilterTab("active")}
+                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    projectFilterTab === "active"
+                      ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  進行中 ({projects.filter((p) => !p.is_archived).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectFilterTab("archived")}
+                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    projectFilterTab === "archived"
+                      ? "bg-white text-indigo-700 shadow-2xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  クローズ済 ({projects.filter((p) => p.is_archived).length})
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!currentUser?.is_admin) {
+                    alert("新規プロジェクトの作成は管理者（Admin権限）のみ実行できます。");
+                    return;
+                  }
+                  setIsCreateProjectOpen(true);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>新規作成</span>
+              </button>
+            </div>
+          </div>
+
+          {projectErrorMsg && (
+            <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
+              {projectErrorMsg}
+            </div>
+          )}
+
+          <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[500px] overflow-y-auto">
+            {projects
+              .filter((p) => {
+                if (projectFilterTab === "active") return !p.is_archived;
+                if (projectFilterTab === "archived") return Boolean(p.is_archived);
+                return true;
+              })
+              .map((p) => {
+                const isEditingThis = editingProjectId === p.id;
+                const isDeletingThis = deletingProjectId === p.id;
+                const isArchived = Boolean(p.is_archived);
+                const isThisUpdatingArchive = isUpdatingArchiveId === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={`px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs transition-colors ${
+                      isArchived ? "bg-slate-50/70" : "bg-white hover:bg-slate-50/40"
+                    }`}
+                  >
+                    {isEditingThis ? (
+                      <form
+                        onSubmit={(e) => handleSaveProjectName(e, p.id)}
+                        className="flex items-center gap-2 w-full"
+                      >
+                        <span
+                          style={{ backgroundColor: p.color || "#4f46e5" }}
+                          className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
+                        />
+                        <span className="font-mono font-bold text-slate-600 shrink-0">
+                          [{p.key}]
+                        </span>
+                        <input
+                          type="text"
+                          value={editProjectName}
+                          onChange={(e) => setEditProjectName(e.target.value)}
+                          placeholder="新しいプロジェクト名"
+                          autoFocus
+                          className="flex-1 min-w-0 bg-white border border-indigo-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isUpdatingProject}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>保存</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProjectId(null);
+                            setEditProjectName("");
+                            setProjectErrorMsg("");
+                          }}
+                          className="p-1.5 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
+                          title="キャンセル"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <span
+                            style={{ backgroundColor: p.color || "#4f46e5" }}
+                            className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
+                          />
+                          <span className="font-mono font-bold text-xs text-slate-600 shrink-0">
+                            [{p.key}]
+                          </span>
+                          <span
+                            className={`font-bold text-sm ${
+                              isArchived ? "text-slate-500 line-through decoration-slate-400" : "text-slate-900"
+                            }`}
+                            title={p.name}
+                          >
+                            {p.name}
+                          </span>
+                          {/* ステータスバッジ */}
+                          {isArchived ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
+                              <Archive className="w-3 h-3" />
+                              <span>クローズ済</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>進行中</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {Boolean(currentUser?.is_admin) && (
+                          <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                            {/* クローズ／再オープントグルボタン */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleArchiveProject(p)}
+                              disabled={isThisUpdatingArchive}
+                              title={
+                                isArchived
+                                  ? "プロジェクトを再オープンして日常一覧に復帰"
+                                  : "プロジェクトをクローズ（日常一覧から非表示）"
+                              }
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold text-xs transition-colors cursor-pointer ${
+                                isArchived
+                                  ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 shadow-2xs"
+                                  : "border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700"
+                              }`}
+                            >
+                              {isArchived ? (
+                                <>
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <span>再オープン</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Archive className="w-3.5 h-3.5" />
+                                  <span>クローズ</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditProject(p)}
+                              title="プロジェクト名を変更 (Admin専用)"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors cursor-pointer"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>名称変更</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleStartDeleteProject(p)}
+                              title={
+                                projects.length > 1
+                                  ? "プロジェクトを削除 (Admin専用)"
+                                  : "最低1件のプロジェクトが必要なため削除できません"
+                              }
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold text-xs transition-colors ${
+                                projects.length > 1
+                                  ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                  : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
+                              }`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>削除</span>
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* プロジェクト削除確認ボックス（Admin専用） */}
+                    {isDeletingThis && (
+                      <div className="w-full mt-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs space-y-2.5">
+                        <div className="flex items-start gap-2 text-rose-800 font-semibold leading-snug">
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                          <span>
+                            プロジェクト <strong>[{p.key}] {p.name}</strong> と紐づく全課題を完全に削除しますか？（※課題やコメントもすべて消去されます）
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeletingProjectId(null);
+                              setProjectErrorMsg("");
+                            }}
+                            disabled={isDeletingProject}
+                            className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            キャンセル
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProject(p)}
+                            disabled={isDeletingProject}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{isDeletingProject ? "削除中..." : "削除する"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+
+        {/* 下部2カラム: メンバー・権限管理 ＆ データバックアップ・復元 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* メンバー・権限管理カード */}
           <div className="bg-white rounded-xl shadow-xs border border-indigo-100/80 p-5 flex flex-col justify-between space-y-4">
@@ -1445,7 +1713,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={openUserManageModal}
-                  className="text-xs font-bold text-indigo-600 hover:underline"
+                  className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
                 >
                   追加・編集を開く
                 </button>
@@ -1453,7 +1721,7 @@ export default function AdminPage() {
               <p className="text-xs text-slate-500">
                 メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] および祝日 [祝ON / 祝OFF] 設定を直接変更できます。
               </p>
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[340px] overflow-y-auto">
                 {users.map((u) => {
                   const userWeekStart = u.week_start || "monday";
                   const userShowHolidays = u.show_holidays !== undefined ? Boolean(u.show_holidays) : true;
@@ -1531,305 +1799,55 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={openUserManageModal}
-              className="w-full py-2 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+              className="w-full py-2 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Users className="w-4 h-4" />
               <span>メンバー管理モーダルを開く</span>
             </button>
           </div>
 
-          {/* プロジェクト ＆ バックアップ管理カード */}
+          {/* データバックアップ・復元カード */}
           <div className="bg-white rounded-xl shadow-xs border border-indigo-100/80 p-5 flex flex-col justify-between space-y-4">
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FolderGit2 className="w-5 h-5 text-indigo-600" />
-                  <h3 className="font-bold text-slate-800 text-sm">
-                    プロジェクト・データ管理 ({projects.length}件)
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!currentUser?.is_admin) {
-                      alert("新規プロジェクトの作成は管理者（Admin権限）のみ実行できます。");
-                      return;
-                    }
-                    setIsCreateProjectOpen(true);
-                  }}
-                  className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>新規作成</span>
-                </button>
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-800 text-sm">
+                  データバックアップ ＆ 復元
+                </h3>
               </div>
               <p className="text-xs text-slate-500">
-                登録プロジェクトの確認・名称変更・クローズ（アーカイブ）・削除（Admin専用）・追加と、全データのJSONバックアップ・復元を行えます。
+                プロジェクト、課題、コメント、添付ファイル履歴、メンバー情報などシステム全体のデータをJSONファイルとして一括保存（エクスポート）および復元（インポート）できます。
               </p>
-
-              {/* プロジェクトフィルター切り替えタブ */}
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg text-xs w-fit">
-                <button
-                  type="button"
-                  onClick={() => setProjectFilterTab("all")}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                    projectFilterTab === "all"
-                      ? "bg-white text-indigo-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  すべて ({projects.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProjectFilterTab("active")}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                    projectFilterTab === "active"
-                      ? "bg-white text-indigo-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  進行中 ({projects.filter((p) => !p.is_archived).length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProjectFilterTab("archived")}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                    projectFilterTab === "archived"
-                      ? "bg-white text-indigo-700 shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  クローズ済 ({projects.filter((p) => p.is_archived).length})
-                </button>
-              </div>
-
-              {projectErrorMsg && (
-                <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
-                  {projectErrorMsg}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">登録プロジェクト総数</span>
+                  <span className="font-mono font-bold text-slate-900">{projects.length} 件</span>
                 </div>
-              )}
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[460px] overflow-y-auto">
-                {projects
-                  .filter((p) => {
-                    if (projectFilterTab === "active") return !p.is_archived;
-                    if (projectFilterTab === "archived") return Boolean(p.is_archived);
-                    return true;
-                  })
-                  .map((p) => {
-                  const isEditingThis = editingProjectId === p.id;
-                  const isDeletingThis = deletingProjectId === p.id;
-                  const isArchived = Boolean(p.is_archived);
-                  const isThisUpdatingArchive = isUpdatingArchiveId === p.id;
-                  return (
-                    <div
-                      key={p.id}
-                      className={`px-3 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
-                        isArchived ? "bg-slate-50/70" : "bg-white"
-                      }`}
-                    >
-                      {isEditingThis ? (
-                        <form
-                          onSubmit={(e) => handleSaveProjectName(e, p.id)}
-                          className="flex items-center gap-1.5 w-full"
-                        >
-                          <span
-                            style={{ backgroundColor: p.color || "#4f46e5" }}
-                            className="w-3 h-3 rounded-xs shrink-0"
-                          />
-                          <span className="font-mono font-bold text-slate-600 shrink-0">
-                            [{p.key}]
-                          </span>
-                          <input
-                            type="text"
-                            value={editProjectName}
-                            onChange={(e) => setEditProjectName(e.target.value)}
-                            placeholder="新しいプロジェクト名"
-                            autoFocus
-                            className="flex-1 min-w-0 bg-white border border-indigo-300 rounded px-2 py-1 text-xs font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <button
-                            type="submit"
-                            disabled={isUpdatingProject}
-                            className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer shrink-0"
-                          >
-                            <Check className="w-3 h-3" />
-                            <span>保存</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingProjectId(null);
-                              setEditProjectName("");
-                              setProjectErrorMsg("");
-                            }}
-                            className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer shrink-0"
-                            title="キャンセル"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </form>
-                      ) : (
-                        <>
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <span
-                              style={{ backgroundColor: p.color || "#4f46e5" }}
-                              className="w-3 h-3 rounded-xs shrink-0"
-                            />
-                            <span className="font-mono font-bold text-slate-600 shrink-0">
-                              [{p.key}]
-                            </span>
-                            <span
-                              className={`font-semibold truncate ${
-                                isArchived ? "text-slate-500 line-through decoration-slate-400" : "text-slate-800"
-                              }`}
-                              title={p.name}
-                            >
-                              {p.name}
-                            </span>
-                            {/* ステータスバッジ */}
-                            {isArchived ? (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
-                                <Archive className="w-2.5 h-2.5" />
-                                <span>クローズ済</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                <CheckCircle2 className="w-2.5 h-2.5" />
-                                <span>進行中</span>
-                              </span>
-                            )}
-                          </div>
-                          {Boolean(currentUser?.is_admin) && (
-                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                              {/* クローズ／再オープントグルボタン */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleArchiveProject(p)}
-                                disabled={isThisUpdatingArchive}
-                                title={
-                                  isArchived
-                                    ? "プロジェクトを再オープンして日常一覧に復帰"
-                                    : "プロジェクトをクローズ（日常一覧から非表示）"
-                                }
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors cursor-pointer ${
-                                  isArchived
-                                    ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
-                                    : "border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700"
-                                }`}
-                              >
-                                {isArchived ? (
-                                  <>
-                                    <RotateCcw className="w-3 h-3" />
-                                    <span>再オープン</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Archive className="w-3 h-3" />
-                                    <span>クローズ</span>
-                                  </>
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStartEditProject(p)}
-                                title="プロジェクト名を変更 (Admin専用)"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors cursor-pointer"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                                <span>名称変更</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleStartDeleteProject(p)}
-                                title={
-                                  projects.length > 1
-                                    ? "プロジェクトを削除 (Admin専用)"
-                                    : "最低1件のプロジェクトが必要なため削除できません"
-                                }
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors ${
-                                  projects.length > 1
-                                    ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
-                                    : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
-                                }`}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                <span>削除</span>
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-
-                      {/* プロジェクト削除確認ボックス（Admin専用） */}
-                      {isDeletingThis && (
-                        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs space-y-2">
-                          <div className="flex items-start gap-1.5 text-rose-800 font-semibold leading-snug">
-                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                            <span>
-                              プロジェクト <strong>[{p.key}] {p.name}</strong> と紐づく全課題を完全に削除しますか？
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeletingProjectId(null);
-                                setProjectErrorMsg("");
-                              }}
-                              disabled={isDeletingProject}
-                              className="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold transition-colors cursor-pointer"
-                            >
-                              キャンセル
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteProject(p)}
-                              disabled={isDeletingProject}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                              <span>{isDeletingProject ? "削除中..." : "削除する"}</span>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">登録メンバー総数</span>
+                  <span className="font-mono font-bold text-slate-900">{users.length} 名</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-700">システムバージョン</span>
+                  <span className="font-mono font-bold text-indigo-600">{versionData.version}</span>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!currentUser?.is_admin) {
-                    alert("新規プロジェクトの作成は管理者（Admin権限）のみ実行できます。");
-                    return;
-                  }
-                  setIsCreateProjectOpen(true);
-                }}
-                className="py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>プロジェクト追加</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!currentUser?.is_admin) {
-                    alert("データのバックアップ・復元は管理者（Admin権限）のみ実行できます。");
-                    return;
-                  }
-                  setIsBackupOpen(true);
-                }}
-                className="py-2 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <Database className="w-4 h-4 text-indigo-700" />
-                <span>バックアップ・復元</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!currentUser?.is_admin) {
+                  alert("データのバックアップ・復元は管理者（Admin権限）のみ実行できます。");
+                  return;
+                }
+                setIsBackupOpen(true);
+              }}
+              className="w-full py-2.5 px-4 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+            >
+              <Database className="w-4 h-4 text-indigo-700" />
+              <span>バックアップ・復元モーダルを開く</span>
+            </button>
           </div>
         </div>
 
