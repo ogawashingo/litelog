@@ -192,7 +192,11 @@ export default function Header({
     router.push(qs ? `/search?${qs}` : "/search");
   };
 
-  // 検索キーワードにマッチするプロジェクト候補（上位4件）
+  // 進行中プロジェクトとクローズ済みプロジェクトの分離
+  const activeProjects = React.useMemo(() => projects.filter((p) => !p.is_archived), [projects]);
+  const archivedProjects = React.useMemo(() => projects.filter((p) => Boolean(p.is_archived)), [projects]);
+
+  // 検索キーワードにマッチするプロジェクト候補（進行中を優先、上位4件）
   const matchingProjects = React.useMemo(() => {
     const trimmed = searchKeyword.trim().toLowerCase();
     if (!trimmed) return [];
@@ -202,6 +206,7 @@ export default function Header({
           p.name.toLowerCase().includes(trimmed) ||
           p.key.toLowerCase().includes(trimmed)
       )
+      .sort((a, b) => (a.is_archived ? 1 : 0) - (b.is_archived ? 1 : 0))
       .slice(0, 4);
   }, [projects, searchKeyword]);
 
@@ -323,11 +328,20 @@ export default function Header({
                   <option value="" className="text-slate-900 bg-white">
                     {isBoard || isGantt ? "すべてのプロジェクト" : "すべての課題"}
                   </option>
-                  {projects.map((proj) => (
+                  {activeProjects.map((proj) => (
                     <option key={proj.id} value={proj.id} className="text-slate-900 bg-white">
                       [{proj.key}] {proj.name}
                     </option>
                   ))}
+                  {archivedProjects.length > 0 && (
+                    <optgroup label="── クローズ済み ──" className="text-slate-500 bg-slate-100 font-semibold">
+                      {archivedProjects.map((proj) => (
+                        <option key={proj.id} value={proj.id} className="text-slate-600 bg-white">
+                          [{proj.key}] {proj.name} (クローズ済)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
             </nav>
@@ -425,9 +439,15 @@ export default function Header({
                             <span className="text-xs text-white/95 truncate flex-1 font-medium">
                               {proj.name}
                             </span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 shrink-0">
-                              開く
-                            </span>
+                            {proj.is_archived ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600 shrink-0">
+                                クローズ済
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 shrink-0">
+                                開く
+                              </span>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -635,6 +655,11 @@ export default function Header({
                       <span className="text-xs text-white/95 truncate flex-1 font-medium">
                         {proj.name}
                       </span>
+                      {proj.is_archived && (
+                        <span className="text-[9px] px-1 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600 shrink-0">
+                          クローズ済
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -679,11 +704,20 @@ export default function Header({
             <option value="" className="text-slate-900 bg-white">
               {isBoard || isGantt ? "すべてのプロジェクト" : "すべての課題"}
             </option>
-            {projects.map((proj) => (
+            {activeProjects.map((proj) => (
               <option key={proj.id} value={proj.id} className="text-slate-900 bg-white">
                 [{proj.key}] {proj.name}
               </option>
             ))}
+            {archivedProjects.length > 0 && (
+              <optgroup label="── クローズ済み ──" className="text-slate-500 bg-slate-100 font-semibold">
+                {archivedProjects.map((proj) => (
+                  <option key={proj.id} value={proj.id} className="text-slate-600 bg-white">
+                    [{proj.key}] {proj.name} (クローズ済)
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
       </div>

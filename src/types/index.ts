@@ -21,6 +21,7 @@ export interface Project {
   key: string;       // プロジェクトキー（例: 'MYPRJ'）
   name: string;      // プロジェクト名
   color: string;     // テーマカラー（16進数カラーコード）
+  is_archived?: number; // クローズ・アーカイブ状態（1: クローズ完了, 0: 進行中アクティブ）
   created_at: string;
 }
 

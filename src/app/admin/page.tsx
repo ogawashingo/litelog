@@ -25,6 +25,7 @@ import {
   Palette,
   Eye,
   Megaphone,
+  Archive,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -84,13 +85,15 @@ export default function AdminPage() {
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(settings.theme || "cosmic");
   const [isSavingTheme, setIsSavingTheme] = useState(false);
 
-  // プロジェクト名変更・削除用State（Admin専用）
+  // プロジェクト名変更・削除・クローズ（アーカイブ）用State（Admin専用）
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [isUpdatingProject, setIsUpdatingProject] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [projectErrorMsg, setProjectErrorMsg] = useState("");
+  const [projectFilterTab, setProjectFilterTab] = useState<"all" | "active" | "archived">("all");
+  const [isUpdatingArchiveId, setIsUpdatingArchiveId] = useState<number | null>(null);
 
   // 編集中の時刻設定ドラフトState
   const [draftSettings, setDraftSettings] = useState<SystemSettings>(settings);
@@ -304,6 +307,47 @@ export default function AdminPage() {
       setProjectErrorMsg(err instanceof Error ? err.message : "削除エラーが発生しました");
     } finally {
       setIsDeletingProject(false);
+    }
+  };
+
+  // プロジェクトのクローズ（アーカイブ）／再オープンの切り替え（管理者のみ）
+  const handleToggleArchiveProject = async (proj: Project) => {
+    if (!currentUser?.is_admin) {
+      setProjectErrorMsg("プロジェクトのステータス変更は管理者（Admin権限）のみ実行できます");
+      return;
+    }
+
+    const willArchive = !proj.is_archived;
+    const actionLabel = willArchive ? "クローズ（完了）" : "再オープン（アクティブ化）";
+
+    try {
+      setIsUpdatingArchiveId(proj.id);
+      setProjectErrorMsg("");
+      const res = await fetch(`/api/projects/${proj.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          is_archived: willArchive ? 1 : 0,
+          actorId: currentUser.id,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `プロジェクトの${actionLabel}に失敗しました`);
+      }
+
+      await fetchProjects();
+      setSaveMessage(
+        willArchive
+          ? `プロジェクト [${proj.key}] をクローズしました。日常の選択肢から除外されます。`
+          : `プロジェクト [${proj.key}] を再オープンしました！日常の一覧に復帰しました。`
+      );
+      setTimeout(() => setSaveMessage(null), 4000);
+    } catch (err: unknown) {
+      setProjectErrorMsg(err instanceof Error ? err.message : "ステータス変更エラーが発生しました");
+    } finally {
+      setIsUpdatingArchiveId(null);
     }
   };
 
@@ -1520,21 +1564,69 @@ export default function AdminPage() {
                 </button>
               </div>
               <p className="text-xs text-slate-500">
-                登録プロジェクトの確認・名称変更・削除（Admin専用）・追加と、全データのJSONバックアップ・復元を行えます。
+                登録プロジェクトの確認・名称変更・クローズ（アーカイブ）・削除（Admin専用）・追加と、全データのJSONバックアップ・復元を行えます。
               </p>
+
+              {/* プロジェクトフィルター切り替えタブ */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-lg text-xs w-fit">
+                <button
+                  type="button"
+                  onClick={() => setProjectFilterTab("all")}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    projectFilterTab === "all"
+                      ? "bg-white text-indigo-700 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  すべて ({projects.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectFilterTab("active")}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    projectFilterTab === "active"
+                      ? "bg-white text-indigo-700 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  進行中 ({projects.filter((p) => !p.is_archived).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectFilterTab("archived")}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    projectFilterTab === "archived"
+                      ? "bg-white text-indigo-700 shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  クローズ済 ({projects.filter((p) => p.is_archived).length})
+                </button>
+              </div>
+
               {projectErrorMsg && (
                 <div className="p-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
                   {projectErrorMsg}
                 </div>
               )}
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                {projects.map((p) => {
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[460px] overflow-y-auto">
+                {projects
+                  .filter((p) => {
+                    if (projectFilterTab === "active") return !p.is_archived;
+                    if (projectFilterTab === "archived") return Boolean(p.is_archived);
+                    return true;
+                  })
+                  .map((p) => {
                   const isEditingThis = editingProjectId === p.id;
                   const isDeletingThis = deletingProjectId === p.id;
+                  const isArchived = Boolean(p.is_archived);
+                  const isThisUpdatingArchive = isUpdatingArchiveId === p.id;
                   return (
                     <div
                       key={p.id}
-                      className="px-3 py-2 flex flex-col gap-2 text-xs bg-white"
+                      className={`px-3 py-2 flex flex-col gap-2 text-xs ${
+                        isArchived ? "bg-slate-50/70" : "bg-white"
+                      }`}
                     >
                       {isEditingThis ? (
                         <form
@@ -1587,16 +1679,60 @@ export default function AdminPage() {
                             <span className="font-mono font-bold text-slate-600 shrink-0">
                               [{p.key}]
                             </span>
-                            <span className="font-semibold text-slate-800 truncate">
+                            <span
+                              className={`font-semibold truncate ${
+                                isArchived ? "text-slate-500 line-through decoration-slate-400" : "text-slate-800"
+                              }`}
+                            >
                               {p.name}
                             </span>
+                            {/* ステータスバッジ */}
+                            {isArchived ? (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
+                                <Archive className="w-2.5 h-2.5" />
+                                <span>クローズ済</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                <CheckCircle2 className="w-2.5 h-2.5" />
+                                <span>進行中</span>
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px] text-slate-400 hidden sm:inline">
                               {formatTimestamp(p.created_at, draftSettings, false)}
                             </span>
                             {Boolean(currentUser?.is_admin) && (
                               <>
+                                {/* クローズ／再オープントグルボタン */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleArchiveProject(p)}
+                                  disabled={isThisUpdatingArchive}
+                                  title={
+                                    isArchived
+                                      ? "プロジェクトを再オープンして日常一覧に復帰"
+                                      : "プロジェクトをクローズ（日常一覧から非表示）"
+                                  }
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border font-semibold text-[11px] transition-colors cursor-pointer ${
+                                    isArchived
+                                      ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
+                                      : "border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700"
+                                  }`}
+                                >
+                                  {isArchived ? (
+                                    <>
+                                      <RotateCcw className="w-3 h-3" />
+                                      <span>再オープン</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Archive className="w-3 h-3" />
+                                      <span>クローズ</span>
+                                    </>
+                                  )}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditProject(p)}

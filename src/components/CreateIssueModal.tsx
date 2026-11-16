@@ -55,8 +55,11 @@ export default function CreateIssueModal({
   // モーダルが開かれたときに初期状態を同期
   useEffect(() => {
     if (isOpen) {
-      if (selectedProjectId) {
+      const activeList = projects.filter((p) => !p.is_archived);
+      if (selectedProjectId && projects.some((p) => p.id === selectedProjectId)) {
         setProjectId(selectedProjectId);
+      } else if (activeList[0]) {
+        setProjectId(activeList[0].id);
       } else if (projects[0]) {
         setProjectId(projects[0].id);
       }
@@ -209,7 +212,7 @@ export default function CreateIssueModal({
                 }}
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
-                {projects.map((proj) => (
+                {projects.filter((p) => !p.is_archived).map((proj) => (
                   <option key={proj.id} value={proj.id}>
                     [{proj.key}] {proj.name}
                   </option>

@@ -13,13 +13,14 @@ export async function GET() {
         p.key,
         p.name,
         p.color,
+        COALESCE(p.is_archived, 0) AS is_archived,
         p.created_at,
         COUNT(i.id) AS total_issues,
         SUM(CASE WHEN i.status != 'closed' THEN 1 ELSE 0 END) AS active_issues
       FROM projects p
       LEFT JOIN issues i ON p.id = i.project_id
       GROUP BY p.id
-      ORDER BY p.created_at ASC
+      ORDER BY p.is_archived ASC, p.created_at ASC
     `;
     const projects = db.prepare(query).all();
     return NextResponse.json(projects);

@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle } from "lucide-react";
+import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 
@@ -40,6 +40,11 @@ export default function ProjectList({
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // クローズ（アーカイブ）済みプロジェクトの表示トグル
+  const [showArchived, setShowArchived] = useState(false);
+  const archivedCount = projects.filter((p) => Boolean(p.is_archived)).length;
+  const visibleProjects = showArchived ? projects : projects.filter((p) => !p.is_archived);
 
   // プロジェクト名の編集開始
   const startEditProject = (e: React.MouseEvent, proj: ExtendedProject) => {
@@ -155,10 +160,26 @@ export default function ProjectList({
   return (
     <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-        <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-          <Folder className="w-4 h-4 text-indigo-600" />
-          <span>プロジェクト一覧</span>
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+            <Folder className="w-4 h-4 text-indigo-600" />
+            <span>プロジェクト一覧</span>
+          </h3>
+          {archivedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowArchived(!showArchived)}
+              className={`text-[11px] px-1.5 py-0.5 rounded font-medium transition-colors cursor-pointer ${
+                showArchived
+                  ? "bg-indigo-100 text-indigo-800 font-bold"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+              }`}
+              title={showArchived ? "クローズ済みプロジェクトを隠す" : "クローズ済みプロジェクトも含めて表示"}
+            >
+              {showArchived ? "クローズ表示中" : `+クローズ済(${archivedCount})`}
+            </button>
+          )}
+        </div>
         <button
           onClick={() => {
             if (!currentUser?.is_admin) {
@@ -198,7 +219,7 @@ export default function ProjectList({
         </button>
 
         {/* 各プロジェクトカード */}
-        {projects.map((proj) => {
+        {visibleProjects.map((proj) => {
           const total = proj.total_issues || 0;
           const active = proj.active_issues || 0;
           const completed = total - active;
@@ -206,6 +227,7 @@ export default function ProjectList({
           const isSelected = selectedProjectId === proj.id;
           const isEditingThis = editingProjectId === proj.id;
           const isDeletingThis = deletingProjectId === proj.id;
+          const isArchived = Boolean(proj.is_archived);
 
           return (
             <div
@@ -218,6 +240,8 @@ export default function ProjectList({
               className={`p-3 rounded-xl border cursor-pointer transition-all ${
                 isSelected
                   ? "bg-indigo-50/70 border-indigo-400 ring-1 ring-indigo-300 shadow-2xs"
+                  : isArchived
+                  ? "bg-slate-50/60 border-slate-200 hover:border-slate-300 opacity-80"
                   : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50/70"
               }`}
             >
@@ -272,9 +296,15 @@ export default function ProjectList({
                       className="w-2.5 h-2.5 rounded-full shadow-2xs shrink-0"
                       style={{ backgroundColor: proj.color || "#4f46e5" }}
                     />
-                    <span className="font-bold text-xs text-slate-800 truncate">
+                    <span className={`font-bold text-xs truncate ${isArchived ? "text-slate-500" : "text-slate-800"}`}>
                       [{proj.key}] {proj.name}
                     </span>
+                    {isArchived && (
+                      <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-slate-200 text-slate-700 shrink-0">
+                        <Archive className="w-2.5 h-2.5" />
+                        <span>クローズ済</span>
+                      </span>
+                    )}
                     {/* 管理者（Admin権限）のみプロジェクト名変更・削除ボタンを表示 */}
                     {isAdmin && (
                       <div className="flex items-center gap-0.5 shrink-0">

@@ -32,28 +32,33 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const db = getDb();
     const body = await request.json();
-    const { name, color } = body;
+    const { name, color, is_archived } = body;
 
     // 対象プロジェクトの存在確認
     const existing = db
       .prepare("SELECT * FROM projects WHERE id = ?")
-      .get(projectId) as { id: number; key: string; name: string; color: string } | undefined;
+      .get(projectId) as { id: number; key: string; name: string; color: string; is_archived?: number } | undefined;
 
     if (!existing) {
       return NextResponse.json({ error: "対象のプロジェクトが見つかりません" }, { status: 404 });
     }
 
-    // プロジェクト名のバリデーション
-    if (name === undefined || !String(name).trim()) {
-      return NextResponse.json({ error: "プロジェクト名は空にできません" }, { status: 400 });
+    // 更新項目の決定
+    let nextName = existing.name;
+    if (name !== undefined) {
+      if (!String(name).trim()) {
+        return NextResponse.json({ error: "プロジェクト名は空にできません" }, { status: 400 });
+      }
+      nextName = String(name).trim();
     }
 
-    const nextName = String(name).trim();
     const nextColor = color && String(color).trim() ? String(color).trim() : existing.color;
+    const nextArchived = is_archived !== undefined ? (is_archived ? 1 : 0) : (existing.is_archived || 0);
 
-    db.prepare("UPDATE projects SET name = ?, color = ? WHERE id = ?").run(
+    db.prepare("UPDATE projects SET name = ?, color = ?, is_archived = ? WHERE id = ?").run(
       nextName,
       nextColor,
+      nextArchived,
       projectId
     );
 
@@ -65,6 +70,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           p.key,
           p.name,
           p.color,
+          COALESCE(p.is_archived, 0) AS is_archived,
           p.created_at,
           COUNT(i.id) AS total_issues,
           SUM(CASE WHEN i.status != 'closed' THEN 1 ELSE 0 END) AS active_issues
@@ -79,7 +85,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   } catch (error) {
     console.error("プロジェクト更新エラー:", error);
     return NextResponse.json(
-      { error: "プロジェクト名の変更に失敗しました" },
+      { error: "プロジェクト情報の更新に失敗しました" },
       { status: 500 }
     );
   }

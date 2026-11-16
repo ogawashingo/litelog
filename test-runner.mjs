@@ -125,6 +125,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       key TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#4f46e5',
+      is_archived INTEGER NOT NULL DEFAULT 0,
       week_start TEXT NOT NULL DEFAULT 'monday',
       show_holidays INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -1037,6 +1038,31 @@ async function runTests() {
   // 元のプロジェクト名へ復元
   db.prepare("UPDATE projects SET name = ? WHERE id = ?").run(originalProjectName, targetProject.id);
   console.log(`✓ 管理者(Admin)専用のプロジェクト名変更・復元テスト成功: "${originalProjectName}" -> "${renamedProjectName}" -> "${originalProjectName}"`);
+
+  // 17-2. 管理者（Admin権限）専用のプロジェクトクローズ（アーカイブ）・再オープン検証
+  // is_archived カラムの初期値が 0 であること
+  const initialTarget = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(targetProject.id);
+  if (initialTarget.is_archived !== 0) {
+    throw new Error(`プロジェクトの初期アーカイブ状態が不正です: ${initialTarget.is_archived}`);
+  }
+  // クローズ（アーカイブ: is_archived=1）実行
+  db.prepare("UPDATE projects SET is_archived = 1 WHERE id = ?").run(targetProject.id);
+  const archivedProject = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(targetProject.id);
+  if (archivedProject.is_archived !== 1) {
+    throw new Error("プロジェクトのクローズ（is_archived=1）更新に失敗しました");
+  }
+  // 進行中一覧クエリ（is_archived = 0）で除外されることを確認
+  const activeProjectsList = db.prepare("SELECT * FROM projects WHERE is_archived = 0").all();
+  if (activeProjectsList.some((p) => p.id === targetProject.id)) {
+    throw new Error("クローズ済みプロジェクトが進行中一覧に含まれています");
+  }
+  // 再オープン（is_archived=0）実行
+  db.prepare("UPDATE projects SET is_archived = 0 WHERE id = ?").run(targetProject.id);
+  const reopenedProject = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(targetProject.id);
+  if (reopenedProject.is_archived !== 0) {
+    throw new Error("プロジェクトの再オープン（is_archived=0）更新に失敗しました");
+  }
+  console.log("✓ 管理者(Admin)専用のプロジェクトクローズ（アーカイブ）＆再オープン・一覧分離テスト成功");
 
   // 18. ダッシュボード課題一覧の完了済み(closed)デフォルト非表示フィルタリング検証
   const allIssuesForFilter = db.prepare("SELECT * FROM issues").all();

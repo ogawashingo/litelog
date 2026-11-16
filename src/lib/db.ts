@@ -116,9 +116,20 @@ function initDb(db: DatabaseSync) {
       key TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       color TEXT NOT NULL DEFAULT '#4f46e5',
+      is_archived INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // projects テーブルのマイグレーション（is_archived カラム追加）
+  try {
+    const projCols = db.prepare("PRAGMA table_info(projects)").all() as { name: string }[];
+    if (!projCols.some((col) => col.name === "is_archived")) {
+      db.exec("ALTER TABLE projects ADD COLUMN is_archived INTEGER NOT NULL DEFAULT 0;");
+    }
+  } catch (projMigErr) {
+    console.error("projects テーブルのマイグレーション確認エラー:", projMigErr);
+  }
 
   // 課題（タスク）テーブル
   db.exec(`
