@@ -317,7 +317,7 @@ export default function CreateIssueModal({
             </label>
             <MentionTextarea
               placeholder="タスクの背景、達成条件、作業手順など... (@でメンバー候補を表示、画像ペースト・添付対応)"
-              rows={4}
+              rows={5}
               value={description}
               onChange={(val) => setDescription(val)}
               users={users}
