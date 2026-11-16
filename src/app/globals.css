@@ -1254,3 +1254,9 @@ dialog:modal[open]::backdrop {
   }
 }
 
+/* 長大コンテンツ・リストアイテムの描画最適化（Modern Web Guidance: defer-rendering-heavy-content） */
+.timeline__stream-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 76px;
+}
+
