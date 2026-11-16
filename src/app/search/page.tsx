@@ -290,7 +290,7 @@ function SearchPageContent() {
                 type="text"
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                placeholder="「Dependabot」「Next.js」「SSL」などキーワードで全プロジェクトを横断検索..."
+                placeholder="キーワードで検索..."
                 className="w-full pl-11 pr-24 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-sm sm:text-base font-medium text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all shadow-xs"
               />
               {searchKeyword && (
@@ -315,7 +315,7 @@ function SearchPageContent() {
               className="w-full sm:w-auto px-6 py-3 app-primary-btn text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
             >
               <Search className="w-4 h-4 stroke-[2.5]" />
-              <span>横断検索</span>
+              <span>検索</span>
             </button>
           </form>
 

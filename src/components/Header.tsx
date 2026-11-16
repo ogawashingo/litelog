@@ -121,7 +121,10 @@ export default function Header({
     setIsSearchingSuggestions(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/issues?q=${encodeURIComponent(trimmed)}`);
+        const url = selectedProjectId
+          ? `/api/issues?q=${encodeURIComponent(trimmed)}&projectId=${selectedProjectId}`
+          : `/api/issues?q=${encodeURIComponent(trimmed)}`;
+        const res = await fetch(url);
         if (res.ok) {
           const data: Issue[] = await res.json();
           setSearchSuggestions(data.slice(0, 6)); // 直近上位6件を表示
@@ -134,18 +137,18 @@ export default function Header({
     }, 150);
 
     return () => clearTimeout(timer);
-  }, [searchKeyword]);
+  }, [searchKeyword, selectedProjectId]);
 
-  // 全体検索ページへ遷移
+  // 検索ページへ遷移（プロジェクト選択状態を反映）
   const executeSearch = (query: string) => {
     const targetQuery = query.trim();
     setIsSearchDropdownOpen(false);
     setIsMobileSearchOpen(false);
-    if (targetQuery) {
-      router.push(`/search?q=${encodeURIComponent(targetQuery)}`);
-    } else {
-      router.push("/search");
-    }
+    const params = new URLSearchParams();
+    if (targetQuery) params.set("q", targetQuery);
+    if (selectedProjectId) params.set("projectId", String(selectedProjectId));
+    const qs = params.toString();
+    router.push(qs ? `/search?${qs}` : "/search");
   };
 
   // 課題選択ハンドラ
@@ -281,7 +284,7 @@ export default function Header({
                       executeSearch(searchKeyword);
                     }
                   }}
-                  placeholder="全体を検索... (⌘K)"
+                  placeholder="検索... (⌘K)"
                   className="w-44 xl:w-60 bg-white/15 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 focus:placeholder-slate-400 text-xs rounded-lg pl-8 pr-7 py-1.5 border border-white/20 focus:border-amber-400 focus:outline-hidden focus:ring-2 focus:ring-amber-400/40 transition-all shadow-inner"
                 />
                 {searchKeyword ? (
@@ -345,7 +348,7 @@ export default function Header({
                     onClick={() => executeSearch(searchKeyword)}
                     className="w-full px-3 py-2.5 bg-white/5 hover:bg-amber-500/20 text-amber-300 border-t border-white/10 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <span>「{searchKeyword}」で全体検索・マトリクスを開く</span>
+                    <span>「{searchKeyword}」の検索結果を開く</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -357,7 +360,7 @@ export default function Header({
               type="button"
               onClick={() => setIsMobileSearchOpen((prev) => !prev)}
               className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors cursor-pointer"
-              title="キーワード横断検索"
+              title="キーワード検索"
             >
               <Search className="w-4 h-4" />
             </button>
@@ -460,7 +463,7 @@ export default function Header({
                 type="text"
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                placeholder="全体を検索..."
+                placeholder="検索..."
                 className="w-full bg-white/10 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 text-xs rounded-lg pl-8 pr-3 py-1.5 border border-white/20 focus:outline-hidden"
               />
             </div>
