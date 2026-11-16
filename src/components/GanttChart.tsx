@@ -932,7 +932,7 @@ export default function GanttChart({
             <div
               ref={leftTableScrollRef}
               onScroll={handleLeftTableScroll}
-              className="overflow-y-auto overflow-x-hidden max-h-[calc(100vh-222px)] min-h-[448px] divide-y divide-gray-100"
+              className="overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100vh-var(--app-header-height,56px)-230px)] min-h-[300px] divide-y divide-gray-100"
             >
               {displayRows.length === 0 ? (
                 <div className="p-8 text-center text-xs text-gray-400">
@@ -1116,7 +1116,7 @@ export default function GanttChart({
           <div
             ref={timelineScrollRef}
             onScroll={handleTimelineScroll}
-            className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-170px)] min-h-[500px] relative select-none"
+            className="overflow-x-auto overflow-y-auto overscroll-contain max-h-[calc(100vh-var(--app-header-height,56px)-230px)] min-h-[300px] relative select-none"
           >
             {/* タイムライン全体の幅を持つラッパー */}
             <div

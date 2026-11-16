@@ -439,12 +439,12 @@ export default function BoardView({
               onDragOver={(e) => handleDragOver(e, col.status)}
               onDragLeave={(e) => handleDragLeave(e, col.status)}
               onDrop={(e) => handleDrop(e, col.status)}
-              className={`flex flex-col bg-slate-50/90 rounded-xl border-t-4 border border-indigo-100/80 min-h-[500px] transition-all duration-150 ${
+              className={`flex flex-col bg-slate-50/90 rounded-xl border-t-4 border border-indigo-100/80 min-h-[300px] transition-all duration-150 ${
                 col.headerBorder
               } ${isOver ? "bg-indigo-50/70 ring-2 ring-indigo-500 border-indigo-400" : ""}`}
             >
-              {/* レーンヘッダー */}
-              <div className="flex items-center justify-between p-3 border-b border-slate-200/80 bg-white rounded-t-lg">
+              {/* レーンヘッダー（スクロール時もツールバー直下に留まりカラム見出しが隠れるのを防止） */}
+              <div className="flex items-center justify-between p-3 border-b border-slate-200/80 bg-white rounded-t-lg sticky top-[calc(var(--app-header-height,56px)+66px)] z-10 shadow-2xs">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-base text-slate-800">{col.title}</span>
                   <span
@@ -462,8 +462,8 @@ export default function BoardView({
                 </button>
               </div>
 
-              {/* カード一覧 */}
-              <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto max-h-[calc(100vh-215px)]">
+              {/* カード一覧（ビューポートに最適化し、スクロールチェーンによる画面全体のズレを防止） */}
+              <div className="p-2.5 space-y-2.5 flex-1 overflow-y-auto overscroll-y-contain max-h-[calc(100vh-var(--app-header-height,56px)-180px)]">
                 {columnIssues.length === 0 ? (
                   <div
                     className={`h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-3 text-center transition-colors ${
