@@ -12,6 +12,7 @@ import {
   EyeOff,
   CornerDownRight,
   Paperclip,
+  Archive,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
@@ -145,6 +146,7 @@ export default function BoardView({
   const handleDrop = async (e: React.DragEvent, newStatus: IssueStatus) => {
     e.preventDefault();
     setDragOverColumn(null);
+    if (isArchived) return;
     const issueIdStr = e.dataTransfer.getData("text/plain");
     const issueId = Number(issueIdStr) || draggingIssueId;
 
@@ -312,8 +314,20 @@ export default function BoardView({
     return map;
   }, [filteredIssues, childrenMap]);
 
+  const isArchived = Boolean(currentProject?.is_archived);
+
   return (
     <div className="space-y-3">
+      {/* アーカイブ済みプロジェクトのリードオンリー注意バナー */}
+      {isArchived && (
+        <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl shadow-xs flex items-center gap-2 text-xs font-semibold animate-in fade-in duration-150">
+          <Archive className="w-4 h-4 text-amber-700 shrink-0" />
+          <span>
+            このプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、カードの移動や課題の追加は行えません。
+          </span>
+        </div>
+      )}
+
       {/* ボードヘッダー / フィルターツールバー（画面スクロール時も常に上部に固定表示） */}
       <div className="sticky top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -329,6 +343,12 @@ export default function BoardView({
                 {currentProject && (
                   <span className="text-sm font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
                     {currentProject.key}
+                  </span>
+                )}
+                {isArchived && (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700 border border-slate-300">
+                    <Archive className="w-3 h-3" />
+                    <span>アーカイブ</span>
                   </span>
                 )}
               </h2>
@@ -491,14 +511,16 @@ export default function BoardView({
                     return (
                       <div
                         key={issue.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, issue.id)}
+                        draggable={!isArchived}
+                        onDragStart={(e) => !isArchived && handleDragStart(e, issue.id)}
                         onDragEnd={handleDragEnd}
                         onClick={() => {
                           setDetailIssue(issue);
                           setIsDetailOpen(true);
                         }}
-                        className={`rounded-xl p-3 border shadow-xs hover:shadow-md transition-all cursor-grab active:cursor-grabbing hover:border-indigo-400 group relative ${
+                        className={`rounded-xl p-3 border shadow-xs hover:shadow-md transition-all ${
+                          isArchived ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
+                        } hover:border-indigo-400 group relative ${
                           isParent
                             ? "bg-white border-l-4 border-l-indigo-600 border-indigo-100/90 shadow-indigo-50/50"
                             : isChild

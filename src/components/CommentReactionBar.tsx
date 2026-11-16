@@ -17,6 +17,7 @@ interface CommentReactionBarProps {
   currentUserName?: string | null;
   currentUserColor?: string | null;
   className?: string;
+  disabled?: boolean;
   onReactionsUpdated: (commentId: number, nextReactions: CommentReaction[]) => void;
 }
 
@@ -28,6 +29,7 @@ export default function CommentReactionBar({
   currentUserName,
   currentUserColor,
   className = "pl-6",
+  disabled = false,
   onReactionsUpdated,
 }: CommentReactionBarProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -139,12 +141,14 @@ export default function CommentReactionBar({
           <div key={group.stamp} className="relative group/badge">
             <button
               type="button"
-              disabled={!currentUserId || togglingStamp === group.stamp}
+              disabled={disabled || !currentUserId || togglingStamp === group.stamp}
               onClick={() => handleToggleStamp(group.stamp)}
               title={tooltipText}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all cursor-pointer select-none ${
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all select-none ${
+                disabled ? "cursor-default opacity-85" : "cursor-pointer"
+              } ${
                 group.hasReacted
-                  ? "bg-indigo-50/90 border-indigo-300 text-indigo-700 font-bold shadow-2xs hover:bg-indigo-100/80"
+                  ? "bg-indigo-50/90 border-indigo-300 text-indigo-700 font-bold shadow-2xs"
                   : "bg-white border-slate-200/90 text-slate-600 font-medium hover:bg-slate-100 hover:border-slate-300"
               }`}
             >
@@ -169,7 +173,7 @@ export default function CommentReactionBar({
       })}
 
       {/* スタンプ追加ボタン＆ポップオーバー */}
-      {currentUserId && (
+      {!disabled && currentUserId && (
         <div ref={pickerRef} className="relative">
           <button
             type="button"

@@ -19,6 +19,7 @@ import {
   MessageSquare,
   LayoutDashboard,
   Plus,
+  Archive,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -492,8 +493,9 @@ export default function IssueDetailPage() {
 
   const currentAssignee = users.find((u) => u.id === Number(editAssigneeId));
 
-  // 該当プロジェクトのプロジェクトキー
+  // 該当プロジェクトのプロジェクト情報およびアーカイブ状態判定
   const currentProject = projects.find((p) => p.id === issue?.project_id);
+  const isProjectArchived = Boolean(issue?.project_is_archived || currentProject?.is_archived);
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
@@ -603,6 +605,16 @@ export default function IssueDetailPage() {
           </div>
         </div>
 
+        {/* アーカイブ済みプロジェクトのリードオンリー注意バナー */}
+        {!isLoading && issue && isProjectArchived && (
+          <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-xl shadow-xs flex items-center gap-2.5 text-xs font-semibold animate-in fade-in duration-150">
+            <Archive className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>
+              この課題が属するプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、課題情報の修正やステータス変更、コメント投稿は行えません。
+            </span>
+          </div>
+        )}
+
         {/* ローディング表示 */}
         {isLoading && (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-500 shadow-xs">
@@ -656,31 +668,40 @@ export default function IssueDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!isEditing ? (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="flex items-center gap-1 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                      <span>編集</span>
-                    </button>
+                  {isProjectArchived ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 border border-slate-300">
+                      <Archive className="w-3.5 h-3.5" />
+                      <span>アーカイブ（読み取り専用）</span>
+                    </span>
                   ) : (
-                    <button
-                      onClick={handleSaveEdit}
-                      disabled={isSaving}
-                      className="flex items-center gap-1 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors cursor-pointer"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>{isSaving ? "保存中..." : "保存"}</span>
-                    </button>
+                    <>
+                      {!isEditing ? (
+                        <button
+                          onClick={() => setIsEditing(true)}
+                          className="flex items-center gap-1 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                          <span>編集</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleSaveEdit}
+                          disabled={isSaving}
+                          className="flex items-center gap-1 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>{isSaving ? "保存中..." : "保存"}</span>
+                        </button>
+                      )}
+                      <button
+                        onClick={handleDelete}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        title="課題を削除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
-                  <button
-                    onClick={handleDelete}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                    title="課題を削除"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
 
@@ -728,6 +749,7 @@ export default function IssueDetailPage() {
                       <span className="text-[10px] text-slate-500 font-bold shrink-0">状態:</span>
                       <select
                         value={issue.status}
+                        disabled={isProjectArchived}
                         onChange={(e) => {
                           const nextStatus = e.target.value as IssueStatus;
                           if (nextStatus === "closed" && hasUnclosedChildren) {
@@ -736,7 +758,9 @@ export default function IssueDetailPage() {
                           }
                           handleQuickStatusChange(nextStatus);
                         }}
-                        className="bg-transparent text-xs font-bold text-slate-800 cursor-pointer focus:outline-hidden"
+                        className={`bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden ${
+                          isProjectArchived ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                        }`}
                       >
                         <option value="open">未対応</option>
                         <option value="in_progress">処理中</option>
@@ -747,15 +771,15 @@ export default function IssueDetailPage() {
                       </select>
                     </div>
 
-                    {/* 完了理由セレクター（完了時のみ活性） */}
+                    {/* 完了理由セレクター（完了時のみ活性、アーカイブ時は非活性） */}
                     <div className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition-colors ${
-                      issue.status === "closed" ? "bg-slate-50 border border-slate-300 shadow-2xs" : "opacity-50"
+                      issue.status === "closed" && !isProjectArchived ? "bg-slate-50 border border-slate-300 shadow-2xs" : "opacity-50"
                     }`}>
                       <span className="text-[10px] text-slate-500 font-medium shrink-0">完了理由:</span>
                       <ResolutionSelect
                         value={issue.status === "closed" ? issue.resolution : null}
                         onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
-                        disabled={issue.status !== "closed"}
+                        disabled={isProjectArchived || issue.status !== "closed"}
                         size="sm"
                         placeholder="--"
                       />
@@ -784,8 +808,11 @@ export default function IssueDetailPage() {
                       </div>
                       <select
                         value={issue.assignee_id ? String(issue.assignee_id) : ""}
+                        disabled={isProjectArchived}
                         onChange={(e) => handleQuickAssigneeChange(e.target.value)}
-                        className="bg-transparent text-xs font-medium text-slate-800 cursor-pointer focus:outline-hidden truncate w-full"
+                        className={`bg-transparent text-xs font-medium text-slate-800 focus:outline-hidden truncate w-full ${
+                          isProjectArchived ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                        }`}
                       >
                         <option value="">未割当</option>
                         {users.map((u) => (
@@ -801,8 +828,11 @@ export default function IssueDetailPage() {
                       <span className="text-[10px] text-slate-500 font-bold shrink-0">優先度:</span>
                       <select
                         value={issue.priority}
+                        disabled={isProjectArchived}
                         onChange={(e) => handleQuickPriorityChange(e.target.value as IssuePriority)}
-                        className={`bg-transparent text-xs font-bold cursor-pointer focus:outline-hidden ${
+                        className={`bg-transparent text-xs font-bold focus:outline-hidden ${
+                          isProjectArchived ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                        } ${
                           issue.priority === "high"
                             ? "text-rose-600"
                             : issue.priority === "medium"
@@ -1091,7 +1121,7 @@ export default function IssueDetailPage() {
                     <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
                     <span>子課題 ({childrenIssues.length})</span>
                   </h3>
-                  {!isAddingChild && (
+                  {!isProjectArchived && !isAddingChild && (
                     <button
                       type="button"
                       onClick={() => {
@@ -1288,7 +1318,7 @@ export default function IssueDetailPage() {
                               <span className="text-[11px] text-slate-400">
                                 {formatTimestamp(c.created_at, settings, true)}
                               </span>
-                              {canEdit && !isEditingThis && (
+                              {!isProjectArchived && canEdit && !isEditingThis && (
                                 <button
                                   type="button"
                                   onClick={() => handleStartEditComment(c)}
@@ -1298,7 +1328,7 @@ export default function IssueDetailPage() {
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                               )}
-                              {isAdmin && !isEditingThis && (
+                              {!isProjectArchived && isAdmin && !isEditingThis && (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteComment(c.id)}
@@ -1352,6 +1382,7 @@ export default function IssueDetailPage() {
                                 currentUserId={currentUser?.id || null}
                                 currentUserName={currentUser?.name || null}
                                 currentUserColor={currentUser?.color || null}
+                                disabled={isProjectArchived}
                                 onReactionsUpdated={(cid, nextReactions) => {
                                   setComments((prev) =>
                                     prev.map((item) =>
@@ -1368,48 +1399,54 @@ export default function IssueDetailPage() {
                   )}
                 </div>
 
-                {/* コメント投稿フォーム */}
-                <form onSubmit={handlePostComment} className="pt-2 space-y-2.5">
-                  <MentionTextarea
-                    rows={5}
-                    value={newComment}
-                    onChange={(val) => setNewComment(val)}
-                    users={users}
-                    placeholder="コメントを入力... (@でメンバーをメンション)"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
-                  />
-                  <NotifyUserSelector
-                    users={users}
-                    currentUserId={currentUser?.id || null}
-                    selectedUserIds={commentNotifyUserIds}
-                    onChange={setCommentNotifyUserIds}
-                    autoNotifyUserIds={
-                      [
-                        issue.created_by ? Number(issue.created_by) : 0,
-                        issue.assignee_id ? Number(issue.assignee_id) : 0,
-                      ].filter(Boolean)
-                    }
-                    participantUserIds={
-                      [
-                        issue.created_by ? Number(issue.created_by) : 0,
-                        issue.assignee_id ? Number(issue.assignee_id) : 0,
-                        ...comments.map((c) => Number(c.user_id || 0)),
-                      ].filter(Boolean)
-                    }
-                    label="コメントを通知するメンバー（参加者）"
-                    compact
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={!newComment.trim() || isPostingComment}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>{isPostingComment ? "送信中..." : "コメントを投稿"}</span>
-                    </button>
+                {/* コメント投稿フォーム（アーカイブ時は読み取り専用案内を表示） */}
+                {!isProjectArchived ? (
+                  <form onSubmit={handlePostComment} className="pt-2 space-y-2.5">
+                    <MentionTextarea
+                      rows={5}
+                      value={newComment}
+                      onChange={(val) => setNewComment(val)}
+                      users={users}
+                      placeholder="コメントを入力... (@でメンバーをメンション)"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
+                    />
+                    <NotifyUserSelector
+                      users={users}
+                      currentUserId={currentUser?.id || null}
+                      selectedUserIds={commentNotifyUserIds}
+                      onChange={setCommentNotifyUserIds}
+                      autoNotifyUserIds={
+                        [
+                          issue.created_by ? Number(issue.created_by) : 0,
+                          issue.assignee_id ? Number(issue.assignee_id) : 0,
+                        ].filter(Boolean)
+                      }
+                      participantUserIds={
+                        [
+                          issue.created_by ? Number(issue.created_by) : 0,
+                          issue.assignee_id ? Number(issue.assignee_id) : 0,
+                          ...comments.map((c) => Number(c.user_id || 0)),
+                        ].filter(Boolean)
+                      }
+                      label="コメントを通知するメンバー（参加者）"
+                      compact
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={!newComment.trim() || isPostingComment}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{isPostingComment ? "送信中..." : "コメントを投稿"}</span>
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 text-center text-xs text-slate-500 font-medium">
+                    このプロジェクトはアーカイブされているため、コメントの投稿は行えません（読み取り専用）。
                   </div>
-                </form>
+                )}
               </div>
             </div>
           </div>

@@ -1039,30 +1039,70 @@ async function runTests() {
   db.prepare("UPDATE projects SET name = ? WHERE id = ?").run(originalProjectName, targetProject.id);
   console.log(`✓ 管理者(Admin)専用のプロジェクト名変更・復元テスト成功: "${originalProjectName}" -> "${renamedProjectName}" -> "${originalProjectName}"`);
 
-  // 17-2. 管理者（Admin権限）専用のプロジェクトクローズ（アーカイブ）・再オープン検証
+  // 17-2. 管理者（Admin権限）専用のプロジェクトアーカイブ・アーカイブ解除およびリードオンリー制御検証
   // is_archived カラムの初期値が 0 であること
   const initialTarget = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(targetProject.id);
   if (initialTarget.is_archived !== 0) {
     throw new Error(`プロジェクトの初期アーカイブ状態が不正です: ${initialTarget.is_archived}`);
   }
-  // クローズ（アーカイブ: is_archived=1）実行
+  // アーカイブ（is_archived=1）実行
   db.prepare("UPDATE projects SET is_archived = 1 WHERE id = ?").run(targetProject.id);
   const archivedProject = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(targetProject.id);
   if (archivedProject.is_archived !== 1) {
-    throw new Error("プロジェクトのクローズ（is_archived=1）更新に失敗しました");
+    throw new Error("プロジェクトのアーカイブ（is_archived=1）更新に失敗しました");
   }
-  // 進行中一覧クエリ（is_archived = 0）で除外されることを確認
+  // アクティブ一覧クエリ（is_archived = 0）で除外されることを確認
   const activeProjectsList = db.prepare("SELECT * FROM projects WHERE is_archived = 0").all();
   if (activeProjectsList.some((p) => p.id === targetProject.id)) {
-    throw new Error("クローズ済みプロジェクトが進行中一覧に含まれています");
+    throw new Error("アーカイブ済みプロジェクトが進行中一覧に含まれています");
   }
-  // 再オープン（is_archived=0）実行
+
+  // リードオンリー制御ロジックの検証（アーカイブされたプロジェクトには起票・変更不可）
+  const checkCanCreateIssue = (projId) => {
+    const proj = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(projId);
+    if (!proj) return { allowed: false, reason: "not_found" };
+    if (proj.is_archived) return { allowed: false, reason: "archived_readonly" };
+    return { allowed: true };
+  };
+  const checkCanUpdateIssue = (issId) => {
+    const row = db.prepare(`
+      SELECT p.is_archived 
+      FROM issues i 
+      JOIN projects p ON i.project_id = p.id 
+      WHERE i.id = ?
+    `).get(issId);
+    if (!row) return { allowed: false, reason: "not_found" };
+    if (row.is_archived) return { allowed: false, reason: "archived_readonly" };
+    return { allowed: true };
+  };
+
+  const createCheckResult = checkCanCreateIssue(targetProject.id);
+  if (createCheckResult.allowed || createCheckResult.reason !== "archived_readonly") {
+    throw new Error("アーカイブ済みプロジェクトへの起票ブロック検証に失敗しました");
+  }
+
+  // 対象プロジェクトの課題を探して更新ブロックを検証
+  const sampleIssueOfTarget = db.prepare("SELECT id FROM issues WHERE project_id = ? LIMIT 1").get(targetProject.id);
+  if (sampleIssueOfTarget) {
+    const updateCheckResult = checkCanUpdateIssue(sampleIssueOfTarget.id);
+    if (updateCheckResult.allowed || updateCheckResult.reason !== "archived_readonly") {
+      throw new Error("アーカイブ済みプロジェクトの課題更新ブロック検証に失敗しました");
+    }
+  }
+
+  // アーカイブ解除（is_archived=0）実行
   db.prepare("UPDATE projects SET is_archived = 0 WHERE id = ?").run(targetProject.id);
-  const reopenedProject = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(targetProject.id);
-  if (reopenedProject.is_archived !== 0) {
-    throw new Error("プロジェクトの再オープン（is_archived=0）更新に失敗しました");
+  const unarchivedProject = db.prepare("SELECT is_archived FROM projects WHERE id = ?").get(targetProject.id);
+  if (unarchivedProject.is_archived !== 0) {
+    throw new Error("プロジェクトのアーカイブ解除（is_archived=0）更新に失敗しました");
   }
-  console.log("✓ 管理者(Admin)専用のプロジェクトクローズ（アーカイブ）＆再オープン・一覧分離テスト成功");
+
+  // 解除後は起票可能判定に戻ることを確認
+  const unarchivedCheck = checkCanCreateIssue(targetProject.id);
+  if (!unarchivedCheck.allowed) {
+    throw new Error("アーカイブ解除後の起票可能検証に失敗しました");
+  }
+  console.log("✓ 管理者(Admin)専用のプロジェクトアーカイブ＆アーカイブ解除・一覧分離・リードオンリー制御テスト成功");
 
   // 18. ダッシュボード課題一覧の完了済み(closed)デフォルト非表示フィルタリング検証
   const allIssuesForFilter = db.prepare("SELECT * FROM issues").all();

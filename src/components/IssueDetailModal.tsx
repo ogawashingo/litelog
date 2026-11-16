@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon } from "lucide-react";
+import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon, Archive } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -299,6 +299,7 @@ export default function IssueDetailModal({
 
   // 表示に使うアクティブな課題オブジェクト（ローカルで最新化されたものを優先）
   const activeIssue = currentIssue || issue;
+  const isProjectArchived = Boolean(activeIssue.project_is_archived);
 
   // 課題の更新を保存
   const handleSaveEdit = async () => {
@@ -863,35 +864,44 @@ export default function IssueDetailModal({
               )}
             </button>
 
-            {!isEditing ? (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                <Edit2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">編集</span>
-              </button>
+            {isProjectArchived ? (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2 sm:px-2.5 py-1 rounded bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
+                <Archive className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">アーカイブ（読み取り専用）</span>
+              </span>
             ) : (
-              <button
-                type="button"
-                onClick={handleSaveEdit}
-                disabled={isSaving}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 sm:px-3 py-1 rounded bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 transition-colors cursor-pointer"
-              >
-                <Check className="w-3.5 h-3.5 shrink-0" />
-                <span>{isSaving ? "保存中" : "保存"}</span>
-              </button>
-            )}
+              <>
+                {!isEditing ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 shrink-0" />
+                    <span className="hidden sm:inline">編集</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={isSaving}
+                    className="flex items-center gap-1 text-xs font-semibold px-2.5 sm:px-3 py-1 rounded bg-gradient-to-r from-indigo-600 to-violet-600 text-white hover:from-indigo-700 hover:to-violet-700 transition-colors cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>{isSaving ? "保存中" : "保存"}</span>
+                  </button>
+                )}
 
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
-              title="課題を削除"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                  title="課題を削除"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </>
+            )}
 
             <button
               type="button"
@@ -904,6 +914,16 @@ export default function IssueDetailModal({
             </button>
           </div>
         </div>
+
+        {/* アーカイブ済みプロジェクトのリードオンリー注意バナー */}
+        {isProjectArchived && (
+          <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 flex items-center gap-2 text-xs font-semibold shrink-0">
+            <Archive className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>
+              この課題が属するプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、課題情報の修正やステータス変更、コメント投稿は行えません。
+            </span>
+          </div>
+        )}
 
         {/* 常時固定の課題件名 ＆ 全属性ツールバー（コメント等をスクロールしても常に最上部に留まる） */}
         {!isEditing && (
@@ -954,6 +974,7 @@ export default function IssueDetailModal({
                 <span className="text-[10px] text-slate-500 font-bold shrink-0">状態:</span>
                 <select
                   value={activeIssue.status}
+                  disabled={isProjectArchived}
                   onChange={(e) => {
                     const nextStatus = e.target.value as IssueStatus;
                     if (nextStatus === "closed" && hasUnclosedChildren) {
@@ -962,7 +983,9 @@ export default function IssueDetailModal({
                     }
                     handleQuickStatusChange(nextStatus);
                   }}
-                  className="bg-transparent text-xs font-bold text-slate-800 cursor-pointer focus:outline-hidden"
+                  className={`bg-transparent text-xs font-bold text-slate-800 focus:outline-hidden ${
+                    isProjectArchived ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                  }`}
                 >
                   <option value="open">未対応</option>
                   <option value="in_progress">処理中</option>
@@ -973,15 +996,15 @@ export default function IssueDetailModal({
                 </select>
               </div>
 
-              {/* 完了理由セレクター（完了時のみ活性） */}
+              {/* 完了理由セレクター（完了時のみ活性、アーカイブ時は非活性） */}
               <div className={`flex items-center gap-1 rounded-lg px-1.5 py-0.5 transition-colors ${
-                activeIssue.status === "closed" ? "bg-white border border-slate-300 shadow-2xs" : "opacity-50"
+                activeIssue.status === "closed" && !isProjectArchived ? "bg-white border border-slate-300 shadow-2xs" : "opacity-50"
               }`}>
                 <span className="text-[10px] text-slate-500 font-medium shrink-0">完了理由:</span>
                 <ResolutionSelect
                   value={activeIssue.status === "closed" ? activeIssue.resolution : null}
                   onChange={(nextRes) => handleQuickResolutionChange(nextRes)}
-                  disabled={activeIssue.status !== "closed"}
+                  disabled={isProjectArchived || activeIssue.status !== "closed"}
                   size="sm"
                   placeholder="--"
                 />
@@ -1010,8 +1033,11 @@ export default function IssueDetailModal({
                 </div>
                 <select
                   value={activeIssue.assignee_id ? String(activeIssue.assignee_id) : ""}
+                  disabled={isProjectArchived}
                   onChange={(e) => handleQuickAssigneeChange(e.target.value)}
-                  className="bg-transparent text-xs font-medium text-slate-800 cursor-pointer focus:outline-hidden truncate w-full"
+                  className={`bg-transparent text-xs font-medium text-slate-800 focus:outline-hidden truncate w-full ${
+                    isProjectArchived ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                  }`}
                 >
                   <option value="">未割当</option>
                   {users.map((u) => (
@@ -1027,8 +1053,11 @@ export default function IssueDetailModal({
                 <span className="text-[10px] text-slate-500 font-bold shrink-0">優先度:</span>
                 <select
                   value={activeIssue.priority}
+                  disabled={isProjectArchived}
                   onChange={(e) => handleQuickPriorityChange(e.target.value as IssuePriority)}
-                  className={`bg-transparent text-xs font-bold cursor-pointer focus:outline-hidden ${
+                  className={`bg-transparent text-xs font-bold focus:outline-hidden ${
+                    isProjectArchived ? "cursor-not-allowed opacity-70" : "cursor-pointer"
+                  } ${
                     activeIssue.priority === "high"
                       ? "text-rose-600"
                       : activeIssue.priority === "medium"
@@ -1349,16 +1378,18 @@ export default function IssueDetailModal({
                     <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
                     <span>添付ファイル ({attachments.length})</span>
                   </h4>
-                  <label className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors cursor-pointer">
-                    <Plus className="w-3 h-3" />
-                    <span>ファイルを追加</span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      multiple
-                      onChange={handleDirectFileUpload}
-                    />
-                  </label>
+                  {!isProjectArchived && (
+                    <label className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors cursor-pointer">
+                      <Plus className="w-3 h-3" />
+                      <span>ファイルを追加</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        multiple
+                        onChange={handleDirectFileUpload}
+                      />
+                    </label>
+                  )}
                 </div>
 
                 {attachments.length > 0 ? (
@@ -1418,7 +1449,7 @@ export default function IssueDetailModal({
                             >
                               <Download className="w-3.5 h-3.5" />
                             </a>
-                            {canDelete && (
+                            {!isProjectArchived && canDelete && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteAttachment(att.id)}
@@ -1451,7 +1482,7 @@ export default function IssueDetailModal({
                     {childrenIssues.length > 0 && !isAddingChild && (
                       <span className="text-[11px] text-slate-400">クリックで子課題を開く</span>
                     )}
-                    {!isAddingChild && (
+                    {!isProjectArchived && !isAddingChild && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1664,7 +1695,7 @@ export default function IssueDetailModal({
                         <span className="text-[10px] text-slate-400">
                           {formatTimestamp(comment.created_at, settings, true)}
                         </span>
-                        {canEdit && !isEditingThis && (
+                        {!isProjectArchived && canEdit && !isEditingThis && (
                           <button
                             type="button"
                             onClick={() => handleStartEditComment(comment)}
@@ -1674,7 +1705,7 @@ export default function IssueDetailModal({
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        {isAdmin && !isEditingThis && (
+                        {!isProjectArchived && isAdmin && !isEditingThis && (
                           <button
                             type="button"
                             onClick={() => handleDeleteComment(comment.id)}
@@ -1735,6 +1766,7 @@ export default function IssueDetailModal({
                           currentUserId={currentUser?.id || null}
                           currentUserName={currentUser?.name || null}
                           currentUserColor={currentUser?.color || null}
+                          disabled={isProjectArchived}
                           onReactionsUpdated={(cid, nextReactions) => {
                             setComments((prev) =>
                               prev.map((c) => (c.id === cid ? { ...c, reactions: nextReactions } : c))
@@ -1748,57 +1780,63 @@ export default function IssueDetailModal({
               })}
             </div>
 
-            {/* コメント入力フォーム */}
-            <form onSubmit={handlePostComment} className="space-y-2.5 pt-2">
-              <MentionTextarea
-                rows={5}
-                placeholder={
-                  currentUser
-                    ? `${currentUser.name} としてコメント・進捗を入力... (@でメンバーをメンション、画像ペースト・添付対応)`
-                    : "進捗や気づき、メモを残せます... (@でメンバーをメンション、画像ペースト・添付対応)"
-                }
-                value={newComment}
-                onChange={(val) => setNewComment(val)}
-                users={users}
-                issueId={activeIssue.id}
-                onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
-                className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-              />
+            {/* コメント入力フォーム（アーカイブ時は読み取り専用案内を表示） */}
+            {!isProjectArchived ? (
+              <form onSubmit={handlePostComment} className="space-y-2.5 pt-2">
+                <MentionTextarea
+                  rows={5}
+                  placeholder={
+                    currentUser
+                      ? `${currentUser.name} としてコメント・進捗を入力... (@でメンバーをメンション、画像ペースト・添付対応)`
+                      : "進捗や気づき、メモを残せます... (@でメンバーをメンション、画像ペースト・添付対応)"
+                  }
+                  value={newComment}
+                  onChange={(val) => setNewComment(val)}
+                  users={users}
+                  issueId={activeIssue.id}
+                  onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                />
 
-              {/* コメント投稿時の通知先（参加者）チェックボックス選択 */}
-              <NotifyUserSelector
-                users={users}
-                currentUserId={currentUser?.id || null}
-                selectedUserIds={commentNotifyUserIds}
-                onChange={setCommentNotifyUserIds}
-                autoNotifyUserIds={
-                  [
-                    activeIssue.created_by ? Number(activeIssue.created_by) : 0,
-                    activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
-                  ].filter(Boolean)
-                }
-                participantUserIds={
-                  [
-                    activeIssue.created_by ? Number(activeIssue.created_by) : 0,
-                    activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
-                    ...comments.map((c) => Number(c.user_id || 0)),
-                  ].filter(Boolean)
-                }
-                label="コメントを通知するメンバー（参加者）"
-                compact
-              />
+                {/* コメント投稿時の通知先（参加者）チェックボックス選択 */}
+                <NotifyUserSelector
+                  users={users}
+                  currentUserId={currentUser?.id || null}
+                  selectedUserIds={commentNotifyUserIds}
+                  onChange={setCommentNotifyUserIds}
+                  autoNotifyUserIds={
+                    [
+                      activeIssue.created_by ? Number(activeIssue.created_by) : 0,
+                      activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
+                    ].filter(Boolean)
+                  }
+                  participantUserIds={
+                    [
+                      activeIssue.created_by ? Number(activeIssue.created_by) : 0,
+                      activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
+                      ...comments.map((c) => Number(c.user_id || 0)),
+                    ].filter(Boolean)
+                  }
+                  label="コメントを通知するメンバー（参加者）"
+                  compact
+                />
 
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={!newComment.trim() || isPostingComment}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{isPostingComment ? "送信中..." : "コメントを投稿"}</span>
-                </button>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={!newComment.trim() || isPostingComment}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isPostingComment ? "送信中..." : "コメントを投稿"}</span>
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3 text-center text-xs text-slate-500 font-medium">
+                このプロジェクトはアーカイブされているため、コメントの投稿は行えません（読み取り専用）。
               </div>
-            </form>
+            )}
 
             {/* モバイル用最下部 戻るボタン（最下部までスクロールした際にもワンタップで戻れる） */}
             <div className="pt-4 border-t border-slate-200 flex justify-center sm:hidden">
