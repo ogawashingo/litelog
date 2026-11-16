@@ -61,7 +61,13 @@ export const ANNOUNCEMENT_CONFIG_MAP: Record<AnnouncementType, AnnouncementConfi
   },
 };
 
-const STORAGE_KEY = "dismissed_announcement_updated_at";
+// ユーザーごとの通知既読（閉じる）管理用ローカルストレージキープレフィックス
+const STORAGE_PREFIX = "dismissed_announcement_user_";
+const OLD_GLOBAL_STORAGE_KEY = "dismissed_announcement_updated_at";
+
+function getDismissedStorageKey(userId?: number | null): string {
+  return userId ? `${STORAGE_PREFIX}${userId}` : `${STORAGE_PREFIX}guest`;
+}
 
 /**
  * お知らせメッセージ内のインラインMarkdown・リンク・課題キーを描画するヘルパー
@@ -152,12 +158,18 @@ export default function AnnouncementBar() {
     announcementUpdatedAt = "",
   } = settings;
 
-  // ハイドレーションエラーを防止し、クライアント側でローカルストレージを確認
+  // ユーザーごと・更新日時ごとに非表示状態を判定（同一端末で別ユーザー切替時にも正しく表示）
   useEffect(() => {
     setMounted(true);
     try {
-      const dismissedTimestamp = localStorage.getItem(STORAGE_KEY);
-      // 既に閉じており、かつ管理者のメッセージ更新日時と一致している場合は非表示状態を維持
+      // 古いブラウザ共通キーが残っている場合はクリーンアップ
+      if (localStorage.getItem(OLD_GLOBAL_STORAGE_KEY)) {
+        localStorage.removeItem(OLD_GLOBAL_STORAGE_KEY);
+      }
+
+      const userKey = getDismissedStorageKey(currentUser?.id);
+      const dismissedTimestamp = localStorage.getItem(userKey);
+      // ログイン中のユーザーが既に閉じており、かつ管理者のメッセージ更新日時と一致している場合のみ非表示
       if (dismissedTimestamp && announcementUpdatedAt && dismissedTimestamp === announcementUpdatedAt) {
         setIsDismissed(true);
       } else {
@@ -167,9 +179,9 @@ export default function AnnouncementBar() {
       // localStorageアクセス制限等の場合はそのまま表示
       setIsDismissed(false);
     }
-  }, [announcementUpdatedAt]);
+  }, [currentUser?.id, announcementUpdatedAt]);
 
-  // 非表示条件: マウント前、無効化中、本文が空、またはユーザーがすでに閉じた場合
+  // 非表示条件: マウント前、無効化中、本文が空、またはログイン中ユーザーがすでに閉じた場合
   if (!mounted || !announcementEnabled || !announcementMessage.trim() || isDismissed) {
     return null;
   }
@@ -180,14 +192,15 @@ export default function AnnouncementBar() {
   const config = ANNOUNCEMENT_CONFIG_MAP[currentType];
   const IconComponent = config.icon;
 
-  // 閉じるボタン押下処理
+  // 閉じるボタン押下処理（ログイン中ユーザー専用キーに保存）
   const handleDismiss = () => {
     setIsDismissed(true);
     try {
+      const userKey = getDismissedStorageKey(currentUser?.id);
       if (announcementUpdatedAt) {
-        localStorage.setItem(STORAGE_KEY, announcementUpdatedAt);
+        localStorage.setItem(userKey, announcementUpdatedAt);
       } else {
-        localStorage.setItem(STORAGE_KEY, new Date().toISOString());
+        localStorage.setItem(userKey, new Date().toISOString());
       }
     } catch {
       // エラー時はローカルステートのみで制御
