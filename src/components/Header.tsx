@@ -221,18 +221,6 @@ export default function Header({
                 <span>ガントチャート</span>
               </Link>
 
-              {/* 横断検索タブ */}
-              <Link
-                href={searchHref}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                  isSearch
-                    ? "app-nav-active text-white font-semibold shadow-2xs"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <Search className="w-3.5 h-3.5 app-nav-indicator" />
-                <span>横断検索</span>
-              </Link>
 
               {/* 管理ページタブ（Admin権限のみ） */}
               {Boolean(currentUser?.is_admin) && (
@@ -293,7 +281,7 @@ export default function Header({
                       executeSearch(searchKeyword);
                     }
                   }}
-                  placeholder="課題を検索... (⌘K)"
+                  placeholder="全体を検索... (⌘K)"
                   className="w-44 xl:w-60 bg-white/15 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 focus:placeholder-slate-400 text-xs rounded-lg pl-8 pr-7 py-1.5 border border-white/20 focus:border-amber-400 focus:outline-hidden focus:ring-2 focus:ring-amber-400/40 transition-all shadow-inner"
                 />
                 {searchKeyword ? (
@@ -472,7 +460,7 @@ export default function Header({
                 type="text"
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                placeholder="全プロジェクト横断で課題を検索..."
+                placeholder="全体を検索..."
                 className="w-full bg-white/10 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 text-xs rounded-lg pl-8 pr-3 py-1.5 border border-white/20 focus:outline-hidden"
               />
             </div>
@@ -563,19 +551,6 @@ export default function Header({
               <span>ガントチャート</span>
             </Link>
 
-            {/* 横断検索 */}
-            <Link
-              href={searchHref}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                isSearch
-                  ? "app-nav-active text-white font-semibold shadow-xs"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <Search className="w-4 h-4 app-nav-indicator" />
-              <span>横断検索</span>
-            </Link>
 
             {/* 管理ページ */}
             {Boolean(currentUser?.is_admin) && (
