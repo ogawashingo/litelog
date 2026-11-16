@@ -1432,8 +1432,8 @@ export default function AdminPage() {
 
         {/* プロジェクト管理カード（全幅表示でプロジェクト名や操作ボタンの視認性を確保） */}
         <div className="bg-white rounded-xl shadow-xs border border-indigo-100/80 p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <FolderGit2 className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-bold text-slate-800 text-sm">
@@ -1445,9 +1445,9 @@ export default function AdminPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2.5 shrink-0">
               {/* プロジェクトフィルター切り替えタブ */}
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs">
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs shrink-0">
                 <button
                   type="button"
                   onClick={() => setProjectFilterTab("all")}
@@ -1492,7 +1492,7 @@ export default function AdminPage() {
                   }
                   setIsCreateProjectOpen(true);
                 }}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs shrink-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>新規作成</span>
