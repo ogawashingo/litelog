@@ -5,6 +5,8 @@
   /* モダンブラウザUIのカラーモード適応＆フォームアクセントカラー統一（Modern Web Guidance: dark-mode, brand-consistent-forms） */
   color-scheme: light;
   accent-color: var(--theme-accent, #6366f1);
+  /* グローバルヘッダー基準の高さ（固定ヘッダー・ツールバーのオフセット計算用） */
+  --app-header-height: 56px;
 }
 
 :root,

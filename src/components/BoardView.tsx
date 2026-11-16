@@ -314,8 +314,8 @@ export default function BoardView({
 
   return (
     <div className="space-y-3">
-      {/* ボードヘッダー / フィルターツールバー */}
-      <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-3 sm:p-4">
+      {/* ボードヘッダー / フィルターツールバー（画面スクロール時も常に上部に固定表示） */}
+      <div className="sticky top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* 左側: プロジェクト情報（タイトル・キー） */}
           <div className="flex flex-wrap items-center gap-3">

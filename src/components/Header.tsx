@@ -74,6 +74,36 @@ export default function Header({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // ヘッダーの高さを測定し、CSS変数 --app-header-height に反映（ボード・ガント等のstickyヘッダー連動用）
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        const height = headerRef.current.offsetHeight;
+        document.documentElement.style.setProperty("--app-header-height", `${height}px`);
+      }
+    };
+
+    updateHeaderHeight();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && headerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        updateHeaderHeight();
+      });
+      resizeObserver.observe(headerRef.current);
+    }
+
+    window.addEventListener("resize", updateHeaderHeight);
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener("resize", updateHeaderHeight);
+    };
+  }, []);
 
   // 選択中プロジェクトの特定と各画面への連動リンク生成
   const selectedProject = projects.find((p) => p.id === selectedProjectId) || null;
@@ -173,7 +203,10 @@ export default function Header({
   };
 
   return (
-    <header className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150">
+    <header
+      ref={headerRef}
+      className="app-header text-white shadow-lg sticky top-0 z-30 transition-colors duration-150"
+    >
       <div className="max-w-[1800px] mx-auto px-3 sm:px-5 lg:px-6">
         <div className="flex items-center justify-between h-14 gap-2 sm:gap-6">
           {/* 左側: オリジナルロゴとナビゲーション（ダッシュボード / ボード / ガント / 管理） */}
