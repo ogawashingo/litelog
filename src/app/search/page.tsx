@@ -12,6 +12,7 @@ import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
 import { ISSUE_STATUS_CONFIG, TypeBadge, StatusBadge, PriorityBadge } from "@/components/IssueBadge";
 import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp, parseDbTimestamp, getTodayDateString } from "@/lib/dateUtils";
+import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 import {
   Search,
   Layers,
@@ -53,6 +54,9 @@ function SearchPageContent() {
   const [viewMode, setViewMode] = useState<"matrix" | "list">("matrix");
   // マトリクス内表示形式: 'cards' (プロジェクト別カード) | 'grid' (ステータス×プロジェクト格子)
   const [matrixStyle, setMatrixStyle] = useState<"cards" | "grid">("cards");
+
+  // 選択中プロジェクトID（ヘッダープルダウン・画面内フィルター・URLクエリ双方向同期）
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   // フィルター用ステート（リスト表示用）
   const [filterProjectId, setFilterProjectId] = useState<string>("all");
@@ -112,18 +116,63 @@ function SearchPageContent() {
     setSearchKeyword(q);
     setCurrentQuery(q);
     fetchSearchResults(q);
+
+    // URLクエリからprojectIdを同期（未指定時はnull＝全プロジェクト対象）
+    const pParam = searchParams.get("projectId");
+    if (pParam !== null) {
+      const pid = Number(pParam);
+      if (!isNaN(pid) && pid > 0) {
+        setSelectedProjectId(pid);
+        setFilterProjectId(String(pid));
+        setStoredProjectId(pid);
+        return;
+      }
+    }
+    setSelectedProjectId(null);
+    setFilterProjectId("all");
   }, [searchParams, fetchSearchResults]);
+
+  // プロジェクト選択変更ハンドラ（ヘッダープルダウン連動）
+  const handleSelectProject = useCallback(
+    (id: number | null) => {
+      setSelectedProjectId(id);
+      setStoredProjectId(id);
+      setFilterProjectId(id ? String(id) : "all");
+
+      // URLクエリパラメータの同期
+      const params = new URLSearchParams();
+      if (currentQuery) params.set("q", currentQuery);
+      if (id) params.set("projectId", String(id));
+      const newQuery = params.toString();
+      router.push(newQuery ? `/search?${newQuery}` : "/search");
+    },
+    [currentQuery, router]
+  );
+
+  // 画面内プロジェクトフィルター変更ハンドラ
+  const handleFilterProjectChange = useCallback(
+    (val: string) => {
+      const id = val === "all" ? null : Number(val);
+      handleSelectProject(id);
+    },
+    [handleSelectProject]
+  );
+
+  // 選択中のProjectオブジェクト
+  const selectedProject = useMemo(() => {
+    return projects.find((p) => p.id === selectedProjectId) || null;
+  }, [projects, selectedProjectId]);
 
   // 検索実行
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = searchKeyword.trim();
     setCurrentQuery(trimmed);
-    if (trimmed) {
-      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
-    } else {
-      router.push("/search");
-    }
+    const params = new URLSearchParams();
+    if (trimmed) params.set("q", trimmed);
+    if (selectedProjectId) params.set("projectId", String(selectedProjectId));
+    const newQuery = params.toString();
+    router.push(newQuery ? `/search?${newQuery}` : "/search");
   };
 
   // 課題選択ハンドラ（モーダル表示）
@@ -139,9 +188,13 @@ function SearchPageContent() {
     setIsCreateOpen(true);
   };
 
-  // プロジェクトごとの課題マッピング（マトリクス用）
+  // プロジェクトごとの課題マッピング（マトリクス用：プロジェクト選択時は該当プロジェクトに絞り込み）
   const projectMatrixData = useMemo(() => {
-    return projects.map((proj) => {
+    const targetProjects = selectedProjectId
+      ? projects.filter((p) => p.id === selectedProjectId)
+      : projects;
+
+    return targetProjects.map((proj) => {
       const projIssues = issues.filter((i) => i.project_id === proj.id);
       const total = projIssues.length;
       const closed = projIssues.filter((i) => i.status === "closed").length;
@@ -209,10 +262,10 @@ function SearchPageContent() {
       <Header
         activeNav="search"
         projects={projects}
-        selectedProjectId={null}
-        onSelectProject={() => {}}
+        selectedProjectId={selectedProjectId}
+        onSelectProject={handleSelectProject}
         onOpenCreateIssue={() => {
-          setCreateDefaultProjectId(undefined);
+          setCreateDefaultProjectId(selectedProjectId || undefined);
           setCreateDefaultTitle("");
           setIsCreateOpen(true);
         }}
@@ -246,7 +299,10 @@ function SearchPageContent() {
                   onClick={() => {
                     setSearchKeyword("");
                     setCurrentQuery("");
-                    router.push("/search");
+                    const params = new URLSearchParams();
+                    if (selectedProjectId) params.set("projectId", String(selectedProjectId));
+                    const newQuery = params.toString();
+                    router.push(newQuery ? `/search?${newQuery}` : "/search");
                   }}
                   className="absolute right-3 top-3 text-xs font-semibold text-slate-400 hover:text-slate-600 bg-slate-200/60 hover:bg-slate-200 px-2 py-1 rounded-md transition-colors"
                 >
@@ -268,11 +324,33 @@ function SearchPageContent() {
             <div>
               {currentQuery ? (
                 <span>
+                  {selectedProject && (
+                    <span className="font-semibold text-slate-700 mr-1.5">
+                      [{selectedProject.key}] {selectedProject.name} 内の
+                    </span>
+                  )}
                   キーワード「<strong className="text-slate-900 font-bold">{currentQuery}</strong>」の検索結果:{" "}
-                  <strong className="text-indigo-600 font-bold">{issues.length}</strong> 件
+                  <strong className="text-indigo-600 font-bold">{filteredIssues.length}</strong> 件
+                  {selectedProjectId && issues.length !== filteredIssues.length && (
+                    <span className="text-slate-400 text-[11px] ml-1">
+                      （全プロジェクト計: {issues.length} 件）
+                    </span>
+                  )}
                 </span>
               ) : (
-                <span>全課題を表示中: <strong className="text-slate-900 font-bold">{issues.length}</strong> 件</span>
+                <span>
+                  {selectedProject && (
+                    <span className="font-semibold text-slate-700 mr-1.5">
+                      [{selectedProject.key}] {selectedProject.name} の
+                    </span>
+                  )}
+                  課題を表示中: <strong className="text-slate-900 font-bold">{filteredIssues.length}</strong> 件
+                  {selectedProjectId && issues.length !== filteredIssues.length && (
+                    <span className="text-slate-400 text-[11px] ml-1">
+                      （全プロジェクト計: {issues.length} 件）
+                    </span>
+                  )}
+                </span>
               )}
             </div>
           </div>
@@ -655,7 +733,7 @@ function SearchPageContent() {
                   <label className="block text-[11px] font-bold text-slate-500 mb-1">プロジェクト</label>
                   <select
                     value={filterProjectId}
-                    onChange={(e) => setFilterProjectId(e.target.value)}
+                    onChange={(e) => handleFilterProjectChange(e.target.value)}
                     className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-800"
                   >
                     <option value="all">すべてのプロジェクト</option>
