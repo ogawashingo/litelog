@@ -223,15 +223,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
       }
 
-      // 課題を完了（closed）にできるのは、課題の起票者または管理者のみ
+      // 課題を完了（closed）にできるのは、課題の起票者・PMO・または管理者のみ
       if (body.status === "closed" && currentIssue.status !== "closed") {
         const canClose = Boolean(
           sessionUser.is_admin ||
+          sessionUser.role_type === "pmo" ||
           (currentIssue.created_by && sessionUser.id === currentIssue.created_by)
         );
         if (!canClose) {
           return NextResponse.json(
-            { error: "課題を完了にできるのは、課題の起票者または管理者のみです" },
+            { error: "課題を完了にできるのは、課題の起票者・PMO・または管理者のみです" },
             { status: 403 }
           );
         }
@@ -550,6 +551,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       id: number;
       issue_key: string;
       title: string;
+      created_by: number | null;
       project_is_archived?: number;
       project_name?: string;
     } | undefined;
@@ -569,6 +571,19 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     if (isArchived) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、削除できません（読み取り専用）" },
+        { status: 403 }
+      );
+    }
+
+    // 課題を削除できるのは、課題の作成者（起票者）または管理者（Admin）のみ
+    const canDelete = Boolean(
+      sessionUser.is_admin ||
+      sessionUser.role_type === "admin" ||
+      (currentIssue.created_by && sessionUser.id === currentIssue.created_by)
+    );
+    if (!canDelete) {
+      return NextResponse.json(
+        { error: "課題を削除できるのは、課題の作成者または管理者のみです" },
         { status: 403 }
       );
     }

@@ -14,7 +14,7 @@ import {
   Paperclip,
   Archive,
 } from "lucide-react";
-import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject } from "@/types";
+import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject, canManageIssues } from "@/types";
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
@@ -160,14 +160,14 @@ export default function BoardView({
       return;
     }
 
-    // 完了レーンへ移動できるのは起票者または管理者のみ（セルフ完了・クローズ防止）
+    // 完了レーンへ移動できるのは起票者・PMO・または管理者のみ（セルフ完了・クローズ防止）
     if (newStatus === "closed") {
       const canClose = Boolean(
-        currentUser?.is_admin ||
+        canManageIssues(currentUser) ||
         (targetIssue.created_by && currentUser?.id === targetIssue.created_by)
       );
       if (!canClose) {
-        alert("課題を完了にできるのは、課題の起票者または管理者のみです。\n作業が完了した場合は「処理済み」へ移動してレビューを依頼してください。");
+        alert("課題を完了にできるのは、課題の起票者・PMO・または管理者のみです。\n作業が完了した場合は「処理済み」へ移動してレビューを依頼してください。");
         setDraggingIssueId(null);
         return;
       }
@@ -183,8 +183,8 @@ export default function BoardView({
       }
     }
 
-    // 処理済みレーンへの移動時は、こっそり処理済み放置を防ぐためレビュー依頼モーダルを起動（管理者Adminはスキップして即時更新）
-    if (newStatus === "resolved" && !currentUser?.is_admin) {
+    // 処理済みレーンへの移動時は、こっそり処理済み放置を防ぐためレビュー依頼モーダルを起動（管理者AdminおよびPMOはスキップして即時更新）
+    if (newStatus === "resolved" && !canManageIssues(currentUser)) {
       setReviewTargetIssue(targetIssue);
       setDraggingIssueId(null);
       return;

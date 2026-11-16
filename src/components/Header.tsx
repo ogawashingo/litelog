@@ -19,7 +19,7 @@ import {
   Search,
   ArrowRight,
 } from "lucide-react";
-import { Project, Issue, isArchivedProject } from "@/types";
+import { Project, Issue, isArchivedProject, getUserRoleType } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -556,12 +556,18 @@ export default function Header({
                       </span>
                       <span
                         className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${
-                          currentUser.is_admin
+                          getUserRoleType(currentUser) === "admin"
                             ? "bg-amber-300 text-amber-950"
+                            : getUserRoleType(currentUser) === "pmo"
+                            ? "bg-emerald-300 text-emerald-950"
                             : "bg-white/20 text-white"
                         }`}
                       >
-                        {currentUser.is_admin ? "Admin" : "一般"}
+                        {getUserRoleType(currentUser) === "admin"
+                          ? "Admin"
+                          : getUserRoleType(currentUser) === "pmo"
+                          ? "PMO"
+                          : "一般"}
                       </span>
                     </div>
                     <span className="text-[10px] text-white/70 font-mono whitespace-nowrap">

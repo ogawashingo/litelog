@@ -31,7 +31,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project, isArchivedProject } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project, isArchivedProject, canManageIssues } from "@/types";
 import { setStoredProjectId } from "@/lib/projectStorage";
 import MentionTextarea from "@/components/MentionTextarea";
 import MentionText from "@/components/MentionText";
@@ -351,9 +351,9 @@ export default function IssueDetailPage() {
   const unclosedChildrenCount = childrenIssues.filter((c) => c.status !== "closed").length;
   const hasUnclosedChildren = unclosedChildrenCount > 0;
 
-  // 課題を完了にできる権限判定（起票者または管理者のみ）
+  // 課題を完了にできる権限判定（起票者・PMO・または管理者のみ）
   const canClose = Boolean(
-    currentUser?.is_admin ||
+    canManageIssues(currentUser) ||
     (issue?.created_by && currentUser?.id === issue.created_by)
   );
 
@@ -792,7 +792,7 @@ export default function IssueDetailPage() {
                           if (nextStatus === issue.status) return;
                           if (nextStatus === "closed") {
                             if (!canClose) {
-                              alert("課題を完了にできるのは、課題の起票者または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
+                              alert("課題を完了にできるのは、課題の起票者・PMO・または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
                               return;
                             }
                             if (hasUnclosedChildren) {
@@ -800,7 +800,7 @@ export default function IssueDetailPage() {
                               return;
                             }
                           }
-                          if (nextStatus === "resolved" && !currentUser?.is_admin) {
+                          if (nextStatus === "resolved" && !canManageIssues(currentUser)) {
                             setIsReviewModalOpen(true);
                             return;
                           }
@@ -818,7 +818,7 @@ export default function IssueDetailPage() {
                           disabled={!canClose || hasUnclosedChildren}
                           title={
                             !canClose
-                              ? "課題を完了にできるのは起票者または管理者のみです"
+                              ? "課題を完了にできるのは起票者・PMO・または管理者のみです"
                               : hasUnclosedChildren
                               ? `未完了の子課題が ${unclosedChildrenCount} 件あります`
                               : undefined
@@ -826,7 +826,7 @@ export default function IssueDetailPage() {
                         >
                           完了
                           {!canClose
-                            ? " (起票者/管理者限定)"
+                            ? " (起票者/PMO/管理者限定)"
                             : hasUnclosedChildren
                             ? " (未完了あり)"
                             : ""}

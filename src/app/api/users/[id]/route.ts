@@ -39,16 +39,22 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       name: string;
       password: string;
       is_admin: number;
+      role_type?: string;
     } | undefined;
     if (!targetUser) {
       return NextResponse.json({ error: "対象のメンバーが見つかりません" }, { status: 404 });
     }
 
-    // 一般ユーザーが権限(isAdmin)・ログインID・ロールを変更しようとした場合は拒否
+    // 一般ユーザー・PMOが権限(isAdmin/roleType)・ログインID・ロールを変更しようとした場合は拒否
     if (!isAdmin) {
-      if (body.isAdmin !== undefined || body.loginId !== undefined || body.role !== undefined) {
+      if (
+        body.isAdmin !== undefined ||
+        body.roleType !== undefined ||
+        body.loginId !== undefined ||
+        body.role !== undefined
+      ) {
         return NextResponse.json(
-          { error: "ログインID・役割・管理者権限の変更には管理者（Admin）権限が必要です" },
+          { error: "ログインID・役割・権限ロールの変更には管理者（Admin）権限が必要です" },
           { status: 403 }
         );
       }
@@ -130,21 +136,37 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updates.push("role = ?");
       values.push(body.role.trim() || "メンバー");
     }
-    if (isAdmin && body.isAdmin !== undefined) {
-      const nextAdmin = body.isAdmin ? 1 : 0;
+    if (isAdmin && (body.roleType !== undefined || body.isAdmin !== undefined)) {
+      let nextRoleType: string;
+      let nextAdmin: number;
+      if (body.roleType !== undefined) {
+        nextRoleType =
+          body.roleType === "admin"
+            ? "admin"
+            : body.roleType === "pmo"
+            ? "pmo"
+            : "member";
+        nextAdmin = nextRoleType === "admin" ? 1 : 0;
+      } else {
+        nextAdmin = body.isAdmin ? 1 : 0;
+        nextRoleType = nextAdmin === 1 ? "admin" : targetUser.role_type === "pmo" ? "pmo" : "member";
+      }
+
       if (targetUser.is_admin === 1 && nextAdmin === 0) {
         const adminCountRow = db
           .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1")
           .get() as { count: number };
         if (adminCountRow.count <= 1) {
           return NextResponse.json(
-            { error: "最低1名の管理者（Admin）が必要なため、管理者権限を解除できません" },
+            { error: "最低1名のシステム管理者（Admin）が必要なため、管理者権限を解除できません" },
             { status: 400 }
           );
         }
       }
       updates.push("is_admin = ?");
       values.push(nextAdmin);
+      updates.push("role_type = ?");
+      values.push(nextRoleType);
     }
     if (body.color !== undefined) {
       updates.push("color = ?");
@@ -174,6 +196,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         u.name,
         u.role,
         u.is_admin,
+        u.role_type,
         u.color,
         u.week_start,
         u.show_holidays,

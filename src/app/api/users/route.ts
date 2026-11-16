@@ -14,6 +14,7 @@ export async function GET() {
         u.name,
         u.role,
         u.is_admin,
+        u.role_type,
         u.color,
         u.week_start,
         u.show_holidays,
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       name,
       role = "メンバー",
       isAdmin = false,
+      roleType,
       color = "#4f46e5",
       weekStart = "monday",
       showHolidays = true,
@@ -85,16 +87,32 @@ export async function POST(request: Request) {
     const cleanWeekStart = weekStart === "sunday" ? "sunday" : "monday";
     const cleanShowHolidays = showHolidays === false || showHolidays === 0 ? 0 : 1;
 
+    // 3段階ロール（admin / pmo / member）の正規化
+    const effectiveRoleType =
+      roleType === "admin" || isAdmin
+        ? "admin"
+        : roleType === "pmo"
+        ? "pmo"
+        : "member";
+    const effectiveIsAdmin = effectiveRoleType === "admin" ? 1 : 0;
+    const defaultRoleLabel =
+      effectiveRoleType === "admin"
+        ? "管理者"
+        : effectiveRoleType === "pmo"
+        ? "PMO"
+        : "メンバー";
+
     const insert = db.prepare(`
-      INSERT INTO users (login_id, password, name, role, is_admin, color, week_start, show_holidays)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const result = insert.run(
       cleanLoginId,
       hashedPassword,
       name.trim(),
-      (role || (isAdmin ? "管理者" : "メンバー")).trim(),
-      isAdmin ? 1 : 0,
+      (role || defaultRoleLabel).trim(),
+      effectiveIsAdmin,
+      effectiveRoleType,
       color || "#4f46e5",
       cleanWeekStart,
       cleanShowHolidays
@@ -107,6 +125,7 @@ export async function POST(request: Request) {
         u.name,
         u.role,
         u.is_admin,
+        u.role_type,
         u.color,
         u.week_start,
         u.show_holidays,

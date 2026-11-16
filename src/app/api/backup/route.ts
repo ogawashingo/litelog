@@ -36,7 +36,7 @@ export async function GET() {
     const db = getDb();
     // セキュリティ保護のため password カラムはエクスポートに含めない
     const users = db
-      .prepare("SELECT id, login_id, name, role, is_admin, color, week_start, show_holidays, created_at FROM users")
+      .prepare("SELECT id, login_id, name, role, is_admin, role_type, color, week_start, show_holidays, created_at FROM users")
       .all();
     const projects = db.prepare("SELECT * FROM projects").all();
     const issues = db.prepare("SELECT * FROM issues").all();
@@ -125,8 +125,8 @@ export async function POST(request: Request) {
       if (Array.isArray(users) && users.length > 0) {
         db.exec("DELETE FROM users;");
         const insertUser = db.prepare(`
-          INSERT INTO users (id, login_id, password, name, role, is_admin, color, week_start, show_holidays, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO users (id, login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         for (const u of users) {
           const isAdminVal =
@@ -137,6 +137,12 @@ export async function POST(request: Request) {
               : String(u.name || "").startsWith("山田")
               ? 1
               : 0;
+          const roleTypeVal =
+            isAdminVal === 1
+              ? "admin"
+              : u.role_type === "pmo"
+              ? "pmo"
+              : "member";
           const fallbackLoginId = String(u.name || "").startsWith("山田")
             ? "yamada"
             : String(u.name || "").startsWith("佐藤")
@@ -159,8 +165,9 @@ export async function POST(request: Request) {
             loginIdStr,
             hashedPw,
             u.name,
-            u.role || (isAdminVal ? "管理者" : "メンバー"),
+            u.role || (isAdminVal ? "管理者" : roleTypeVal === "pmo" ? "PMO" : "メンバー"),
             isAdminVal,
+            roleTypeVal,
             u.color || "#4f46e5",
             u.week_start === "sunday" ? "sunday" : "monday",
             u.show_holidays === 0 || u.show_holidays === false ? 0 : 1,

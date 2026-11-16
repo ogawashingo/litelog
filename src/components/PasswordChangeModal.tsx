@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut, Calendar } from "lucide-react";
-import { User, WeekStartDay } from "@/types";
+import { User, WeekStartDay, getUserRoleType } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
 import AvatarColorPicker from "./AvatarColorPicker";
@@ -188,15 +188,20 @@ export default function PasswordChangeModal({
                 <span className="font-bold text-sm text-gray-900 truncate">
                   {name || currentUser.name}
                 </span>
-                {Boolean(currentUser.is_admin) ? (
+                {getUserRoleType(currentUser) === "admin" ? (
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 rounded-full">
                     <Crown className="w-3 h-3 text-amber-600" />
                     Admin
                   </span>
+                ) : getUserRoleType(currentUser) === "pmo" ? (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-full">
+                    <Shield className="w-3 h-3 text-emerald-600" />
+                    PMO
+                  </span>
                 ) : (
                   <span className="inline-flex items-center gap-0.5 text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded-full">
                     <Shield className="w-3 h-3 text-indigo-500" />
-                    一般ユーザー
+                    一般メンバー
                   </span>
                 )}
               </div>

@@ -47,6 +47,7 @@ function initDb(db: DatabaseSync) {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'メンバー',
       is_admin INTEGER NOT NULL DEFAULT 0,
+      role_type TEXT NOT NULL DEFAULT 'member',
       color TEXT NOT NULL DEFAULT '#4f46e5',
       week_start TEXT NOT NULL DEFAULT 'monday',
       show_holidays INTEGER NOT NULL DEFAULT 1,
@@ -54,11 +55,15 @@ function initDb(db: DatabaseSync) {
     );
   `);
 
-  // users テーブルのマイグレーション（is_admin / login_id / password カラム追加 ＆ 初期メンバーのID・権限設定）
+  // users テーブルのマイグレーション（is_admin / role_type / login_id / password カラム追加 ＆ 初期メンバーのID・権限設定）
   try {
     const userCols = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
     if (!userCols.some((col) => col.name === "is_admin")) {
       db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;");
+    }
+    if (!userCols.some((col) => col.name === "role_type")) {
+      db.exec("ALTER TABLE users ADD COLUMN role_type TEXT NOT NULL DEFAULT 'member';");
+      db.exec("UPDATE users SET role_type = 'admin' WHERE is_admin = 1;");
     }
     if (!userCols.some((col) => col.name === "login_id")) {
       db.exec("ALTER TABLE users ADD COLUMN login_id TEXT;");
@@ -72,6 +77,9 @@ function initDb(db: DatabaseSync) {
     if (!userCols.some((col) => col.name === "show_holidays")) {
       db.exec("ALTER TABLE users ADD COLUMN show_holidays INTEGER NOT NULL DEFAULT 1;");
     }
+
+    // is_admin=1 のユーザーは常に role_type='admin' となるよう整合性を維持
+    db.exec("UPDATE users SET role_type = 'admin' WHERE is_admin = 1 AND role_type != 'admin';");
 
     // その他login_idが未設定のユーザーにユニークなlogin_idを補完
     db.prepare(`

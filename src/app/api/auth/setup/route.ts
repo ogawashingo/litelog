@@ -56,8 +56,8 @@ export async function POST(request: Request) {
     // パスワードをscryptでハッシュ化して管理者として保存
     const hashedPassword = hashPassword(cleanPassword);
     const insertUser = db.prepare(`
-      INSERT INTO users (login_id, password, name, role, is_admin, color)
-      VALUES (?, ?, ?, '管理者', 1, '#4f46e5')
+      INSERT INTO users (login_id, password, name, role, is_admin, role_type, color)
+      VALUES (?, ?, ?, '管理者', 1, 'admin', '#4f46e5')
     `);
     const result = insertUser.run(cleanLoginId, hashedPassword, cleanName);
     const newUserId = Number(result.lastInsertRowid);
@@ -76,6 +76,7 @@ export async function POST(request: Request) {
       name: cleanName,
       role: "管理者",
       is_admin: 1,
+      role_type: "admin" as const,
       color: "#4f46e5",
       created_at: new Date().toISOString(),
     };

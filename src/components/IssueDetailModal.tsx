@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon, Archive } from "lucide-react";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject, canManageIssues } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -303,9 +303,9 @@ export default function IssueDetailModal({
   const activeIssue = currentIssue || issue;
   // 所属プロジェクトのアーカイブ状態判定（is_archivedフラグまたは名前に「アーカイブ」が含まれるか）
   const isProjectArchived = isArchivedProject(activeIssue);
-  // 課題を完了にできる権限判定（起票者または管理者のみ）
+  // 課題を完了にできる権限判定（起票者・PMO・または管理者のみ）
   const canClose = Boolean(
-    currentUser?.is_admin ||
+    canManageIssues(currentUser) ||
     (activeIssue.created_by && currentUser?.id === activeIssue.created_by)
   );
 
@@ -1048,7 +1048,7 @@ export default function IssueDetailModal({
                     if (nextStatus === activeIssue.status) return;
                     if (nextStatus === "closed") {
                       if (!canClose) {
-                        alert("課題を完了にできるのは、課題の起票者または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
+                        alert("課題を完了にできるのは、課題の起票者・PMO・または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
                         return;
                       }
                       if (hasUnclosedChildren) {
@@ -1056,7 +1056,7 @@ export default function IssueDetailModal({
                         return;
                       }
                     }
-                    if (nextStatus === "resolved" && !currentUser?.is_admin) {
+                    if (nextStatus === "resolved" && !canManageIssues(currentUser)) {
                       setIsReviewModalOpen(true);
                       return;
                     }
@@ -1074,7 +1074,7 @@ export default function IssueDetailModal({
                     disabled={!canClose || hasUnclosedChildren}
                     title={
                       !canClose
-                        ? "課題を完了にできるのは起票者または管理者のみです"
+                        ? "課題を完了にできるのは起票者・PMO・または管理者のみです"
                         : hasUnclosedChildren
                         ? `未完了の子課題が ${unclosedChildrenCount} 件あります`
                         : undefined
@@ -1082,7 +1082,7 @@ export default function IssueDetailModal({
                   >
                     完了
                     {!canClose
-                      ? " (起票者/管理者限定)"
+                      ? " (起票者/PMO/管理者限定)"
                       : hasUnclosedChildren
                       ? " (未完了あり)"
                       : ""}

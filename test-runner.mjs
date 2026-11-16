@@ -57,6 +57,7 @@ function setupSchemaAndSeed(db, isProdDb = false) {
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'メンバー',
       is_admin INTEGER NOT NULL DEFAULT 0,
+      role_type TEXT NOT NULL DEFAULT 'member',
       color TEXT NOT NULL DEFAULT '#4f46e5',
       week_start TEXT NOT NULL DEFAULT 'monday',
       show_holidays INTEGER NOT NULL DEFAULT 1,
@@ -67,6 +68,11 @@ function setupSchemaAndSeed(db, isProdDb = false) {
   if (!userCols.some((col) => col.name === "is_admin")) {
     db.exec("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;");
     console.log("✓ users.is_admin カラムのマイグレーションが成功しました");
+  }
+  if (!userCols.some((col) => col.name === "role_type")) {
+    db.exec("ALTER TABLE users ADD COLUMN role_type TEXT NOT NULL DEFAULT 'member';");
+    db.exec("UPDATE users SET role_type = 'admin' WHERE is_admin = 1;");
+    console.log("✓ users.role_type カラムのマイグレーションが成功しました");
   }
   if (!userCols.some((col) => col.name === "login_id")) {
     db.exec("ALTER TABLE users ADD COLUMN login_id TEXT;");
@@ -2148,7 +2154,7 @@ async function runTests() {
     console.log("✓ レビュー依頼連動の処理済みステータス更新＆担当者レビュアー変更＆コメント保存テスト成功");
   }
 
-  // 41. 課題完了（closed）の権限制御（起票者または管理者のみ完了可能、一般作業者の自己クローズ遮断）検証テスト
+  // 41. 課題完了（closed）の3段階ロール権限制御（起票者・PMO・管理者のみ完了可能、一般作業者の自己クローズ遮断）検証テスト
   const closeTestIssueRes = db.prepare(`
     INSERT INTO issues (project_id, issue_key, issue_number, title, status, priority, issue_type, created_by, assignee_id)
     VALUES (1, 'MYPRJ-1000', 1000, '完了権限制御検証課題', 'resolved', 'high', 'task', 1, 2)
@@ -2156,20 +2162,39 @@ async function runTests() {
   const closeTestIssueId = closeTestIssueRes.lastInsertRowid;
   const targetIssueForClose = db.prepare("SELECT * FROM issues WHERE id = ?").get(closeTestIssueId);
 
-  // 一般ユーザー（担当者・ID=2・非管理者）が完了にできるか判定 -> false
+  // 一般ユーザー（担当者・ID=2・role_type='member'）が完了にできるか判定 -> false
   const assigneeUser = db.prepare("SELECT * FROM users WHERE id = 2").get();
   const canAssigneeClose = Boolean(
     assigneeUser.is_admin ||
+    assigneeUser.role_type === "pmo" ||
     (targetIssueForClose.created_by && assigneeUser.id === targetIssueForClose.created_by)
   );
   if (canAssigneeClose) {
     throw new Error("一般担当者が課題を完了できる権限を持ってしまっています");
   }
 
+  // PMOユーザー（ID=3のユーザーをPMOロールに設定）が他人の起票課題を完了にできるか判定 -> true（かつis_adminは0のまま）
+  db.prepare("UPDATE users SET role_type = 'pmo', is_admin = 0, role = 'PMO' WHERE id = 3").run();
+  const pmoUser = db.prepare("SELECT * FROM users WHERE id = 3").get();
+  if (pmoUser.is_admin !== 0 || pmoUser.role_type !== "pmo") {
+    throw new Error("PMOロールの設定（非Admin・role_type=pmo）に失敗しました");
+  }
+  const canPmoClose = Boolean(
+    pmoUser.is_admin ||
+    pmoUser.role_type === "pmo" ||
+    (targetIssueForClose.created_by && pmoUser.id === targetIssueForClose.created_by)
+  );
+  if (!canPmoClose) {
+    throw new Error("PMOロールのユーザーが課題を完了できません");
+  }
+  // 元の一般メンバーに戻す
+  db.prepare("UPDATE users SET role_type = 'member', is_admin = 0, role = 'デザイナー' WHERE id = 3").run();
+
   // 起票者本人（ID=1）が完了にできるか判定 -> true
   const creatorUser = db.prepare("SELECT * FROM users WHERE id = 1").get();
   const canCreatorClose = Boolean(
     creatorUser.is_admin ||
+    creatorUser.role_type === "pmo" ||
     (targetIssueForClose.created_by && creatorUser.id === targetIssueForClose.created_by)
   );
   if (!canCreatorClose) {
@@ -2178,7 +2203,7 @@ async function runTests() {
 
   // 後始末
   db.prepare("DELETE FROM issues WHERE id = ?").run(closeTestIssueId);
-  console.log("✓ 課題完了（closed）の権限制御（起票者または管理者のみ完了可能、一般作業者の自己クローズ遮断）テスト成功");
+  console.log("✓ 3段階ロール（Admin / PMO / 一般）および課題完了の権限制御テスト成功");
 
   console.log("=== すべての動作テストに合格しました！ ===");
 }

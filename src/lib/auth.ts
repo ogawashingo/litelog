@@ -13,6 +13,7 @@ export interface SessionUser {
   name: string;
   role: string;
   is_admin: number;
+  role_type?: string;
   color: string;
   week_start?: string;
   show_holidays?: number;
@@ -167,7 +168,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const db = getDb();
     const user = db
       .prepare(`
-        SELECT id, login_id, name, role, is_admin, color, week_start, show_holidays, created_at
+        SELECT id, login_id, name, role, is_admin, role_type, color, week_start, show_holidays, created_at
         FROM users
         WHERE id = ?
       `)

@@ -1,18 +1,80 @@
 // Personal Backlog の共通型定義
 
+// ユーザーの3段階権限ロール種別
+// - admin: システム管理者（ユーザー管理・システム設定・プロジェクト削除など全権限）
+// - pmo: PMO / マネージャー（全課題の検収・完了、処理済みモーダルスキップが可能。システム設定やユーザー削除は不可）
+// - member: 一般メンバー（通常の作業、自分が起票した課題のみ完了可能）
+export type UserRoleType = "admin" | "pmo" | "member";
+
 // ユーザー（チームメンバー）情報
 export interface User {
   id: number;
   login_id: string;  // ログインID（例: 'yamada', 'sato', 'suzuki'）
   name: string;      // メンバー表示名（例: '山田 太郎'）
-  role: string;      // 役割・肩書き（例: '管理者', 'エンジニア'）
-  is_admin: number;  // 管理者権限フラグ（1: Admin管理者, 0: 一般メンバー）
+  role: string;      // 役割・肩書き（例: '管理者', 'PMO', 'エンジニア'）
+  is_admin: number;  // 管理者権限フラグ（1: Admin管理者, 0: PMOまたは一般メンバー）
+  role_type?: UserRoleType; // 権限ロール種別（'admin' | 'pmo' | 'member'）
   color: string;     // アバターカラー（16進数カラーコード）
   week_start?: WeekStartDay; // カレンダー週開始曜日（'monday' | 'sunday'）
   show_holidays?: boolean;   // 日本の祝日表示フラグ（true: 表示, false: 非表示）
   created_at: string;
   issue_count?: number;      // 担当課題総数（集計時）
   open_issue_count?: number; // 未完了の担当課題数（集計時）
+}
+
+/**
+ * ユーザーの権限ロール（admin / pmo / member）を正規化して返します
+ */
+export function getUserRoleType(
+  user?: { is_admin?: number; role_type?: string | null; role?: string | null } | null
+): UserRoleType {
+  if (!user) return "member";
+  if (user.is_admin === 1 || user.role_type === "admin") return "admin";
+  if (user.role_type === "pmo") return "pmo";
+  return "member";
+}
+
+/**
+ * システム管理者（Admin）かどうかを判定します
+ */
+export function isAdminUser(
+  user?: { is_admin?: number; role_type?: string | null } | null
+): boolean {
+  if (!user) return false;
+  return user.is_admin === 1 || user.role_type === "admin";
+}
+
+/**
+ * PMO / マネージャーかどうかを判定します
+ */
+export function isPmoUser(
+  user?: { is_admin?: number; role_type?: string | null; role?: string | null } | null
+): boolean {
+  return getUserRoleType(user) === "pmo";
+}
+
+/**
+ * 課題の進行管理・検収権限（Admin または PMO）を持っているか判定します
+ * （誰が起票した課題でも完了にでき、処理済み変更時のレビュー依頼モーダルもスキップ可能）
+ */
+export function canManageIssues(
+  user?: { is_admin?: number; role_type?: string | null; role?: string | null } | null
+): boolean {
+  const rt = getUserRoleType(user);
+  return rt === "admin" || rt === "pmo";
+}
+
+/**
+ * 課題の削除権限（システム管理者 Admin または課題の作成者本人）を持っているか判定します
+ */
+export function canDeleteIssue(
+  user?: { id?: number; is_admin?: number; role_type?: string | null } | null,
+  issue?: { created_by?: number | null } | null
+): boolean {
+  if (!user) return false;
+  if (isAdminUser(user)) return true;
+  if (issue?.created_by && user.id === issue.created_by) return true;
+  return false;
 }
 
 // プロジェクト情報
