@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, hashPassword } from "@/lib/auth";
+import { isArchivedProject } from "@/types";
 
 const PUBLIC_SETTING_KEYS = new Set([
   "timezone",
@@ -9,6 +10,13 @@ const PUBLIC_SETTING_KEYS = new Set([
   "hour12",
   "activityTimeStyle",
   "timeOffsetMinutes",
+  "theme",
+  "weekStart",
+  "showHolidays",
+  "announcementEnabled",
+  "announcementMessage",
+  "announcementType",
+  "announcementUpdatedAt",
 ]);
 
 // 全データのエクスポート（Admin管理者のみ・パスワードや内部シークレットは除外）
@@ -166,21 +174,40 @@ export async function POST(request: Request) {
         (db.prepare("SELECT id FROM users").all() as { id: number }[]).map((u) => u.id)
       );
 
+      // プロジェクトデータの復元（アーカイブ状態 is_archived も保持）
       const insertProj = db.prepare(`
-        INSERT INTO projects (id, key, name, color, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO projects (id, key, name, color, is_archived, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
       `);
       for (const p of projects) {
-        insertProj.run(p.id, p.key, p.name, p.color || "#4f46e5", p.created_at || new Date().toISOString());
+        const isArchivedVal =
+          p.is_archived !== undefined
+            ? p.is_archived
+              ? 1
+              : 0
+            : isArchivedProject(p)
+            ? 1
+            : 0;
+        insertProj.run(
+          p.id,
+          p.key,
+          p.name,
+          p.color || "#4f46e5",
+          isArchivedVal,
+          p.created_at || new Date().toISOString()
+        );
       }
 
+      // 課題データの復元（完了理由 resolution も保持）
       const insertIssue = db.prepare(`
-        INSERT INTO issues (id, project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, start_date, due_date, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO issues (id, project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, resolution, start_date, due_date, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       for (const i of issues) {
         const assigneeId = i.assignee_id && validUserIds.has(i.assignee_id) ? i.assignee_id : null;
         const createdBy = i.created_by && validUserIds.has(i.created_by) ? i.created_by : null;
+        const statusVal = i.status || "open";
+        const resolutionVal = statusVal === "closed" && i.resolution ? i.resolution : null;
         insertIssue.run(
           i.id,
           i.project_id,
@@ -191,8 +218,9 @@ export async function POST(request: Request) {
           i.title,
           i.description || "",
           i.issue_type || "task",
-          i.status || "open",
+          statusVal,
           i.priority || "medium",
+          resolutionVal,
           i.start_date || null,
           i.due_date || null,
           i.created_at || new Date().toISOString(),
@@ -261,10 +289,11 @@ export async function POST(request: Request) {
         }
       }
 
+      const validCommentIds = new Set(
+        (db.prepare("SELECT id FROM comments").all() as { id: number }[]).map((c) => c.id)
+      );
+
       if (Array.isArray(commentReactions)) {
-        const validCommentIds = new Set(
-          (db.prepare("SELECT id FROM comments").all() as { id: number }[]).map((c) => c.id)
-        );
         const insertReaction = db.prepare(`
           INSERT OR IGNORE INTO comment_reactions (id, comment_id, user_id, stamp, created_at)
           VALUES (?, ?, ?, ?, ?)
@@ -286,12 +315,21 @@ export async function POST(request: Request) {
 
       if (Array.isArray(activities)) {
         const insertAct = db.prepare(`
-          INSERT INTO activities (id, issue_id, user_id, action_type, content, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO activities (id, issue_id, comment_id, user_id, action_type, content, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
         for (const a of activities) {
           const userId = a.user_id && validUserIds.has(a.user_id) ? a.user_id : null;
-          insertAct.run(a.id, a.issue_id || null, userId, a.action_type, a.content, a.created_at || new Date().toISOString());
+          const commentId = a.comment_id && validCommentIds.has(a.comment_id) ? a.comment_id : null;
+          insertAct.run(
+            a.id,
+            a.issue_id || null,
+            commentId,
+            userId,
+            a.action_type,
+            a.content,
+            a.created_at || new Date().toISOString()
+          );
         }
       }
 
