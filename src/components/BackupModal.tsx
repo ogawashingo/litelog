@@ -131,7 +131,7 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       className="m-auto rounded-xl p-0 backdrop:backdrop-blur-xs outline-none bg-transparent"
     >
       <div
-        className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="bg-white rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-md overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="app-header px-5 py-3.5 flex items-center justify-between text-white">
