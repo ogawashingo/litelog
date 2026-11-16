@@ -404,7 +404,7 @@ export default function ProjectList({
                     href={`/gantt/${encodeURIComponent(proj.key)}`}
                     onClick={(e) => e.stopPropagation()}
                     title="このプロジェクトのガントチャートを開く"
-                    className="inline-flex items-center gap-1 text-[11px] text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-1.5 py-0.5 rounded-md font-semibold transition-colors"
+                    className="hidden md:inline-flex items-center gap-1 text-[11px] text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-1.5 py-0.5 rounded-md font-semibold transition-colors"
                   >
                     <ChartGantt className="w-3 h-3" />
                     <span>ガント</span>

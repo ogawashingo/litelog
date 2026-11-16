@@ -757,22 +757,7 @@ export default function Header({
               <span>ボード</span>
             </Link>
 
-            {/* ガントチャート */}
-            <Link
-              href={ganttHref}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                isGantt
-                  ? "app-nav-active text-white font-semibold shadow-xs"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <ChartGantt className="w-4 h-4 app-nav-indicator" />
-              <span>ガントチャート</span>
-            </Link>
-
-
-            {/* 管理ページ */}
+            {/* 管理ページ（スマホ幅ではガントチャートは非表示） */}
             {Boolean(currentUser?.is_admin) && (
               <Link
                 href="/admin"

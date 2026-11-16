@@ -3,6 +3,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useSearchParams, usePathname } from "next/navigation";
 import {
   ChevronLeft,
@@ -17,11 +18,8 @@ import {
   GitBranch,
   CornerDownRight,
   Archive,
-  Filter,
-  List,
-  BarChart3,
-  X,
-  RotateCcw,
+  LayoutDashboard,
+  Kanban,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject } from "@/types";
 import { TypeBadge } from "./IssueBadge";
@@ -207,10 +205,6 @@ export default function GanttChart({
   const [isResizingLeftPane, setIsResizingLeftPane] = useState(false);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  // モバイル用表示ステート（詳細フィルター開閉 ＆ ガント/一覧ビュー切替）
-  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  const [mobileViewMode, setMobileViewMode] = useState<"gantt" | "list">("gantt");
-
   // 初回マウント時に保存された左ペイン幅を復元
   useEffect(() => {
     try {
@@ -285,42 +279,6 @@ export default function GanttChart({
   const [filterStatus, setFilterStatus] = useState<IssueStatus | "all">("all");
   const [filterPriority, setFilterPriority] = useState<IssuePriority | "all">("all");
   const [showClosed, setShowClosed] = useState(true);
-
-  // 有効なフィルターの件数（モバイル用バッジ等に表示）
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (searchQuery.trim()) count++;
-    if (filterAssignee !== "all") count++;
-    if (filterType !== "all") count++;
-    if (filterStatus !== "all") count++;
-    if (filterPriority !== "all") count++;
-    if (showClosed) count++;
-    if (span !== 1) count++;
-    if (!withParentRelation) count++;
-    return count;
-  }, [
-    searchQuery,
-    filterAssignee,
-    filterType,
-    filterStatus,
-    filterPriority,
-    showClosed,
-    span,
-    withParentRelation,
-  ]);
-
-  // フィルター条件のリセット処理
-  const handleResetFilters = () => {
-    setSearchQuery("");
-    setFilterAssignee("all");
-    setFilterType("all");
-    setFilterStatus("all");
-    setFilterPriority("all");
-    setShowClosed(false);
-    setSpan(1);
-    setWithParentRelation(true);
-    updateUrlParams({ span: 1, withParentRelation: true });
-  };
 
   // モーダル用State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -706,306 +664,53 @@ export default function GanttChart({
   const ROW_HEIGHT = 42;
   const isArchived = isArchivedProject(currentProject);
 
+  const dashboardHref = currentProject ? `/?projectId=${currentProject.id}` : "/";
+  const boardHref = currentProject ? `/board/${encodeURIComponent(currentProject.key)}` : "/board";
+
   return (
     <div className="space-y-3">
-      {/* アーカイブ済みプロジェクトのリードオンリー注意バナー */}
-      {isArchived && (
-        <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl shadow-xs flex items-center gap-2 text-xs font-semibold animate-in fade-in duration-150">
-          <Archive className="w-4 h-4 text-amber-700 shrink-0" />
-          <span>
-            このプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、日程の変更や課題の追加は行えません。
-          </span>
+      {/* スマートフォン幅（md未満）ではガントチャートは非表示とし、ダッシュボード・ボードへ誘導 */}
+      <div className="md:hidden bg-white rounded-xl shadow-xs border border-slate-200 p-6 text-center space-y-4">
+        <div className="space-y-1.5">
+          <h2 className="text-base font-bold text-slate-800">
+            ガントチャートはPC・タブレット専用です
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            スマートフォンの画面幅ではガントチャートは非表示となっています。課題の確認・コメント・ステータス更新はダッシュボードまたはボードをご利用ください。
+          </p>
         </div>
-      )}
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <Link
+            href={dashboardHref}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors"
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>ダッシュボードへ</span>
+          </Link>
+          <Link
+            href={boardHref}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-bold transition-colors"
+          >
+            <Kanban className="w-3.5 h-3.5" />
+            <span>ボードへ</span>
+          </Link>
+        </div>
+      </div>
 
-      {/* ツールバー / フィルター・コントロールバー（画面スクロール時も常に上部に固定表示） */}
-      <div className="sticky top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-2.5 sm:p-4 transition-all">
-        {/* ================= モバイル向け超コンパクトバー（iPhone/スマホ対応: ヘッダー占有を最小化） ================= */}
-        <div className="md:hidden">
-          {/* 1行目: プロジェクト情報 ＋ 今日ボタン ＋ スケール切替 ＋ ビュー切替 ＋ フィルター開閉 */}
-          <div className="flex items-center justify-between gap-1.5">
-            {/* プロジェクト情報 */}
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <div
-                className="w-2.5 h-5 rounded-xs shrink-0"
-                style={{ backgroundColor: currentProject?.color || "#4f46e5" }}
-              />
-              <span className="font-bold text-sm text-slate-800 truncate">
-                {currentProject ? currentProject.name : "全プロジェクト"}
-              </span>
-              {currentProject && (
-                <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1 py-0.2 rounded border border-indigo-200 shrink-0">
-                  {currentProject.key}
-                </span>
-              )}
-            </div>
-
-            {/* 右側アクションボタングループ */}
-            <div className="flex items-center gap-1 shrink-0">
-              {/* 今日へ移動 */}
-              <button
-                onClick={handleGoToToday}
-                className="h-[28px] px-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
-                title="今日の日付へ移動"
-              >
-                <CalendarIcon className="w-3 h-3 text-indigo-600" />
-                <span>今日</span>
-              </button>
-
-              {/* 日・週・月スケール切替 */}
-              <div className="h-[28px] flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs">
-                {(["days", "weeks", "months"] as ViewScale[]).map((sc) => (
-                  <button
-                    key={sc}
-                    onClick={() => {
-                      setScale(sc);
-                      updateUrlParams({ scale: sc });
-                    }}
-                    className={`h-[22px] px-1.5 flex items-center justify-center rounded text-[11px] font-bold transition-all cursor-pointer ${
-                      scale === sc
-                        ? "bg-white text-indigo-800 shadow-xs"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    {sc === "days" ? "日" : sc === "weeks" ? "週" : "月"}
-                  </button>
-                ))}
-              </div>
-
-              {/* ビュー切替（ガント ⇄ 一覧） */}
-              <div className="h-[28px] flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200 text-xs">
-                <button
-                  onClick={() => setMobileViewMode("gantt")}
-                  className={`h-[22px] px-1.5 flex items-center gap-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                    mobileViewMode === "gantt"
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                  title="ガントチャート（タイムライン）表示"
-                >
-                  <BarChart3 className="w-3 h-3" />
-                  <span>図</span>
-                </button>
-                <button
-                  onClick={() => setMobileViewMode("list")}
-                  className={`h-[22px] px-1.5 flex items-center gap-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
-                    mobileViewMode === "list"
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : "text-slate-500 hover:text-slate-800"
-                  }`}
-                  title="課題一覧テーブル表示"
-                >
-                  <List className="w-3 h-3" />
-                  <span>表</span>
-                </button>
-              </div>
-
-              {/* フィルター開閉トグルボタン */}
-              <button
-                onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-                className={`h-[28px] px-2 flex items-center gap-1 rounded-md text-xs font-semibold border transition-colors cursor-pointer relative ${
-                  isMobileFiltersOpen || activeFilterCount > 0
-                    ? "bg-indigo-50 text-indigo-800 border-indigo-300"
-                    : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
-                }`}
-                title={isMobileFiltersOpen ? "フィルターを閉じる" : "フィルター・表示設定を開く"}
-              >
-                <Filter className="w-3 h-3" />
-                {activeFilterCount > 0 && (
-                  <span className="w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center -mr-0.5">
-                    {activeFilterCount}
-                  </span>
-                )}
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform ${isMobileFiltersOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-            </div>
+      {/* PC・タブレット（md以上）のみガントチャートを表示 */}
+      <div className="hidden md:block space-y-3">
+        {/* アーカイブ済みプロジェクトのリードオンリー注意バナー */}
+        {isArchived && (
+          <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-2.5 rounded-xl shadow-xs flex items-center gap-2 text-xs font-semibold animate-in fade-in duration-150">
+            <Archive className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>
+              このプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、日程の変更や課題の追加は行えません。
+            </span>
           </div>
+        )}
 
-          {/* モバイル用アコーディオン展開部（フィルター・期間・設定） */}
-          {isMobileFiltersOpen && (
-            <div className="mt-2.5 pt-2.5 border-t border-slate-200/80 space-y-2.5 animate-in fade-in duration-150">
-              {/* 検索入力 */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="課題を検索..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full text-xs pl-8 pr-7 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                    title="検索ワードをクリア"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* フィルターセレクター（2列グリッド） */}
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {/* 担当者フィルター */}
-                <select
-                  value={filterAssignee}
-                  onChange={(e) => setFilterAssignee(e.target.value)}
-                  className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700"
-                >
-                  <option value="all">担当者: すべて</option>
-                  {currentUser && (
-                    <option value="me">担当者: 自分 ({currentUser.name})</option>
-                  )}
-                  <option value="unassigned">担当者: 未割当</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={String(u.id)}>
-                      担当: {u.name}
-                    </option>
-                  ))}
-                </select>
-
-                {/* 状態フィルター */}
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as IssueStatus | "all")}
-                  className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700"
-                >
-                  <option value="all">状態: すべて</option>
-                  <option value="open">未対応</option>
-                  <option value="in_progress">処理中</option>
-                  <option value="resolved">処理済み</option>
-                  <option value="closed">完了</option>
-                </select>
-
-                {/* 種別フィルター */}
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value as IssueType | "all")}
-                  className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700"
-                >
-                  <option value="all">種別: すべて</option>
-                  <option value="task">タスク</option>
-                  <option value="bug">バグ</option>
-                  <option value="request">要望</option>
-                  <option value="other">その他</option>
-                </select>
-
-                {/* 優先度フィルター */}
-                <select
-                  value={filterPriority}
-                  onChange={(e) => setFilterPriority(e.target.value as IssuePriority | "all")}
-                  className="w-full text-xs bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-slate-700"
-                >
-                  <option value="all">優先度: すべて</option>
-                  <option value="high">高</option>
-                  <option value="medium">中</option>
-                  <option value="low">低</option>
-                </select>
-              </div>
-
-              {/* 期間移動・開始日・表示期間 */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => handleShiftPeriod(-1)}
-                    className="h-[28px] w-[28px] flex items-center justify-center rounded border border-slate-300 hover:bg-slate-50 text-slate-600 cursor-pointer"
-                    title="1ヶ月前へ"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <span className="text-slate-500 font-medium">開始:</span>
-                    <DatePicker
-                      value={formatDateString(startDate)}
-                      onChange={(nextStr) => {
-                        if (nextStr) {
-                          const nextD = parseDateString(nextStr);
-                          setStartDate(nextD);
-                          updateUrlParams({ startDate: nextD });
-                        }
-                      }}
-                      allowClear={false}
-                    />
-                  </div>
-                  <button
-                    onClick={() => handleShiftPeriod(1)}
-                    className="h-[28px] w-[28px] flex items-center justify-center rounded border border-slate-300 hover:bg-slate-50 text-slate-600 cursor-pointer"
-                    title="1ヶ月先へ"
-                  >
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <span className="text-slate-500 font-medium">期間:</span>
-                  <select
-                    value={span}
-                    onChange={(e) => {
-                      const nextSpan = Number(e.target.value);
-                      setSpan(nextSpan);
-                      updateUrlParams({ span: nextSpan });
-                    }}
-                    className="h-[28px] bg-white border border-slate-300 rounded px-1.5 text-xs text-slate-700 font-semibold cursor-pointer"
-                  >
-                    <option value={1}>1ヶ月</option>
-                    <option value={3}>3ヶ月</option>
-                    <option value={6}>6ヶ月</option>
-                    <option value={12}>1年</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* チェックボックス ＆ リセット */}
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 text-xs">
-                <div className="flex items-center gap-2.5">
-                  <button
-                    onClick={() => setShowClosed(!showClosed)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded border text-xs cursor-pointer transition-colors ${
-                      showClosed
-                        ? "bg-indigo-50 text-indigo-800 border-indigo-200 font-medium"
-                        : "bg-white text-slate-500 border-slate-200"
-                    }`}
-                  >
-                    <CheckCircle2
-                      className={`w-3 h-3 ${showClosed ? "text-indigo-600" : "text-slate-400"}`}
-                    />
-                    <span>完了を含む</span>
-                  </button>
-
-                  <label className="flex items-center gap-1 text-slate-700 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={withParentRelation}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        setWithParentRelation(val);
-                        updateUrlParams({ withParentRelation: val });
-                      }}
-                      className="rounded border-slate-300 text-indigo-600"
-                    />
-                    <span>親子表示</span>
-                  </label>
-                </div>
-
-                {activeFilterCount > 0 && (
-                  <button
-                    onClick={handleResetFilters}
-                    className="flex items-center gap-1 text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>リセット</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ================= PC・タブレット向け多機能バー（md以上で表示） ================= */}
-        <div className="hidden md:block">
+        {/* ツールバー / フィルター・コントロールバー（画面スクロール時も常に上部に固定表示） */}
+        <div className="sticky top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             {/* 左側: プロジェクト情報（タイトル・キー） */}
             <div className="flex flex-wrap items-center gap-3">
@@ -1257,37 +962,34 @@ export default function GanttChart({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ガントチャート本体エリア（左右分割レイアウト） */}
-      <div
-        ref={chartContainerRef}
-        className={`bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden flex relative ${
-          isResizingLeftPane ? "select-none cursor-col-resize" : ""
-        }`}
-      >
-        {/* ================= 左ペイン：課題一覧テーブル ================= */}
-        {isLeftPaneOpen && (
-          <div
-            style={{ width: `${leftPaneWidth}px` }}
-            className={`shrink-0 flex-col bg-white select-none max-md:!w-full max-md:flex-1 ${
-              mobileViewMode === "list" ? "flex" : "hidden md:flex"
-            }`}
-          >
-            {/* テーブルヘッダー（高さ: 52px = 右側の2段ヘッダーと正確に一致） */}
-            <div className="h-[52px] bg-gray-50 border-b border-gray-200 flex items-center px-3 text-xs font-bold text-gray-600">
-              <div className="flex-1 min-w-0 pr-2">件名</div>
-              <div className="w-[34px] shrink-0 text-center">担当</div>
-              <div className="w-[66px] shrink-0 text-center">状態</div>
-              <div className="w-[58px] shrink-0 text-center">期限日</div>
-            </div>
-
-            {/* 課題一覧ボディ（タイムラインと連動して縦スクロール・ビューポート追従でフッターレス画面を最大活用） */}
+        {/* ガントチャート本体エリア（左右分割レイアウト） */}
+        <div
+          ref={chartContainerRef}
+          className={`bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden flex relative ${
+            isResizingLeftPane ? "select-none cursor-col-resize" : ""
+          }`}
+        >
+          {/* ================= 左ペイン：課題一覧テーブル ================= */}
+          {isLeftPaneOpen && (
             <div
-              ref={leftTableScrollRef}
-              onScroll={handleLeftTableScroll}
-              className="overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100vh-var(--app-header-height,56px)-120px)] md:max-h-[calc(100vh-var(--app-header-height,56px)-230px)] min-h-[300px] divide-y divide-gray-100"
+              style={{ width: `${leftPaneWidth}px` }}
+              className="shrink-0 flex flex-col bg-white select-none"
             >
+              {/* テーブルヘッダー（高さ: 52px = 右側の2段ヘッダーと正確に一致） */}
+              <div className="h-[52px] bg-gray-50 border-b border-gray-200 flex items-center px-3 text-xs font-bold text-gray-600">
+                <div className="flex-1 min-w-0 pr-2">件名</div>
+                <div className="w-[34px] shrink-0 text-center">担当</div>
+                <div className="w-[66px] shrink-0 text-center">状態</div>
+                <div className="w-[58px] shrink-0 text-center">期限日</div>
+              </div>
+
+              {/* 課題一覧ボディ（タイムラインと連動して縦スクロール・ビューポート追従でフッターレス画面を最大活用） */}
+              <div
+                ref={leftTableScrollRef}
+                onScroll={handleLeftTableScroll}
+                className="overflow-y-auto overflow-x-hidden overscroll-contain max-h-[calc(100vh-var(--app-header-height,56px)-230px)] min-h-[300px] divide-y divide-gray-100"
+              >
               {displayRows.length === 0 ? (
                 <div className="p-8 text-center text-xs text-gray-400">
                   表示する課題がありません
@@ -1454,7 +1156,7 @@ export default function GanttChart({
           <div
             onMouseDown={handleSplitterMouseDown}
             onDoubleClick={handleResetSplitter}
-            className={`hidden md:flex w-1.5 hover:w-2 shrink-0 cursor-col-resize select-none relative z-30 transition-all items-center justify-center border-l border-r border-slate-200 ${
+            className={`w-1.5 hover:w-2 shrink-0 cursor-col-resize select-none relative z-30 transition-all flex items-center justify-center border-l border-r border-slate-200 ${
               isResizingLeftPane
                 ? "bg-indigo-600 border-indigo-600"
                 : "bg-slate-100 hover:bg-indigo-400 hover:border-indigo-400"
@@ -1466,15 +1168,11 @@ export default function GanttChart({
         )}
 
         {/* ================= 右ペイン：ガントチャートタイムライン ================= */}
-        <div
-          className={`flex-1 min-w-0 overflow-hidden flex-col bg-white ${
-            mobileViewMode === "gantt" ? "flex" : "hidden md:flex"
-          }`}
-        >
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col bg-white">
           <div
             ref={timelineScrollRef}
             onScroll={handleTimelineScroll}
-            className="overflow-x-auto overflow-y-auto overscroll-contain max-h-[calc(100vh-var(--app-header-height,56px)-120px)] md:max-h-[calc(100vh-var(--app-header-height,56px)-230px)] min-h-[300px] relative select-none"
+            className="overflow-x-auto overflow-y-auto overscroll-contain max-h-[calc(100vh-var(--app-header-height,56px)-230px)] min-h-[300px] relative select-none"
           >
             {/* タイムライン全体の幅を持つラッパー */}
             <div
@@ -1855,6 +1553,7 @@ export default function GanttChart({
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* 課題作成モーダル */}
