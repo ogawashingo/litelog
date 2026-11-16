@@ -2049,6 +2049,74 @@ async function runTests() {
   db.prepare("DELETE FROM projects WHERE id IN (?, ?)").run(searchPrj1Id, searchPrj2Id);
   console.log("✓ プロジェクト横断 全体キーワード検索（タイトル・本文・コメント・プロジェクト結合）の検証成功");
 
+  // 14. バックアップJSONエクスポート＆インポート時のアーカイブ状態（is_archived）および完了理由（resolution）保持検証
+  const iosRes = db.prepare(`
+    INSERT INTO projects (key, name, color, is_archived)
+    VALUES ('APP_IOS', 'モバイルアプリ開発 (iOS)', '#7c3aed', 1)
+  `).run();
+  const iosProjId = Number(iosRes.lastInsertRowid);
+  db.prepare(`
+    INSERT INTO issues (project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, resolution)
+    VALUES (?, ?, ?, 'APP_IOS-1', 1, 'Apple審査ガイドライン準拠対応', '詳細', 'task', 'closed', 'high', 'fixed')
+  `).run(iosProjId, userYamada.id, userYamada.id);
+
+  // エクスポート相当の取得
+  const exportedProjects = db.prepare("SELECT * FROM projects").all();
+  const exportedIssues = db.prepare("SELECT * FROM issues").all();
+
+  // 別環境DB（インメモリ）へのインポート復元シミュレーション（api/backup/route.ts POSTと同一ロジック）
+  const restoreDb = new DatabaseSync(":memory:");
+  setupSchemaAndSeed(restoreDb, false);
+  restoreDb.exec("DELETE FROM issues;");
+  restoreDb.exec("DELETE FROM projects;");
+
+  const insertProjRestore = restoreDb.prepare(`
+    INSERT INTO projects (id, key, name, color, is_archived, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  for (const p of exportedProjects) {
+    const isArchivedVal = p.is_archived !== undefined ? (p.is_archived ? 1 : 0) : 0;
+    insertProjRestore.run(p.id, p.key, p.name, p.color || "#4f46e5", isArchivedVal, p.created_at || new Date().toISOString());
+  }
+
+  const insertIssueRestore = restoreDb.prepare(`
+    INSERT INTO issues (id, project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, resolution, start_date, due_date, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const i of exportedIssues) {
+    const statusVal = i.status || "open";
+    const resolutionVal = statusVal === "closed" && i.resolution ? i.resolution : null;
+    insertIssueRestore.run(
+      i.id,
+      i.project_id,
+      i.assignee_id || null,
+      i.created_by || null,
+      i.issue_key,
+      i.issue_number,
+      i.title,
+      i.description || "",
+      i.issue_type || "task",
+      statusVal,
+      i.priority || "medium",
+      resolutionVal,
+      i.start_date || null,
+      i.due_date || null,
+      i.created_at || new Date().toISOString(),
+      i.updated_at || new Date().toISOString()
+    );
+  }
+
+  const restoredIos = restoreDb.prepare("SELECT * FROM projects WHERE key = 'APP_IOS'").get();
+  if (!restoredIos || restoredIos.is_archived !== 1) {
+    throw new Error(`バックアップ復元後のAPP_IOSアーカイブ状態が保持されていません: ${JSON.stringify(restoredIos)}`);
+  }
+  const restoredIosIssue = restoreDb.prepare("SELECT * FROM issues WHERE issue_key = 'APP_IOS-1'").get();
+  if (!restoredIosIssue || restoredIosIssue.resolution !== "fixed") {
+    throw new Error(`バックアップ復元後の課題完了理由(resolution)が保持されていません: ${JSON.stringify(restoredIosIssue)}`);
+  }
+  restoreDb.close();
+  console.log("✓ バックアップJSON復元時のアーカイブ済みステータス（is_archived=1）および完了理由（resolution）保持検証成功");
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 
