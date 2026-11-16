@@ -415,22 +415,22 @@ export default function IssueList({
         </div>
       </div>
 
-      {/* 課題一覧テーブル */}
+      {/* 課題一覧テーブル（スマホ幅では件名メイン＋状態のみの2列構成にして横スクロールを解消） */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
-              <th className="py-2.5 px-3 w-24 whitespace-nowrap">種別</th>
-              <th className="py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
-              <th className="py-2.5 px-3 min-w-[240px]">件名</th>
-              <th className="py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
-              <th className="py-2.5 px-3 w-28 whitespace-nowrap">状態</th>
+              <th className="hidden md:table-cell py-2.5 px-3 w-24 whitespace-nowrap">種別</th>
+              <th className="hidden md:table-cell py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
+              <th className="py-2 md:py-2.5 px-3 md:min-w-[240px]">件名</th>
+              <th className="hidden md:table-cell py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
+              <th className="py-2 md:py-2.5 px-2.5 md:px-3 w-20 md:w-28 text-right md:text-left whitespace-nowrap">状態</th>
               {isShowingClosed && (
-                <th className="py-2.5 px-3 w-28 whitespace-nowrap">完了理由</th>
+                <th className="hidden md:table-cell py-2.5 px-3 w-28 whitespace-nowrap">完了理由</th>
               )}
-              <th className="py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
-              <th className="py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
-              <th className="py-2.5 px-2 w-10 text-center"></th>
+              <th className="hidden md:table-cell py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
+              <th className="hidden md:table-cell py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
+              <th className="hidden md:table-cell py-2.5 px-2 w-10 text-center"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -489,8 +489,8 @@ export default function IssueList({
                         : ""
                     } ${borderClass}`}
                   >
-                    {/* 種別（セレクトボックスで直接変更可能） */}
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    {/* 種別（PC・タブレットのみ表示） */}
+                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
                       <select
                         value={issue.issue_type}
                         onChange={(e) => {
@@ -525,8 +525,8 @@ export default function IssueList({
                       </select>
                     </td>
 
-                    {/* キー（階層表示時は子課題にツリーアイコンを付与） */}
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    {/* キー（PC・タブレットのみ独立列として表示） */}
+                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         {depth > 0 && (
                           <CornerDownRight className="w-3.5 h-3.5 text-indigo-500 shrink-0 ml-1" />
@@ -546,8 +546,35 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 件名 */}
-                    <td className="py-3 px-3 min-w-[240px]">
+                    {/* 件名（メイン列：スマホでは画面幅の大半を使って件名を表示） */}
+                    <td className="py-2.5 md:py-3 px-3 md:min-w-[240px]">
+                      {/* スマホ専用の極小メタ行（課題キー・期限のみ控えめに表示） */}
+                      <div className="flex md:hidden items-center gap-1.5 mb-0.5 text-[11px] text-slate-500">
+                        {depth > 0 && (
+                          <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
+                        )}
+                        <span className="font-mono font-bold text-indigo-600">
+                          {issue.issue_key}
+                        </span>
+                        {issue.due_date && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                              dueInfo.isOverdue && !isClosed
+                                ? "bg-rose-100 text-rose-700"
+                                : dueInfo.isToday && !isClosed
+                                ? "bg-amber-100 text-amber-800"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {dueInfo.isOverdue && !isClosed
+                              ? `期限超過 (${issue.due_date.slice(5)})`
+                              : dueInfo.isToday && !isClosed
+                              ? "本日締切"
+                              : `期限: ${issue.due_date.slice(5)}`}
+                          </span>
+                        )}
+                      </div>
+
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         {/* 問題アラートバッジ（遅延・停滞・未着手警告等） */}
                         {issueAlert && (
@@ -608,8 +635,8 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 担当者（直接変更可能） */}
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    {/* 担当者（PC・タブレットのみ表示） */}
+                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <div
                           style={{ backgroundColor: issue.assignee_id ? assigneeColor : "#cbd5e1" }}
@@ -640,7 +667,7 @@ export default function IssueList({
                     </td>
 
                     {/* 状態（セレクトボックスで直接変更可能） */}
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    <td className="py-2.5 md:py-3 px-2 md:px-3 whitespace-nowrap text-right md:text-left">
                       <select
                         value={issue.status}
                         onChange={(e) => {
@@ -668,9 +695,9 @@ export default function IssueList({
                       </select>
                     </td>
 
-                    {/* 完了理由（完了課題が表示されている時のみ列を表示） */}
+                    {/* 完了理由（PC・タブレットで完了課題が表示されている時のみ列を表示） */}
                     {isShowingClosed && (
-                      <td className="py-3 px-3 whitespace-nowrap">
+                      <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
                         {issue.status === "closed" ? (
                           <select
                             value={issue.resolution || ""}
@@ -720,8 +747,8 @@ export default function IssueList({
                       </td>
                     )}
 
-                    {/* 優先度（セレクトボックスで直接変更可能） */}
-                    <td className="py-3 px-3 whitespace-nowrap text-center">
+                    {/* 優先度（PC・タブレットのみ表示） */}
+                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap text-center">
                       <select
                         value={issue.priority}
                         onChange={(e) => {
@@ -745,8 +772,8 @@ export default function IssueList({
                       </select>
                     </td>
 
-                    {/* 期限日（カレンダー選択・月曜/日曜始まり対応・クリア可能） */}
-                    <td className="py-3 px-3 whitespace-nowrap text-sm">
+                    {/* 期限日（PC・タブレットのみ独立列として表示） */}
+                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <DatePicker
                           value={issue.due_date}
@@ -788,8 +815,8 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 操作（削除） */}
-                    <td className="py-3 px-2 text-center whitespace-nowrap">
+                    {/* 操作（削除：PC・タブレットのみ表示） */}
+                    <td className="hidden md:table-cell py-3 px-2 text-center whitespace-nowrap">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
