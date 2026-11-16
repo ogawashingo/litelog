@@ -46,7 +46,6 @@ function SearchPageContent() {
   // プロジェクト一覧と課題一覧
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
-  const [searchKeyword, setSearchKeyword] = useState(initialQuery);
   const [currentQuery, setCurrentQuery] = useState(initialQuery);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -113,7 +112,6 @@ function SearchPageContent() {
 
   useEffect(() => {
     const q = searchParams.get("q") || "";
-    setSearchKeyword(q);
     setCurrentQuery(q);
     fetchSearchResults(q);
 
@@ -162,18 +160,6 @@ function SearchPageContent() {
   const selectedProject = useMemo(() => {
     return projects.find((p) => p.id === selectedProjectId) || null;
   }, [projects, selectedProjectId]);
-
-  // 検索実行
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = searchKeyword.trim();
-    setCurrentQuery(trimmed);
-    const params = new URLSearchParams();
-    if (trimmed) params.set("q", trimmed);
-    if (selectedProjectId) params.set("projectId", String(selectedProjectId));
-    const newQuery = params.toString();
-    router.push(newQuery ? `/search?${newQuery}` : "/search");
-  };
 
   // 課題選択ハンドラ（モーダル表示）
   const handleOpenIssueDetail = (issue: Issue) => {
@@ -258,11 +244,12 @@ function SearchPageContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans transition-colors duration-150">
-      {/* グローバルヘッダー */}
+      {/* グローバルヘッダー（検索窓に現在のキーワードを同期） */}
       <Header
         activeNav="search"
         projects={projects}
         selectedProjectId={selectedProjectId}
+        searchQuery={currentQuery}
         onSelectProject={handleSelectProject}
         onOpenCreateIssue={() => {
           setCreateDefaultProjectId(selectedProjectId || undefined);
@@ -281,46 +268,10 @@ function SearchPageContent() {
       />
 
       <main className="flex-1 max-w-[1800px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-6 space-y-5">
-        {/* 上部: 検索コントロールバー */}
-        <section className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-4 sm:p-5">
-          <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative flex-1 w-full">
-              <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
-              <input
-                type="text"
-                value={searchKeyword}
-                onChange={(e) => setSearchKeyword(e.target.value)}
-                placeholder="キーワードで検索..."
-                className="w-full pl-11 pr-24 py-3 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 focus:bg-white text-sm sm:text-base font-medium text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all shadow-xs"
-              />
-              {searchKeyword && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchKeyword("");
-                    setCurrentQuery("");
-                    const params = new URLSearchParams();
-                    if (selectedProjectId) params.set("projectId", String(selectedProjectId));
-                    const newQuery = params.toString();
-                    router.push(newQuery ? `/search?${newQuery}` : "/search");
-                  }}
-                  className="absolute right-3 top-3 text-xs font-semibold text-slate-400 hover:text-slate-600 bg-slate-200/60 hover:bg-slate-200 px-2 py-1 rounded-md transition-colors"
-                >
-                  クリア
-                </button>
-              )}
-            </div>
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-6 py-3 app-primary-btn text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
-            >
-              <Search className="w-4 h-4 stroke-[2.5]" />
-              <span>検索</span>
-            </button>
-          </form>
-
-          {/* 検索状況表示 */}
-          <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        {/* 上部: 検索条件 ＆ 結果サマリー（ヘッダー検索窓へ一本化しスッキリ表示） */}
+        <section className="bg-white rounded-xl shadow-xs border border-slate-200/80 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm text-slate-600">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Search className="w-4 h-4 text-indigo-600 shrink-0" />
             <div>
               {currentQuery ? (
                 <span>
@@ -332,7 +283,7 @@ function SearchPageContent() {
                   キーワード「<strong className="text-slate-900 font-bold">{currentQuery}</strong>」の検索結果:{" "}
                   <strong className="text-indigo-600 font-bold">{filteredIssues.length}</strong> 件
                   {selectedProjectId && issues.length !== filteredIssues.length && (
-                    <span className="text-slate-400 text-[11px] ml-1">
+                    <span className="text-slate-400 text-[11px] sm:text-xs ml-1">
                       （全プロジェクト計: {issues.length} 件）
                     </span>
                   )}
@@ -346,7 +297,7 @@ function SearchPageContent() {
                   )}
                   課題を表示中: <strong className="text-slate-900 font-bold">{filteredIssues.length}</strong> 件
                   {selectedProjectId && issues.length !== filteredIssues.length && (
-                    <span className="text-slate-400 text-[11px] ml-1">
+                    <span className="text-slate-400 text-[11px] sm:text-xs ml-1">
                       （全プロジェクト計: {issues.length} 件）
                     </span>
                   )}
@@ -354,6 +305,22 @@ function SearchPageContent() {
               )}
             </div>
           </div>
+
+          {currentQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (selectedProjectId) params.set("projectId", String(selectedProjectId));
+                const newQuery = params.toString();
+                router.push(newQuery ? `/search?${newQuery}` : "/search");
+              }}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors w-fit flex items-center gap-1.5 cursor-pointer shrink-0"
+              title="検索キーワードを解除して全件表示に戻す"
+            >
+              <span>検索条件をクリア</span>
+            </button>
+          )}
         </section>
 
         {/* ビュー切り替えタブ（マトリクス vs 課題一覧リスト） */}

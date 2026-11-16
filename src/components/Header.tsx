@@ -32,6 +32,7 @@ interface HeaderProps {
   onOpenBackup?: () => void;
   onSelectIssue?: (issueKey: string) => void;
   activeNav?: "dashboard" | "board" | "gantt" | "admin" | "search";
+  searchQuery?: string;
 }
 
 export default function Header({
@@ -41,6 +42,7 @@ export default function Header({
   onOpenCreateIssue,
   onSelectIssue,
   activeNav,
+  searchQuery,
 }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,7 +59,14 @@ export default function Header({
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   // 全体キーワード検索用ステート
-  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchKeyword, setSearchKeyword] = useState(searchQuery || "");
+
+  // 外部からの検索クエリ指定（/search画面との連動など）の同期
+  useEffect(() => {
+    if (searchQuery !== undefined) {
+      setSearchKeyword(searchQuery);
+    }
+  }, [searchQuery]);
   const [searchSuggestions, setSearchSuggestions] = useState<Issue[]>([]);
   const [isSearchDropdownOpen, setIsSearchDropdownOpen] = useState(false);
   const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false);
@@ -298,8 +307,12 @@ export default function Header({
                       setSearchKeyword("");
                       setSearchSuggestions([]);
                       setIsSearchDropdownOpen(false);
+                      if (isSearch) {
+                        executeSearch("");
+                      }
                     }}
                     className="absolute right-2 text-white/60 hover:text-white p-0.5 rounded cursor-pointer"
+                    title="検索キーワードをクリア"
                   >
                     <X className="w-3 h-3" />
                   </button>
