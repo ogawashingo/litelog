@@ -772,9 +772,15 @@ body {
 }
 [data-theme="dark"] .hover\:bg-indigo-50:hover,
 [data-theme="dark"] .hover\:bg-indigo-50\/20:hover,
+[data-theme="dark"] .hover\:bg-indigo-50\/30:hover,
 [data-theme="dark"] .hover\:bg-indigo-50\/40:hover,
 [data-theme="dark"] .hover\:bg-indigo-50\/60:hover,
-[data-theme="dark"] .hover\:bg-indigo-100:hover {
+[data-theme="dark"] .hover\:bg-indigo-50\/70:hover,
+[data-theme="dark"] .hover\:bg-indigo-50\/80:hover,
+[data-theme="dark"] .hover\:bg-indigo-100:hover,
+[data-theme="dark"] .hover\:bg-indigo-100\/70:hover,
+[data-theme="dark"] .hover\:bg-indigo-100\/80:hover,
+[data-theme="dark"] .hover\:bg-indigo-100\/90:hover {
   background-color: rgba(99, 102, 241, 0.22) !important;
 }
 
@@ -822,23 +828,82 @@ body {
 [data-theme="dark"] .bg-indigo-50\/40,
 [data-theme="dark"] .bg-indigo-50\/50,
 [data-theme="dark"] .bg-indigo-50\/60,
-[data-theme="dark"] .bg-indigo-50\/70 {
-  background-color: rgba(99, 102, 241, 0.12) !important;
+[data-theme="dark"] .bg-indigo-50\/70,
+[data-theme="dark"] .bg-indigo-50\/80,
+[data-theme="dark"] .bg-indigo-50\/90,
+[data-theme="dark"] .bg-indigo-50\/95 {
+  background-color: rgba(99, 102, 241, 0.14) !important;
 }
 [data-theme="dark"] .bg-indigo-100,
+[data-theme="dark"] .bg-indigo-100\/30,
 [data-theme="dark"] .bg-indigo-100\/70,
-[data-theme="dark"] .bg-indigo-100\/80 {
+[data-theme="dark"] .bg-indigo-100\/80,
+[data-theme="dark"] .bg-indigo-100\/90 {
   background-color: rgba(99, 102, 241, 0.28) !important;
 }
+[data-theme="dark"] .text-indigo-500,
 [data-theme="dark"] .text-indigo-600,
 [data-theme="dark"] .text-indigo-700,
 [data-theme="dark"] .text-indigo-800,
 [data-theme="dark"] .text-indigo-900 {
   color: #a5b4fc !important;
 }
+[data-theme="dark"] .border-indigo-100,
+[data-theme="dark"] .border-indigo-100\/60,
+[data-theme="dark"] .border-indigo-100\/80,
+[data-theme="dark"] .border-indigo-100\/90,
 [data-theme="dark"] .border-indigo-200,
-[data-theme="dark"] .border-indigo-300 {
+[data-theme="dark"] .border-indigo-200\/50,
+[data-theme="dark"] .border-indigo-200\/60,
+[data-theme="dark"] .border-indigo-200\/80,
+[data-theme="dark"] .border-indigo-200\/90,
+[data-theme="dark"] .border-indigo-300,
+[data-theme="dark"] .border-indigo-400,
+[data-theme="dark"] .border-indigo-500 {
   border-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+/* 自動リンク（課題キー・URL）のダークモード視認性最適化: 背景と文字が混ざらない高コントラスト設計 */
+[data-theme="dark"] .issue-key-autolink,
+[data-theme="dark"] button.issue-key-autolink,
+[data-theme="dark"] a.issue-key-autolink {
+  background-color: #1a1b35 !important;
+  color: #c7d2fe !important;
+  border-color: rgba(129, 140, 248, 0.45) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] .issue-key-autolink:hover,
+[data-theme="dark"] button.issue-key-autolink:hover,
+[data-theme="dark"] a.issue-key-autolink:hover {
+  background-color: #2b2c55 !important;
+  color: #ffffff !important;
+  border-color: #818cf8 !important;
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4) !important;
+}
+
+[data-theme="dark"] .issue-key-autolink svg,
+[data-theme="dark"] button.issue-key-autolink svg,
+[data-theme="dark"] a.issue-key-autolink svg {
+  color: #818cf8 !important;
+  opacity: 1 !important;
+}
+
+[data-theme="dark"] .autolink-url,
+[data-theme="dark"] a.autolink-url {
+  color: #93c5fd !important;
+  text-decoration-color: rgba(147, 197, 253, 0.5) !important;
+}
+
+[data-theme="dark"] .autolink-url:hover,
+[data-theme="dark"] a.autolink-url:hover {
+  color: #bfdbfe !important;
+  text-decoration-color: #93c5fd !important;
+}
+
+[data-theme="dark"] .autolink-url svg,
+[data-theme="dark"] a.autolink-url svg {
+  color: #93c5fd !important;
 }
 
 /* 各ステータス・優先度バッジのネオン調カラー調整 */

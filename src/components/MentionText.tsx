@@ -191,7 +191,7 @@ function renderInlineNode(
               e.stopPropagation();
               onIssueClick(issueKey);
             }}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[12.5px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100/90 hover:text-indigo-900 border border-indigo-200/90 shadow-2xs hover:shadow-xs transition-all cursor-pointer select-text align-baseline"
+            className="issue-key-autolink inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[12.5px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100/90 hover:text-indigo-900 border border-indigo-200/90 shadow-2xs hover:shadow-xs transition-all cursor-pointer select-text align-baseline"
             title={`課題 [${issueKey}] を開く`}
           >
             <Tag className="w-3 h-3 text-indigo-500 shrink-0 opacity-80" />
@@ -205,7 +205,7 @@ function renderInlineNode(
           key={key}
           href={`/issues/${issueKey}`}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[12.5px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100/90 hover:text-indigo-900 border border-indigo-200/90 shadow-2xs hover:shadow-xs transition-all cursor-pointer align-baseline"
+          className="issue-key-autolink inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-md font-mono text-[12.5px] font-semibold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100/90 hover:text-indigo-900 border border-indigo-200/90 shadow-2xs hover:shadow-xs transition-all cursor-pointer align-baseline"
           title={`課題 [${issueKey}] を開く`}
         >
           <Tag className="w-3 h-3 text-indigo-500 shrink-0 opacity-80" />
@@ -222,7 +222,7 @@ function renderInlineNode(
           href={node.url}
           target={isExternal ? "_blank" : undefined}
           rel={isExternal ? "noopener noreferrer" : undefined}
-          className="inline-flex items-baseline gap-0.5 text-indigo-600 hover:text-indigo-800 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 transition-colors"
+          className="autolink-url inline-flex items-baseline gap-0.5 text-indigo-600 hover:text-indigo-800 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-600 transition-colors"
         >
           <span>{node.text}</span>
           {isExternal && <ExternalLink className="w-3 h-3 self-center inline-block ml-0.5 opacity-70" />}
