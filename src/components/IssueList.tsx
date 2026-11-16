@@ -270,8 +270,8 @@ export default function IssueList({
           </div>
         </div>
 
-        {/* 検索・絞り込みフォーム */}
-        <div className="flex flex-wrap items-center gap-2 text-sm w-full sm:w-auto">
+        {/* 検索・絞り込みフォーム（スマートフォン幅では非表示） */}
+        <div className="hidden md:flex flex-wrap items-center gap-2 text-sm w-full sm:w-auto">
           {/* キーワード検索 */}
           <div className="relative flex-1 sm:w-44">
             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />

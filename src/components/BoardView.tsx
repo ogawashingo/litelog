@@ -355,8 +355,8 @@ export default function BoardView({
             </div>
           </div>
 
-          {/* 右側: 検索・フィルター・課題追加 */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* 右側: 検索・フィルター・課題追加（スマートフォン幅では非表示） */}
+          <div className="hidden md:flex flex-wrap items-center gap-2">
             {/* 検索入力 */}
             <div className="relative min-w-[160px] max-w-xs">
               <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
