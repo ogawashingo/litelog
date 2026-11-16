@@ -15,6 +15,8 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning>
       <head>
+        {/* ブラウザネイティブUIのテーマ適応＆FOUC防止（Modern Web Guidance: dark-mode） */}
+        <meta name="color-scheme" content="light dark" />
         {/* 初回ロード時のテーマチラつき(FOUC)を0ミリ秒で防止する初期化スクリプト */}
         <script
           dangerouslySetInnerHTML={{

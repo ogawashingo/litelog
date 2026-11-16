@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 /* 共通テーマ変数（デフォルト: コズミック・グラデーション） */
+:root {
+  /* モダンブラウザUIのカラーモード適応＆フォームアクセントカラー統一（Modern Web Guidance: dark-mode, brand-consistent-forms） */
+  color-scheme: light;
+  accent-color: var(--theme-accent, #6366f1);
+}
+
 :root,
 [data-theme="cosmic"] {
   --theme-header-bg: linear-gradient(to right, #1e1b4b, #312e81, #4c1d95);
@@ -131,6 +137,9 @@
 
 /* ミッドナイト・サイバーダーク（ダークモード） */
 [data-theme="dark"] {
+  /* ネイティブコントロール（日付ピッカー、セレクト等）のダークテーマ化（Modern Web Guidance: dark-mode） */
+  color-scheme: dark;
+  accent-color: #818cf8;
   --theme-header-bg: #09090b;
   --theme-header-border: #27272a;
   --theme-header-select-bg: #18181b;
