@@ -340,10 +340,12 @@ export async function POST(request: Request, { params }: RouteParams) {
         p.name AS project_name,
         p.color AS project_color,
         u.name AS assignee_name,
-        u.color AS assignee_color
+        u.color AS assignee_color,
+        creator.name AS creator_name
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN users u ON i.assignee_id = u.id
+      LEFT JOIN users creator ON i.created_by = creator.id
       WHERE i.id = ?
     `).get(issueId);
 

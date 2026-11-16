@@ -573,6 +573,11 @@ export default function IssueDetailPage() {
   };
 
   const currentAssignee = users.find((u) => u.id === Number(editAssigneeId));
+  // 起票者表示名（結合済みの creator_name、なければ users リストから補完）
+  const creatorName =
+    issue?.creator_name ||
+    (issue?.created_by ? users.find((u) => u.id === Number(issue.created_by))?.name : null) ||
+    null;
 
   // 該当プロジェクトのプロジェクト情報およびアーカイブ状態判定（is_archivedフラグまたは名前に「アーカイブ」が含まれるか）
   const currentProject = projects.find((p) => p.id === issue?.project_id);
@@ -1002,13 +1007,20 @@ export default function IssueDetailPage() {
                       )}
                     </div>
 
-                    {/* 登録日時 */}
+                    {/* 登録日時・起票者（枠を増やさず控えめなメタテキストとして一体表示） */}
                     <div
                       className="flex items-center gap-1 text-slate-500 text-[11px] px-1 py-1"
-                      title={`登録: ${formatTimestamp(issue.created_at, settings, true)}\n更新: ${formatTimestamp(issue.updated_at, settings, true)}`}
+                      title={`${creatorName ? `起票者: ${creatorName}\n` : ""}登録: ${formatTimestamp(issue.created_at, settings, true)}\n更新: ${formatTimestamp(issue.updated_at, settings, true)}`}
                     >
                       <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>登録: {formatTimestamp(issue.created_at, settings, true)}</span>
+                      <span>
+                        登録: {formatTimestamp(issue.created_at, settings, true)}
+                        {creatorName && (
+                          <span className="ml-1 text-slate-500">
+                            (起票: <span className="font-medium text-slate-600">{creatorName}</span>)
+                          </span>
+                        )}
+                      </span>
                     </div>
                   </div>
 

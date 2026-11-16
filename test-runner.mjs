@@ -2233,6 +2233,19 @@ async function runTests() {
   db.prepare("DELETE FROM issues WHERE id = ?").run(closeTestIssueId);
   console.log("✓ 3段階ロール（Admin / PMO / 一般）および課題完了・課題削除の権限制御テスト成功");
 
+  // 42. 課題の起票者（creator_name）結合取得および詳細画面の控えめな起票者表示検証テスト
+  {
+    const modalSource = fs.readFileSync(path.join(process.cwd(), "src/components/IssueDetailModal.tsx"), "utf-8");
+    const detailPageSource = fs.readFileSync(path.join(process.cwd(), "src/app/issues/[issueKey]/page.tsx"), "utf-8");
+    if (!modalSource.includes("creatorName") || !modalSource.includes("起票:")) {
+      throw new Error("IssueDetailModal.tsx に起票者（creatorName）の表示実装が含まれていません");
+    }
+    if (!detailPageSource.includes("creatorName") || !detailPageSource.includes("起票:")) {
+      throw new Error("課題詳細ページに起票者（creatorName）の表示実装が含まれていません");
+    }
+    console.log("✓ 課題詳細モーダルおよび詳細ページの起票者表示検証テスト成功");
+  }
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 
