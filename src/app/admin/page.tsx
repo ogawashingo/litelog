@@ -43,6 +43,7 @@ import {
   AnnouncementType,
   ANNOUNCEMENT_TYPE_OPTIONS,
   getUserRoleType,
+  canManageIssues,
 } from "@/types";
 import {
   DEFAULT_SYSTEM_SETTINGS,
@@ -70,9 +71,9 @@ export default function AdminPage() {
     setPreviewTheme,
   } = useUser();
 
-  // 一般ユーザーがURL直打ちで /admin にアクセスした場合はダッシュボードへリダイレクト
+  // 一般ユーザー（AdminでもPMOでもない）がURL直打ちで /admin にアクセスした場合はダッシュボードへリダイレクト
   useEffect(() => {
-    if (isAuthReady && currentUser && !currentUser.is_admin) {
+    if (isAuthReady && currentUser && !canManageIssues(currentUser)) {
       router.replace("/");
     }
   }, [isAuthReady, currentUser, router]);
@@ -207,10 +208,10 @@ export default function AdminPage() {
     fetchProjects();
   }, [fetchProjects]);
 
-  // プロジェクト名変更の開始（管理者のみ）
+  // プロジェクト名変更の開始（AdminまたはPMO）
   const handleStartEditProject = (proj: Project) => {
-    if (!currentUser?.is_admin) {
-      alert("プロジェクト名の変更は管理者（Admin権限）のみ実行できます。");
+    if (!canManageIssues(currentUser)) {
+      alert("プロジェクト名の変更は管理者（Admin）またはPMOのみ実行できます。");
       return;
     }
     setDeletingProjectId(null);
@@ -219,11 +220,11 @@ export default function AdminPage() {
     setProjectErrorMsg("");
   };
 
-  // プロジェクト名変更の保存（管理者のみ）
+  // プロジェクト名変更の保存（AdminまたはPMO）
   const handleSaveProjectName = async (e: React.FormEvent, projectId: number) => {
     e.preventDefault();
-    if (!currentUser?.is_admin) {
-      setProjectErrorMsg("プロジェクト名の変更は管理者（Admin権限）のみ実行できます");
+    if (!currentUser || !canManageIssues(currentUser)) {
+      setProjectErrorMsg("プロジェクト名の変更は管理者（Admin）またはPMOのみ実行できます");
       return;
     }
     if (!editProjectName.trim()) {
@@ -311,10 +312,10 @@ export default function AdminPage() {
     }
   };
 
-  // プロジェクトのアーカイブ／アーカイブ解除の切り替え（管理者のみ）
+  // プロジェクトのアーカイブ／アーカイブ解除の切り替え（AdminまたはPMO）
   const handleToggleArchiveProject = async (proj: Project) => {
-    if (!currentUser?.is_admin) {
-      setProjectErrorMsg("プロジェクトのステータス変更は管理者（Admin権限）のみ実行できます");
+    if (!currentUser || !canManageIssues(currentUser)) {
+      setProjectErrorMsg("プロジェクトのステータス変更は管理者（Admin）またはPMOのみ実行できます");
       return;
     }
 
@@ -500,12 +501,16 @@ export default function AdminPage() {
               <div>
                 <div className="font-bold text-slate-800 flex items-center gap-1">
                   <span>{currentUser.name}</span>
-                  {Boolean(currentUser.is_admin) && (
+                  {getUserRoleType(currentUser) === "admin" ? (
                     <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full font-bold">
                       <Crown className="w-2.5 h-2.5 text-amber-600" />
                       Admin
                     </span>
-                  )}
+                  ) : getUserRoleType(currentUser) === "pmo" ? (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
+                      PMO
+                    </span>
+                  ) : null}
                 </div>
                 <span className="text-[10px] text-slate-500">{currentUser.role}</span>
               </div>
@@ -1487,8 +1492,8 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => {
-                  if (!currentUser?.is_admin) {
-                    alert("新規プロジェクトの作成は管理者（Admin権限）のみ実行できます。");
+                  if (!canManageIssues(currentUser)) {
+                    alert("新規プロジェクトの作成は管理者（Admin）またはPMOのみ実行できます。");
                     return;
                   }
                   setIsCreateProjectOpen(true);
@@ -1594,7 +1599,7 @@ export default function AdminPage() {
                           )}
                         </div>
 
-                        {Boolean(currentUser?.is_admin) && (
+                        {canManageIssues(currentUser) && (
                           <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
                             {/* アーカイブ／アーカイブ解除トグルボタン */}
                             <button
@@ -1627,29 +1632,31 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => handleStartEditProject(p)}
-                              title="プロジェクト名を変更 (Admin専用)"
+                              title="プロジェクト名を変更 (Admin / PMO)"
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors cursor-pointer"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                               <span>名称変更</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStartDeleteProject(p)}
-                              title={
-                                projects.length > 1
-                                  ? "プロジェクトを削除 (Admin専用)"
-                                  : "最低1件のプロジェクトが必要なため削除できません"
-                              }
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold text-xs transition-colors ${
-                                projects.length > 1
-                                  ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
-                                  : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
-                              }`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>削除</span>
-                            </button>
+                            {Boolean(currentUser?.is_admin) && (
+                              <button
+                                type="button"
+                                onClick={() => handleStartDeleteProject(p)}
+                                title={
+                                  projects.length > 1
+                                    ? "プロジェクトを削除 (Admin専用)"
+                                    : "最低1件のプロジェクトが必要なため削除できません"
+                                }
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold text-xs transition-colors ${
+                                  projects.length > 1
+                                    ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
+                                    : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
+                                }`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>削除</span>
+                              </button>
+                            )}
                           </div>
                         )}
                       </>

@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck } from "lucide-react";
-import { User, WeekStartDay, UserRoleType, getUserRoleType } from "@/types";
+import { User, WeekStartDay, UserRoleType, getUserRoleType, canManageIssues } from "@/types";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
 import AvatarColorPicker from "./AvatarColorPicker";
 
@@ -62,14 +62,15 @@ export default function UserManageModal({
   const [editShowHolidays, setEditShowHolidays] = useState(true);
 
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin);
+  const canCurrentUserManageMembers = canManageIssues(currentUser);
 
   if (!isOpen) return null;
 
   // 新規メンバー追加
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isCurrentUserAdmin) {
-      setErrorMsg("メンバーの追加には管理者（Admin）権限が必要です");
+    if (!canCurrentUserManageMembers) {
+      setErrorMsg("メンバーの追加には管理者（Admin）またはPMO権限が必要です");
       return;
     }
     if (!newLoginId.trim() || !newName.trim()) {
@@ -237,8 +238,8 @@ export default function UserManageModal({
             </div>
           )}
 
-          {/* 新規メンバー追加フォーム（Admin権限のみ操作可能） */}
-          {isCurrentUserAdmin ? (
+          {/* 新規メンバー追加フォーム（AdminまたはPMO権限で操作可能） */}
+          {canCurrentUserManageMembers ? (
             <form
               onSubmit={handleAddUser}
               className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 space-y-3"
@@ -248,10 +249,17 @@ export default function UserManageModal({
                   <UserPlus className="w-4 h-4 text-indigo-600" />
                   <span>新しいメンバーアカウントを発行</span>
                 </h4>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-                  <Crown className="w-3 h-3 text-amber-600" />
-                  Admin 権限でログイン中 ({currentUser?.name})
-                </span>
+                {isCurrentUserAdmin ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                    <Crown className="w-3 h-3 text-amber-600" />
+                    Admin 権限でログイン中 ({currentUser?.name})
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                    <ClipboardCheck className="w-3 h-3 text-emerald-600" />
+                    PMO 権限でログイン中 ({currentUser?.name})
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -407,22 +415,24 @@ export default function UserManageModal({
                         <ClipboardCheck className="w-2.5 h-2.5" />
                         PMO
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewRoleType("admin");
-                          if (newRole === "メンバー" || newRole === "PMO") setNewRole("管理者");
-                        }}
-                        className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
-                          newRoleType === "admin"
-                            ? "bg-amber-500 text-amber-950 font-bold"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                        title="システム管理者: メンバー管理・システム設定などすべての操作が可能"
-                      >
-                        <Crown className="w-2.5 h-2.5" />
-                        Admin
-                      </button>
+                      {isCurrentUserAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewRoleType("admin");
+                            if (newRole === "メンバー" || newRole === "PMO") setNewRole("管理者");
+                          }}
+                          className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
+                            newRoleType === "admin"
+                              ? "bg-amber-500 text-amber-950 font-bold"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                          title="システム管理者: メンバー管理・システム設定などすべての操作が可能"
+                        >
+                          <Crown className="w-2.5 h-2.5" />
+                          Admin
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -558,21 +568,23 @@ export default function UserManageModal({
                                   <ClipboardCheck className="w-2.5 h-2.5" />
                                   PMO
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditRoleType("admin");
-                                    if (editRole === "メンバー" || editRole === "PMO") setEditRole("管理者");
-                                  }}
-                                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
-                                    editRoleType === "admin"
-                                      ? "bg-amber-500 text-amber-950 font-bold"
-                                      : "text-slate-600 hover:text-slate-900"
-                                  }`}
-                                >
-                                  <Crown className="w-2.5 h-2.5" />
-                                  Admin
-                                </button>
+                                {isCurrentUserAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditRoleType("admin");
+                                      if (editRole === "メンバー" || editRole === "PMO") setEditRole("管理者");
+                                    }}
+                                    className={`px-1.5 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
+                                      editRoleType === "admin"
+                                        ? "bg-amber-500 text-amber-950 font-bold"
+                                        : "text-slate-600 hover:text-slate-900"
+                                    }`}
+                                  >
+                                    <Crown className="w-2.5 h-2.5" />
+                                    Admin
+                                  </button>
+                                )}
                               </div>
                             </div>
                             {/* カレンダー個人設定切替 */}
@@ -713,7 +725,7 @@ export default function UserManageModal({
 
                         {/* 右側: 編集・削除ボタン */}
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {!isCurrentUserAdmin && isCurrent && onOpenPasswordChange && (
+                          {!canCurrentUserManageMembers && isCurrent && onOpenPasswordChange && (
                             <button
                               type="button"
                               onClick={onOpenPasswordChange}
@@ -723,27 +735,25 @@ export default function UserManageModal({
                               <Edit2 className="w-4 h-4" />
                             </button>
                           )}
-                          {isCurrentUserAdmin && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => startEdit(u)}
-                                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                                title="メンバー情報を編集（Admin専用）"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              {users.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteUser(u)}
-                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                  title="メンバーを削除（Admin専用）"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </>
+                          {(isCurrentUserAdmin || (canCurrentUserManageMembers && getUserRoleType(u) !== "admin")) && (
+                            <button
+                              type="button"
+                              onClick={() => startEdit(u)}
+                              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                              title="メンバー情報を編集（Admin / PMO）"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {isCurrentUserAdmin && users.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUser(u)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                              title="メンバーを削除（Admin専用）"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </div>

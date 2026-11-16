@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive } from "lucide-react";
-import { Project, isArchivedProject } from "@/types";
+import { Project, isArchivedProject, canManageIssues } from "@/types";
 import { useUser } from "./UserContext";
 
 interface ExtendedProject extends Project {
@@ -182,19 +182,19 @@ export default function ProjectList({
         </div>
         <button
           onClick={() => {
-            if (!currentUser?.is_admin) {
-              alert("新規プロジェクトの作成は管理者（Admin権限: 山田 太郎など）のみ実行できます。");
+            if (!canManageIssues(currentUser)) {
+              alert("新規プロジェクトの作成は管理者（Admin）またはPMOのみ実行できます。");
               return;
             }
             onOpenCreateProject();
           }}
           title={
-            currentUser?.is_admin
-              ? "新規プロジェクト作成 (Admin)"
-              : "新規プロジェクト作成 (Admin権限が必要)"
+            canManageIssues(currentUser)
+              ? "新規プロジェクト作成 (Admin / PMO)"
+              : "新規プロジェクト作成 (Admin / PMO権限が必要)"
           }
           className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${
-            currentUser?.is_admin
+            canManageIssues(currentUser)
               ? "text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 cursor-pointer"
               : "text-slate-400 cursor-not-allowed"
           }`}
