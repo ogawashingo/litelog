@@ -1,9 +1,9 @@
 // プロジェクト一覧ウィジェットコンポーネント
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle } from "lucide-react";
+import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Search } from "lucide-react";
 import { Project } from "@/types";
 import { useUser } from "./UserContext";
 
@@ -40,6 +40,20 @@ export default function ProjectList({
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // プロジェクト絞り込み検索用State
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // プロジェクト名またはキーによる絞り込み（小文字大文字不問）
+  const filteredProjects = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.key.toLowerCase().includes(q)
+    );
+  }, [projects, searchQuery]);
 
   // プロジェクト名の編集開始
   const startEditProject = (e: React.MouseEvent, proj: ExtendedProject) => {
@@ -184,6 +198,38 @@ export default function ProjectList({
       </div>
 
       <div className="space-y-2.5">
+        {/* プロジェクトクイック検索フィルター */}
+        <div className="relative">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="プロジェクト検索 (名前・キー)..."
+            className="w-full bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-800 placeholder-slate-400 text-xs rounded-lg pl-8 pr-7 py-1.5 border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-hidden transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+              title="検索条件をクリア"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+
+        {/* 検索結果件数表示（絞り込み時のみ） */}
+        {searchQuery && (
+          <div className="flex items-center justify-between px-1 text-[11px] text-slate-500 font-medium">
+            <span>絞り込み結果</span>
+            <span>
+              <strong className="text-indigo-600 font-bold">{filteredProjects.length}</strong> / {projects.length} 件
+            </span>
+          </div>
+        )}
+
         {/* 全プロジェクト表示ボタン */}
         <button
           onClick={() => onSelectProject(null)}
@@ -197,30 +243,32 @@ export default function ProjectList({
           <ChevronRight className="w-4 h-4 text-indigo-400" />
         </button>
 
-        {/* 各プロジェクトカード */}
-        {projects.map((proj) => {
-          const total = proj.total_issues || 0;
-          const active = proj.active_issues || 0;
-          const completed = total - active;
-          const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
-          const isSelected = selectedProjectId === proj.id;
-          const isEditingThis = editingProjectId === proj.id;
-          const isDeletingThis = deletingProjectId === proj.id;
+        {/* プロジェクト一覧カード（縦スクロール対応） */}
+        <div className="space-y-2.5 max-h-[calc(100vh-280px)] overflow-y-auto pr-0.5">
+          {filteredProjects.length > 0 ? (
+            filteredProjects.map((proj) => {
+              const total = proj.total_issues || 0;
+              const active = proj.active_issues || 0;
+              const completed = total - active;
+              const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+              const isSelected = selectedProjectId === proj.id;
+              const isEditingThis = editingProjectId === proj.id;
+              const isDeletingThis = deletingProjectId === proj.id;
 
-          return (
-            <div
-              key={proj.id}
-              onClick={() => {
-                if (!isEditingThis && !isDeletingThis) {
-                  onSelectProject(proj.id);
-                }
-              }}
-              className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                isSelected
-                  ? "bg-indigo-50/70 border-indigo-400 ring-1 ring-indigo-300 shadow-2xs"
-                  : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50/70"
-              }`}
-            >
+              return (
+                <div
+                  key={proj.id}
+                  onClick={() => {
+                    if (!isEditingThis && !isDeletingThis) {
+                      onSelectProject(proj.id);
+                    }
+                  }}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                    isSelected
+                      ? "bg-indigo-50/70 border-indigo-400 ring-1 ring-indigo-300 shadow-2xs"
+                      : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50/70"
+                  }`}
+                >
               {isEditingThis ? (
                 <form
                   onSubmit={(e) => saveProjectName(e, proj.id)}
@@ -382,8 +430,15 @@ export default function ProjectList({
                 </div>
               </div>
             </div>
-          );
-        })}
+              );
+            })
+          ) : (
+            <div className="py-6 px-3 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <p className="text-xs text-slate-500 font-medium">該当するプロジェクトがありません</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">「{searchQuery}」に一致する名称またはキーが見つかりませんでした</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

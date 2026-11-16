@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Plus,
   FolderGit2,
+  Folder,
   Kanban,
   LayoutDashboard,
   ChartGantt,
@@ -191,6 +192,34 @@ export default function Header({
     router.push(qs ? `/search?${qs}` : "/search");
   };
 
+  // 検索キーワードにマッチするプロジェクト候補（上位4件）
+  const matchingProjects = React.useMemo(() => {
+    const trimmed = searchKeyword.trim().toLowerCase();
+    if (!trimmed) return [];
+    return projects
+      .filter(
+        (p) =>
+          p.name.toLowerCase().includes(trimmed) ||
+          p.key.toLowerCase().includes(trimmed)
+      )
+      .slice(0, 4);
+  }, [projects, searchKeyword]);
+
+  // プロジェクト選択ハンドラ（サジェストから直接選択時）
+  const handleSelectSuggestedProject = (proj: Project) => {
+    setIsSearchDropdownOpen(false);
+    setIsMobileSearchOpen(false);
+    setSearchKeyword("");
+    onSelectProject(proj.id);
+    if (isBoard) {
+      router.push(`/board/${encodeURIComponent(proj.key)}`);
+    } else if (isGantt) {
+      router.push(`/gantt/${encodeURIComponent(proj.key)}`);
+    } else {
+      router.push(`/?projectId=${proj.id}`);
+    }
+  };
+
   // 課題選択ハンドラ
   const handleSelectSuggestedIssue = (issue: Issue) => {
     setIsSearchDropdownOpen(false);
@@ -359,47 +388,94 @@ export default function Header({
 
               {/* クイックサジェストドロップダウンプレビュー */}
               {isSearchDropdownOpen && searchKeyword.trim() && (
-                <div className="absolute right-0 top-full mt-1.5 bg-slate-900/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl overflow-hidden z-50 text-slate-100 min-w-[340px] animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 top-full mt-1.5 bg-slate-900/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl overflow-hidden z-50 text-slate-100 min-w-[360px] max-w-[440px] animate-in fade-in zoom-in-95 duration-100">
                   <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between text-[11px] text-white/60 font-medium">
                     <span>クイック候補</span>
-                    {isSearchingSuggestions ? <span>検索中...</span> : <span>{searchSuggestions.length} 件</span>}
-                  </div>
-                  <div className="max-h-64 overflow-y-auto divide-y divide-white/5 py-1">
-                    {searchSuggestions.length > 0 ? (
-                      searchSuggestions.map((issue) => (
-                        <button
-                          key={issue.id}
-                          type="button"
-                          onClick={() => handleSelectSuggestedIssue(issue)}
-                          className="w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
-                        >
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: issue.project_color || "#3b82f6" }}
-                          />
-                          <span className="font-mono text-[11px] font-bold text-amber-300 group-hover:underline shrink-0">
-                            {issue.issue_key}
-                          </span>
-                          <span className="text-xs text-white/90 truncate flex-1">
-                            {issue.title}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 shrink-0">
-                            {ISSUE_STATUS_CONFIG[issue.status]?.label || issue.status}
-                          </span>
-                        </button>
-                      ))
+                    {isSearchingSuggestions ? (
+                      <span>検索中...</span>
                     ) : (
-                      <div className="px-3 py-4 text-center text-xs text-white/50">
-                        該当する課題が見つかりません
+                      <span>
+                        {matchingProjects.length > 0 && `${matchingProjects.length} PJ / `}
+                        {searchSuggestions.length} 課題
+                      </span>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-white/10 py-1">
+                    {/* プロジェクト候補セクション */}
+                    {matchingProjects.length > 0 && (
+                      <div className="py-1">
+                        <div className="px-3 py-1 text-[10px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                          <Folder className="w-3 h-3" />
+                          <span>プロジェクト</span>
+                        </div>
+                        {matchingProjects.map((proj) => (
+                          <button
+                            key={proj.id}
+                            type="button"
+                            onClick={() => handleSelectSuggestedProject(proj)}
+                            className="w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
+                          >
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                              style={{ backgroundColor: proj.color || "#4f46e5" }}
+                            />
+                            <span className="font-mono text-xs font-bold text-amber-300 group-hover:underline shrink-0">
+                              [{proj.key}]
+                            </span>
+                            <span className="text-xs text-white/95 truncate flex-1 font-medium">
+                              {proj.name}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 shrink-0">
+                              開く
+                            </span>
+                          </button>
+                        ))}
                       </div>
                     )}
+
+                    {/* 課題候補セクション */}
+                    <div className="py-1">
+                      {matchingProjects.length > 0 && searchSuggestions.length > 0 && (
+                        <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                          課題
+                        </div>
+                      )}
+                      {searchSuggestions.length > 0 ? (
+                        searchSuggestions.map((issue) => (
+                          <button
+                            key={issue.id}
+                            type="button"
+                            onClick={() => handleSelectSuggestedIssue(issue)}
+                            className="w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
+                          >
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: issue.project_color || "#3b82f6" }}
+                            />
+                            <span className="font-mono text-[11px] font-bold text-amber-300 group-hover:underline shrink-0">
+                              {issue.issue_key}
+                            </span>
+                            <span className="text-xs text-white/90 truncate flex-1">
+                              {issue.title}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 shrink-0">
+                              {ISSUE_STATUS_CONFIG[issue.status]?.label || issue.status}
+                            </span>
+                          </button>
+                        ))
+                      ) : matchingProjects.length === 0 ? (
+                        <div className="px-3 py-4 text-center text-xs text-white/50">
+                          該当するプロジェクトや課題が見つかりません
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => executeSearch(searchKeyword)}
                     className="w-full px-3 py-2.5 bg-white/5 hover:bg-amber-500/20 text-amber-300 border-t border-white/10 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <span>「{searchKeyword}」の検索結果を開く</span>
+                    <span>「{searchKeyword}」の全体検索結果を開く</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -504,7 +580,7 @@ export default function Header({
               e.preventDefault();
               executeSearch(searchKeyword);
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 mb-2"
           >
             <div className="relative flex-1">
               <Search className="w-3.5 h-3.5 text-white/60 absolute left-2.5 top-2.5 pointer-events-none" />
@@ -514,7 +590,7 @@ export default function Header({
                 type="text"
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                placeholder="検索..."
+                placeholder="プロジェクト名や課題を検索..."
                 className="w-full bg-white/10 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 text-xs rounded-lg pl-8 pr-3 py-1.5 border border-white/20 focus:outline-hidden"
               />
             </div>
@@ -532,6 +608,62 @@ export default function Header({
               <X className="w-4 h-4" />
             </button>
           </form>
+
+          {/* モバイル用サジェストリスト（プロジェクト＆課題） */}
+          {searchKeyword.trim() && (
+            <div className="max-h-60 overflow-y-auto divide-y divide-white/10 border-t border-white/10 pt-1 pb-1">
+              {matchingProjects.length > 0 && (
+                <div className="py-1">
+                  <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider px-1 py-0.5 flex items-center gap-1">
+                    <Folder className="w-3 h-3" />
+                    <span>プロジェクト</span>
+                  </div>
+                  {matchingProjects.map((proj) => (
+                    <button
+                      key={proj.id}
+                      type="button"
+                      onClick={() => handleSelectSuggestedProject(proj)}
+                      className="w-full px-2 py-1.5 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
+                    >
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                        style={{ backgroundColor: proj.color || "#4f46e5" }}
+                      />
+                      <span className="font-mono text-xs font-bold text-amber-300">
+                        [{proj.key}]
+                      </span>
+                      <span className="text-xs text-white/95 truncate flex-1 font-medium">
+                        {proj.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {searchSuggestions.length > 0 && (
+                <div className="py-1">
+                  <div className="text-[10px] font-bold text-white/50 uppercase tracking-wider px-1 py-0.5">
+                    課題
+                  </div>
+                  {searchSuggestions.slice(0, 4).map((issue) => (
+                    <button
+                      key={issue.id}
+                      type="button"
+                      onClick={() => handleSelectSuggestedIssue(issue)}
+                      className="w-full px-2 py-1.5 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
+                    >
+                      <span className="font-mono text-[11px] font-bold text-amber-300 shrink-0">
+                        {issue.issue_key}
+                      </span>
+                      <span className="text-xs text-white/90 truncate flex-1">
+                        {issue.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

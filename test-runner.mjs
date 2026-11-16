@@ -1927,6 +1927,8 @@ async function runTests() {
       i.title LIKE ? 
       OR i.issue_key LIKE ? 
       OR i.description LIKE ? 
+      OR p.name LIKE ?
+      OR p.key LIKE ?
       OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = i.id AND c.content LIKE ?)
     )
     ORDER BY i.id ASC
@@ -1934,7 +1936,7 @@ async function runTests() {
 
   // 検証1: 「Dependabot」で検索 -> PJ1のSRCH1-1 (タイトル一致) と PJ2のSRCH2-2 (コメント一致) の2件がヒットすること
   const patternDep = "%Dependabot%";
-  const depResults = db.prepare(querySearchSql).all(patternDep, patternDep, patternDep, patternDep);
+  const depResults = db.prepare(querySearchSql).all(patternDep, patternDep, patternDep, patternDep, patternDep, patternDep);
   if (depResults.length !== 2) {
     throw new Error(`「Dependabot」横断検索件数不一致: 期待=2, 実際=${depResults.length}`);
   }
@@ -1947,9 +1949,16 @@ async function runTests() {
 
   // 検証2: 「Next.js」で検索 -> PJ2のSRCH2-1 (詳細説明一致) がヒットすること
   const patternNext = "%Next.js%";
-  const nextResults = db.prepare(querySearchSql).all(patternNext, patternNext, patternNext, patternNext);
+  const nextResults = db.prepare(querySearchSql).all(patternNext, patternNext, patternNext, patternNext, patternNext, patternNext);
   if (nextResults.length !== 1 || nextResults[0].issue_key !== "SRCH2-1") {
     throw new Error(`「Next.js」横断検索失敗: ${JSON.stringify(nextResults)}`);
+  }
+
+  // 検証3: プロジェクト名「横断テストPJ1」で検索 -> PJ1配下の課題（SRCH1-1）がヒットすること
+  const patternPrjName = "%横断テストPJ1%";
+  const prjNameResults = db.prepare(querySearchSql).all(patternPrjName, patternPrjName, patternPrjName, patternPrjName, patternPrjName, patternPrjName);
+  if (prjNameResults.length !== 1 || prjNameResults[0].issue_key !== "SRCH1-1") {
+    throw new Error(`プロジェクト名横断検索失敗: ${JSON.stringify(prjNameResults)}`);
   }
 
   // クリーンアップ

@@ -101,15 +101,17 @@ export async function GET(request: Request) {
     }
 
     if (querySearch) {
-      // 課題件名・課題キー・詳細説明、およびコメント本文を横断検索
+      // 課題件名・課題キー・詳細説明・プロジェクト名・プロジェクトキー、およびコメント本文を横断検索
       sql += ` AND (
         i.title LIKE ? 
         OR i.issue_key LIKE ? 
         OR i.description LIKE ? 
+        OR p.name LIKE ?
+        OR p.key LIKE ?
         OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = i.id AND c.content LIKE ?)
       )`;
       const pattern = `%${querySearch}%`;
-      params.push(pattern, pattern, pattern, pattern);
+      params.push(pattern, pattern, pattern, pattern, pattern, pattern);
     }
 
     sql += " ORDER BY CASE WHEN i.status = 'closed' THEN 1 ELSE 0 END ASC, i.updated_at DESC, i.id DESC";
