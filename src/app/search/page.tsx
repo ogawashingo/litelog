@@ -174,43 +174,43 @@ function SearchPageContent() {
     setIsCreateOpen(true);
   };
 
-  // プロジェクトごとの課題マッピング（マトリクス用：プロジェクト選択時は該当プロジェクトに絞り込み）
+  // プロジェクトごとの課題マッピング（マトリクス用：プロジェクト選択時は該当プロジェクトに絞り込み、検索結果が1件以上あるプロジェクトのみ表示）
   const projectMatrixData = useMemo(() => {
     const targetProjects = selectedProjectId
       ? projects.filter((p) => p.id === selectedProjectId)
       : projects;
 
-    return targetProjects.map((proj) => {
-      const projIssues = issues.filter((i) => i.project_id === proj.id);
-      const total = projIssues.length;
-      const closed = projIssues.filter((i) => i.status === "closed").length;
-      const inProgress = projIssues.filter((i) => i.status === "in_progress" || i.status === "resolved").length;
-      const open = projIssues.filter((i) => i.status === "open").length;
+    return targetProjects
+      .map((proj) => {
+        const projIssues = issues.filter((i) => i.project_id === proj.id);
+        const total = projIssues.length;
+        const closed = projIssues.filter((i) => i.status === "closed").length;
+        const inProgress = projIssues.filter((i) => i.status === "in_progress" || i.status === "resolved").length;
+        const open = projIssues.filter((i) => i.status === "open").length;
 
-      // プロジェクト全体のステータス判定
-      let statusType: "none" | "completed" | "in_progress" | "open" = "none";
-      if (total === 0) {
-        statusType = "none"; // チケット未作成
-      } else if (closed === total) {
-        statusType = "completed"; // 全対応完了
-      } else if (inProgress > 0 || closed > 0) {
-        statusType = "in_progress"; // 進行中
-      } else {
-        statusType = "open"; // 未着手
-      }
+        // プロジェクト全体のステータス判定
+        let statusType: "completed" | "in_progress" | "open" = "open";
+        if (closed === total) {
+          statusType = "completed"; // 全対応完了
+        } else if (inProgress > 0 || closed > 0) {
+          statusType = "in_progress"; // 進行中
+        } else {
+          statusType = "open"; // 未着手
+        }
 
-      return {
-        project: proj,
-        issues: projIssues,
-        total,
-        closed,
-        inProgress,
-        open,
-        statusType,
-        progressPercent: total > 0 ? Math.round((closed / total) * 100) : 0,
-      };
-    });
-  }, [projects, issues]);
+        return {
+          project: proj,
+          issues: projIssues,
+          total,
+          closed,
+          inProgress,
+          open,
+          statusType,
+          progressPercent: total > 0 ? Math.round((closed / total) * 100) : 0,
+        };
+      })
+      .filter((item) => item.total > 0); // 検索結果が1件以上あるプロジェクトのみ表示
+  }, [projects, issues, selectedProjectId]);
 
   // 課題リストのフィルタリングとソート（リスト表示用）
   const filteredIssues = useMemo(() => {
@@ -336,7 +336,7 @@ function SearchPageContent() {
               }`}
             >
               <Layers className="w-4 h-4" />
-              <span>プロジェクト別マトリクス</span>
+              <span>プロジェクト別マトリクス（{projectMatrixData.length}）</span>
             </button>
             <button
               type="button"
@@ -387,7 +387,11 @@ function SearchPageContent() {
         {/* ＝＝＝＝＝ ビュー1: プロジェクト別マトリクス ＝＝＝＝＝ */}
         {viewMode === "matrix" && (
           <div className="space-y-4">
-            {matrixStyle === "cards" ? (
+            {projectMatrixData.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-12 text-center text-slate-400 text-sm">
+                条件に一致する課題は見つかりませんでした
+              </div>
+            ) : matrixStyle === "cards" ? (
               // カード形式: 各プロジェクトの対応状況とチケットカード一覧
               <div className="grid grid-cols-1 gap-4">
                 {projectMatrixData.map(({ project, issues: projIssues, total, closed, inProgress, open, statusType, progressPercent }) => {
@@ -395,9 +399,7 @@ function SearchPageContent() {
                     <div
                       key={project.id}
                       className={`bg-white rounded-2xl border transition-all shadow-xs overflow-hidden ${
-                        statusType === "none"
-                          ? "border-dashed border-rose-200 bg-rose-50/20"
-                          : statusType === "completed"
+                        statusType === "completed"
                           ? "border-emerald-200/80 bg-white"
                           : "border-slate-200 bg-white"
                       }`}
@@ -435,12 +437,6 @@ function SearchPageContent() {
                             <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-full">
                               <AlertCircle className="w-3 h-3 text-amber-600" />
                               未着手 ({total} 件)
-                            </span>
-                          )}
-                          {statusType === "none" && (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded-full">
-                              <HelpCircle className="w-3 h-3 text-rose-600" />
-                              チケット未起票
                             </span>
                           )}
                         </div>
@@ -598,12 +594,6 @@ function SearchPageContent() {
                               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100/70 px-2.5 py-1 rounded-full">
                                 <AlertCircle className="w-3 h-3 text-amber-600" />
                                 未着手 ({total})
-                              </span>
-                            )}
-                            {statusType === "none" && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-100/80 px-2.5 py-1 rounded-full">
-                                <HelpCircle className="w-3 h-3 text-rose-600" />
-                                チケット未作成
                               </span>
                             )}
                           </td>
