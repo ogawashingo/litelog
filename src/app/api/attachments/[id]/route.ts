@@ -88,15 +88,29 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     const db = getDb();
     const attachment = db
-      .prepare("SELECT * FROM attachments WHERE id = ?")
+      .prepare(`
+        SELECT a.*, p.is_archived AS project_is_archived
+        FROM attachments a
+        LEFT JOIN issues i ON a.issue_id = i.id
+        LEFT JOIN projects p ON i.project_id = p.id
+        WHERE a.id = ?
+      `)
       .get(attachmentId) as {
       id: number;
       user_id: number | null;
       stored_name: string;
+      project_is_archived?: number;
     } | undefined;
 
     if (!attachment) {
       return NextResponse.json({ error: "ファイルが見つかりません" }, { status: 404 });
+    }
+
+    if (attachment.project_is_archived) {
+      return NextResponse.json(
+        { error: "この課題が属するプロジェクトはアーカイブされているため、ファイルを削除できません（読み取り専用）" },
+        { status: 403 }
+      );
     }
 
     // 削除権限チェック（アップロード者本人、またはAdmin権限）

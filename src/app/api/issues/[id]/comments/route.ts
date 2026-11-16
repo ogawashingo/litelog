@@ -63,9 +63,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "コメント内容は必須です" }, { status: 400 });
     }
 
-    const issue = db.prepare(
-      `SELECT * FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
-    ).get(isNumeric ? Number(id) : id) as {
+    const issue = db.prepare(`
+      SELECT i.*, p.is_archived AS project_is_archived
+      FROM issues i
+      JOIN projects p ON i.project_id = p.id
+      WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
+    `).get(isNumeric ? Number(id) : id) as {
       id: number;
       project_id: number;
       issue_key: string;
@@ -74,10 +77,19 @@ export async function POST(request: Request, { params }: RouteParams) {
       resolution: string | null;
       assignee_id: number | null;
       created_by: number | null;
+      project_is_archived?: number;
     } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
+    }
+
+    // アーカイブされたプロジェクトの課題は読み取り専用のため、コメント投稿を禁止
+    if (issue.project_is_archived) {
+      return NextResponse.json(
+        { error: "この課題が属するプロジェクトはアーカイブされているため、コメントを投稿できません（読み取り専用）" },
+        { status: 403 }
+      );
     }
 
     const issueId = issue.id;

@@ -334,10 +334,10 @@ export default function Header({
                     </option>
                   ))}
                   {archivedProjects.length > 0 && (
-                    <optgroup label="── クローズ済み ──" className="text-slate-500 bg-slate-100 font-semibold">
+                    <optgroup label="── アーカイブ ──" className="text-slate-500 bg-slate-100 font-semibold">
                       {archivedProjects.map((proj) => (
                         <option key={proj.id} value={proj.id} className="text-slate-600 bg-white">
-                          [{proj.key}] {proj.name} (クローズ済)
+                          [{proj.key}] {proj.name} (アーカイブ)
                         </option>
                       ))}
                     </optgroup>
@@ -441,7 +441,7 @@ export default function Header({
                             </span>
                             {proj.is_archived ? (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600 shrink-0">
-                                クローズ済
+                                アーカイブ
                               </span>
                             ) : (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 shrink-0">
@@ -657,7 +657,7 @@ export default function Header({
                       </span>
                       {proj.is_archived && (
                         <span className="text-[9px] px-1 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600 shrink-0">
-                          クローズ済
+                          アーカイブ
                         </span>
                       )}
                     </button>
@@ -710,10 +710,10 @@ export default function Header({
               </option>
             ))}
             {archivedProjects.length > 0 && (
-              <optgroup label="── クローズ済み ──" className="text-slate-500 bg-slate-100 font-semibold">
+              <optgroup label="── アーカイブ ──" className="text-slate-500 bg-slate-100 font-semibold">
                 {archivedProjects.map((proj) => (
                   <option key={proj.id} value={proj.id} className="text-slate-600 bg-white">
-                    [{proj.key}] {proj.name} (クローズ済)
+                    [{proj.key}] {proj.name} (アーカイブ)
                   </option>
                 ))}
               </optgroup>

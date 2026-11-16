@@ -21,7 +21,7 @@ export interface Project {
   key: string;       // プロジェクトキー（例: 'MYPRJ'）
   name: string;      // プロジェクト名
   color: string;     // テーマカラー（16進数カラーコード）
-  is_archived?: number; // クローズ・アーカイブ状態（1: クローズ完了, 0: 進行中アクティブ）
+  is_archived?: number; // アーカイブ状態（1: アーカイブ済み・読み取り専用, 0: アクティブ）
   created_at: string;
 }
 
@@ -82,6 +82,7 @@ export interface Issue {
   project_name?: string;  // 結合時のプロジェクト名
   project_key?: string;   // 結合時のプロジェクトキー（例: 'MYPRJ'）
   project_color?: string; // 結合時のプロジェクトカラー
+  project_is_archived?: number; // 結合時のプロジェクトアーカイブ状態（1: アーカイブ済み）
   parent_issue_key?: string | null; // 結合時の親課題キー
   parent_title?: string | null;     // 結合時の親課題タイトル
   assignee_name?: string | null;    // 結合時の担当者名

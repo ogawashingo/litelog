@@ -41,7 +41,7 @@ export default function ProjectList({
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // クローズ（アーカイブ）済みプロジェクトの表示トグル
+  // アーカイブ済みプロジェクトの表示トグル
   const [showArchived, setShowArchived] = useState(false);
   const archivedCount = projects.filter((p) => Boolean(p.is_archived)).length;
   const visibleProjects = showArchived ? projects : projects.filter((p) => !p.is_archived);
@@ -174,9 +174,9 @@ export default function ProjectList({
                   ? "bg-indigo-100 text-indigo-800 font-bold"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-600"
               }`}
-              title={showArchived ? "クローズ済みプロジェクトを隠す" : "クローズ済みプロジェクトも含めて表示"}
+              title={showArchived ? "アーカイブ済みプロジェクトを隠す" : "アーカイブ済みプロジェクトも含めて表示"}
             >
-              {showArchived ? "クローズ表示中" : `+クローズ済(${archivedCount})`}
+              {showArchived ? "アーカイブ表示中" : `+アーカイブ済(${archivedCount})`}
             </button>
           )}
         </div>
@@ -302,7 +302,7 @@ export default function ProjectList({
                     {isArchived && (
                       <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded text-[9px] font-bold bg-slate-200 text-slate-700 shrink-0">
                         <Archive className="w-2.5 h-2.5" />
-                        <span>クローズ済</span>
+                        <span>アーカイブ</span>
                       </span>
                     )}
                     {/* 管理者（Admin権限）のみプロジェクト名変更・削除ボタンを表示 */}

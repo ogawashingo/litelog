@@ -40,13 +40,25 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const db = getDb();
 
-    // 課題の存在確認
+    // 課題の存在確認（プロジェクトのアーカイブ状態も確認）
     const issue = db
-      .prepare(`SELECT id FROM issues WHERE ${isNumericIssue ? "id = ?" : "issue_key = ?"}`)
-      .get(isNumericIssue ? Number(id) : id) as { id: number } | undefined;
+      .prepare(`
+        SELECT i.id, p.is_archived AS project_is_archived
+        FROM issues i
+        JOIN projects p ON i.project_id = p.id
+        WHERE ${isNumericIssue ? "i.id = ?" : "i.issue_key = ?"}
+      `)
+      .get(isNumericIssue ? Number(id) : id) as { id: number; project_is_archived?: number } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
+    }
+
+    if (issue.project_is_archived) {
+      return NextResponse.json(
+        { error: "この課題が属するプロジェクトはアーカイブされているため、リアクションを変更できません（読み取り専用）" },
+        { status: 403 }
+      );
     }
 
     // 対象コメントの取得

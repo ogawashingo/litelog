@@ -80,6 +80,23 @@ export async function POST(request: Request) {
 
     const db = getDb();
 
+    // 課題指定がある場合、プロジェクトがアーカイブ済みかチェック
+    if (issueId) {
+      const issueRow = db.prepare(`
+        SELECT p.is_archived
+        FROM issues i
+        JOIN projects p ON i.project_id = p.id
+        WHERE i.id = ?
+      `).get(issueId) as { is_archived?: number } | undefined;
+
+      if (issueRow && issueRow.is_archived) {
+        return NextResponse.json(
+          { error: "この課題が属するプロジェクトはアーカイブされているため、ファイルを添付できません（読み取り専用）" },
+          { status: 403 }
+        );
+      }
+    }
+
     // ディレクトリの存在確認
     if (!fs.existsSync(ATTACHMENTS_DIR)) {
       fs.mkdirSync(ATTACHMENTS_DIR, { recursive: true });

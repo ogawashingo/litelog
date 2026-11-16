@@ -56,7 +56,7 @@ export default function CreateIssueModal({
   useEffect(() => {
     if (isOpen) {
       const activeList = projects.filter((p) => !p.is_archived);
-      if (selectedProjectId && projects.some((p) => p.id === selectedProjectId)) {
+      if (selectedProjectId && activeList.some((p) => p.id === selectedProjectId)) {
         setProjectId(selectedProjectId);
       } else if (activeList[0]) {
         setProjectId(activeList[0].id);

@@ -169,14 +169,23 @@ export async function POST(request: Request) {
     }
 
     // 対象プロジェクトの存在確認
-    const project = db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId) as {
+    const project = db.prepare("SELECT id, key, name, is_archived FROM projects WHERE id = ?").get(projectId) as {
       id: number;
       key: string;
       name: string;
+      is_archived?: number;
     } | undefined;
 
     if (!project) {
       return NextResponse.json({ error: "指定されたプロジェクトが見つかりません" }, { status: 404 });
+    }
+
+    // アーカイブされたプロジェクトは読み取り専用のため、新規課題作成を禁止
+    if (project.is_archived) {
+      return NextResponse.json(
+        { error: "このプロジェクトはアーカイブされているため、新しい課題を作成できません（読み取り専用）" },
+        { status: 403 }
+      );
     }
 
     const resolvedAssigneeId = assigneeId ? Number(assigneeId) : null;

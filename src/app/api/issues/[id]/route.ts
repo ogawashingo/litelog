@@ -27,6 +27,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
         i.*,
         p.name AS project_name,
         p.color AS project_color,
+        p.is_archived AS project_is_archived,
         parent.issue_key AS parent_issue_key,
         parent.title AS parent_title,
         u.name AS assignee_name,
@@ -124,9 +125,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const db = getDb();
     const body = await request.json();
 
-    const currentIssue = db.prepare(
-      `SELECT * FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
-    ).get(isNumeric ? Number(id) : id) as {
+    const currentIssue = db.prepare(`
+      SELECT i.*, p.is_archived AS project_is_archived
+      FROM issues i
+      JOIN projects p ON i.project_id = p.id
+      WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
+    `).get(isNumeric ? Number(id) : id) as {
       id: number;
       issue_key: string;
       title: string;
@@ -140,10 +144,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       start_date: string | null;
       due_date: string | null;
       resolution?: string | null;
+      project_is_archived?: number;
     } | undefined;
 
     if (!currentIssue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
+    }
+
+    // アーカイブされたプロジェクトの課題は読み取り専用のため、更新を禁止
+    if (currentIssue.project_is_archived) {
+      return NextResponse.json(
+        { error: "この課題が属するプロジェクトはアーカイブされているため、編集・更新できません（読み取り専用）" },
+        { status: 403 }
+      );
     }
 
     const issueId = currentIssue.id;
@@ -506,16 +519,28 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     const db = getDb();
     const actorId = sessionUser.id;
 
-    const currentIssue = db.prepare(
-      `SELECT * FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
-    ).get(isNumeric ? Number(id) : id) as {
+    const currentIssue = db.prepare(`
+      SELECT i.*, p.is_archived AS project_is_archived
+      FROM issues i
+      JOIN projects p ON i.project_id = p.id
+      WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
+    `).get(isNumeric ? Number(id) : id) as {
       id: number;
       issue_key: string;
       title: string;
+      project_is_archived?: number;
     } | undefined;
 
     if (!currentIssue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
+    }
+
+    // アーカイブされたプロジェクトの課題は読み取り専用のため、削除を禁止
+    if (currentIssue.project_is_archived) {
+      return NextResponse.json(
+        { error: "この課題が属するプロジェクトはアーカイブされているため、削除できません（読み取り専用）" },
+        { status: 403 }
+      );
     }
 
     const issueId = currentIssue.id;

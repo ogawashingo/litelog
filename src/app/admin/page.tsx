@@ -310,7 +310,7 @@ export default function AdminPage() {
     }
   };
 
-  // プロジェクトのクローズ（アーカイブ）／再オープンの切り替え（管理者のみ）
+  // プロジェクトのアーカイブ／アーカイブ解除の切り替え（管理者のみ）
   const handleToggleArchiveProject = async (proj: Project) => {
     if (!currentUser?.is_admin) {
       setProjectErrorMsg("プロジェクトのステータス変更は管理者（Admin権限）のみ実行できます");
@@ -318,7 +318,7 @@ export default function AdminPage() {
     }
 
     const willArchive = !proj.is_archived;
-    const actionLabel = willArchive ? "クローズ（完了）" : "再オープン（アクティブ化）";
+    const actionLabel = willArchive ? "アーカイブ" : "アーカイブ解除";
 
     try {
       setIsUpdatingArchiveId(proj.id);
@@ -340,8 +340,8 @@ export default function AdminPage() {
       await fetchProjects();
       setSaveMessage(
         willArchive
-          ? `プロジェクト [${proj.key}] をクローズしました。日常の選択肢から除外されます。`
-          : `プロジェクト [${proj.key}] を再オープンしました！日常の一覧に復帰しました。`
+          ? `プロジェクト [${proj.key}] をアーカイブしました。読み取り専用となり日常一覧から除外されます。`
+          : `プロジェクト [${proj.key}] のアーカイブを解除しました！日常一覧に復帰し、編集可能になりました。`
       );
       setTimeout(() => setSaveMessage(null), 4000);
     } catch (err: unknown) {
@@ -1441,7 +1441,7 @@ export default function AdminPage() {
                 </h3>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                登録プロジェクトの確認・名称変更・クローズ（アーカイブ）・削除（Admin専用）を行えます。
+                登録プロジェクトの確認・名称変更・アーカイブ・削除（Admin専用）を行えます。
               </p>
             </div>
 
@@ -1479,7 +1479,7 @@ export default function AdminPage() {
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  クローズ済 ({projects.filter((p) => p.is_archived).length})
+                  アーカイブ済 ({projects.filter((p) => p.is_archived).length})
                 </button>
               </div>
 
@@ -1584,26 +1584,26 @@ export default function AdminPage() {
                           >
                             {p.name}
                           </span>
-                          {/* クローズ済みの場合のみバッジを表示 */}
+                          {/* アーカイブ済みの場合のみバッジを表示 */}
                           {isArchived && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
                               <Archive className="w-3 h-3" />
-                              <span>クローズ済</span>
+                              <span>アーカイブ</span>
                             </span>
                           )}
                         </div>
 
                         {Boolean(currentUser?.is_admin) && (
                           <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-                            {/* クローズ／再オープントグルボタン */}
+                            {/* アーカイブ／アーカイブ解除トグルボタン */}
                             <button
                               type="button"
                               onClick={() => handleToggleArchiveProject(p)}
                               disabled={isThisUpdatingArchive}
                               title={
                                 isArchived
-                                  ? "プロジェクトを再オープンして日常一覧に復帰"
-                                  : "プロジェクトをクローズ（日常一覧から非表示）"
+                                  ? "プロジェクトのアーカイブを解除して日常一覧に復帰（編集可能化）"
+                                  : "プロジェクトをアーカイブ（読み取り専用化・日常一覧から非表示）"
                               }
                               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold text-xs transition-colors cursor-pointer ${
                                 isArchived
@@ -1614,12 +1614,12 @@ export default function AdminPage() {
                               {isArchived ? (
                                 <>
                                   <RotateCcw className="w-3.5 h-3.5" />
-                                  <span>再オープン</span>
+                                  <span>アーカイブ解除</span>
                                 </>
                               ) : (
                                 <>
                                   <Archive className="w-3.5 h-3.5" />
-                                  <span>クローズ</span>
+                                  <span>アーカイブ</span>
                                 </>
                               )}
                             </button>
