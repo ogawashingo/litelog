@@ -216,6 +216,22 @@ export type ThemeId =
 // カレンダーの週開始曜日（月曜始まり / 日曜始まり）
 export type WeekStartDay = "monday" | "sunday";
 
+// システム一言通知（アナウンスメント）の通知種別
+export type AnnouncementType = "info" | "warning" | "alert" | "success";
+
+// 一言通知の種別設定一覧
+export const ANNOUNCEMENT_TYPE_OPTIONS: {
+  value: AnnouncementType;
+  label: string;
+  badge: string;
+  description: string;
+}[] = [
+  { value: "info", label: "お知らせ (Info)", badge: "お知らせ", description: "一般的な連絡・情報共有" },
+  { value: "warning", label: "注意 (Warning)", badge: "注意", description: "メンテ予告や締切リマインド" },
+  { value: "alert", label: "緊急 (Alert)", badge: "緊急", description: "システム障害や作業中注意喚起" },
+  { value: "success", label: "完了 (Success)", badge: "完了", description: "リリース完了や目標達成" },
+];
+
 // システム時刻・表示設定（管理ページ設定）
 export interface SystemSettings {
   timezone: string;                  // 例: 'Asia/Tokyo', 'UTC', 'local' 等
@@ -226,6 +242,10 @@ export interface SystemSettings {
   theme: ThemeId;                    // デザインカラーテーマ
   weekStart: WeekStartDay;           // 週の開始曜日（カレンダー表示: "monday" | "sunday"）
   showHolidays: boolean;             // 日本の祝日表示（カレンダー赤字・祝日名表示）
+  announcementEnabled?: boolean;     // ヘッダー一言通知の表示ON/OFF
+  announcementMessage?: string;      // ヘッダー一言通知の本文
+  announcementType?: AnnouncementType;// ヘッダー一言通知の種別
+  announcementUpdatedAt?: string;    // ヘッダー一言通知の更新日時（既読リセット判定用）
 }
 
 // 通知種別

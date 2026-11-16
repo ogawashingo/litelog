@@ -23,6 +23,7 @@ import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import NotificationDropdown from "./NotificationDropdown";
+import AnnouncementBar from "./AnnouncementBar";
 
 interface HeaderProps {
   projects: Project[];
@@ -590,6 +591,9 @@ export default function Header({
           </div>
         </div>
       )}
+
+      {/* ヘッダー直下 システム一言通知（アナウンスメント） */}
+      <AnnouncementBar />
     </header>
   );
 }

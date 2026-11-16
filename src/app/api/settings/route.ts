@@ -2,7 +2,14 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { SystemSettings, DateTimeFormatType, ActivityTimeStyle, ThemeId, WeekStartDay } from "@/types";
+import {
+  SystemSettings,
+  DateTimeFormatType,
+  ActivityTimeStyle,
+  ThemeId,
+  WeekStartDay,
+  AnnouncementType,
+} from "@/types";
 import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/dateUtils";
 import { THEME_LIST } from "@/lib/themeConfig";
 
@@ -17,6 +24,7 @@ const VALID_FORMATS: DateTimeFormatType[] = [
 const VALID_ACTIVITY_STYLES: ActivityTimeStyle[] = ["both", "absolute", "relative"];
 const VALID_THEMES: ThemeId[] = THEME_LIST.map((t) => t.id);
 const VALID_WEEK_STARTS: WeekStartDay[] = ["monday", "sunday"];
+const VALID_ANNOUNCEMENT_TYPES: AnnouncementType[] = ["info", "warning", "alert", "success"];
 
 // DBから現在のシステム設定を構築して返すヘルパー（内部シークレットは除外）
 function loadSettingsFromDb(): SystemSettings {
@@ -38,6 +46,7 @@ function loadSettingsFromDb(): SystemSettings {
   const rawOffset = Number(map.get("timeOffsetMinutes") ?? 0);
   const rawTheme = map.get("theme") as ThemeId | undefined;
   const rawWeekStart = map.get("weekStart") as WeekStartDay | undefined;
+  const rawAnnouncementType = map.get("announcementType") as AnnouncementType | undefined;
 
   return {
     timezone: map.get("timezone") || DEFAULT_SYSTEM_SETTINGS.timezone,
@@ -57,6 +66,13 @@ function loadSettingsFromDb(): SystemSettings {
         ? rawWeekStart
         : DEFAULT_SYSTEM_SETTINGS.weekStart,
     showHolidays: map.get("showHolidays") !== "false",
+    announcementEnabled: map.get("announcementEnabled") === "true",
+    announcementMessage: map.get("announcementMessage") || "",
+    announcementType:
+      rawAnnouncementType && VALID_ANNOUNCEMENT_TYPES.includes(rawAnnouncementType)
+        ? rawAnnouncementType
+        : DEFAULT_SYSTEM_SETTINGS.announcementType || "info",
+    announcementUpdatedAt: map.get("announcementUpdatedAt") || "",
   };
 }
 
@@ -139,6 +155,36 @@ export async function PUT(request: Request) {
 
     if (typeof body.showHolidays === "boolean") {
       upsert.run("showHolidays", String(body.showHolidays));
+    }
+
+    // ヘッダー一言通知（アナウンスメント）設定の更新
+    let isAnnouncementUpdated = false;
+
+    if (typeof body.announcementEnabled === "boolean") {
+      upsert.run("announcementEnabled", String(body.announcementEnabled));
+      isAnnouncementUpdated = true;
+    }
+
+    if (typeof body.announcementMessage === "string") {
+      upsert.run("announcementMessage", body.announcementMessage);
+      isAnnouncementUpdated = true;
+    }
+
+    if (
+      typeof body.announcementType === "string" &&
+      VALID_ANNOUNCEMENT_TYPES.includes(body.announcementType as AnnouncementType)
+    ) {
+      upsert.run("announcementType", body.announcementType);
+      isAnnouncementUpdated = true;
+    }
+
+    // メッセージや種別、有効無効が更新された場合、更新タイムスタンプを保存（既読リセット用）
+    if (isAnnouncementUpdated) {
+      const updatedTimestamp =
+        typeof body.announcementUpdatedAt === "string" && body.announcementUpdatedAt.trim()
+          ? body.announcementUpdatedAt.trim()
+          : new Date().toISOString();
+      upsert.run("announcementUpdatedAt", updatedTimestamp);
     }
 
     const updated = loadSettingsFromDb();

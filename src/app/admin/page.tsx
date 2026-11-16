@@ -24,6 +24,7 @@ import {
   X,
   Palette,
   Eye,
+  Megaphone,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -38,6 +39,8 @@ import {
   DateTimeFormatType,
   ActivityTimeStyle,
   ThemeId,
+  AnnouncementType,
+  ANNOUNCEMENT_TYPE_OPTIONS,
 } from "@/types";
 import {
   DEFAULT_SYSTEM_SETTINGS,
@@ -97,11 +100,51 @@ export default function AdminPage() {
   // リアルタイムプレビュー用の現在時刻
   const [nowDate, setNowDate] = useState<Date>(() => new Date());
 
+  // 一言通知（アナウンスメント）設定用State
+  const [announcementEnabled, setAnnouncementEnabled] = useState(
+    settings.announcementEnabled || false
+  );
+  const [announcementMessage, setAnnouncementMessage] = useState(
+    settings.announcementMessage || ""
+  );
+  const [announcementType, setAnnouncementType] = useState<AnnouncementType>(
+    settings.announcementType || "info"
+  );
+  const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
+  const [announcementSaveMessage, setAnnouncementSaveMessage] = useState<string | null>(null);
+
   // コンテキストの設定が読み込まれたらドラフトに同期
   useEffect(() => {
     setDraftSettings(settings);
     setSelectedTheme(settings.theme || "cosmic");
+    setAnnouncementEnabled(settings.announcementEnabled || false);
+    setAnnouncementMessage(settings.announcementMessage || "");
+    setAnnouncementType(settings.announcementType || "info");
   }, [settings]);
+
+  // 一言通知設定の保存ハンドラー
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser?.is_admin) {
+      setAnnouncementSaveMessage("一言通知の変更は管理者（Admin権限）のみ実行できます");
+      return;
+    }
+    setIsSavingAnnouncement(true);
+    setAnnouncementSaveMessage(null);
+    try {
+      await updateSettings({
+        announcementEnabled,
+        announcementMessage: announcementMessage.trim(),
+        announcementType,
+      });
+      setAnnouncementSaveMessage("一言通知を保存・更新しました！全メンバーへ表示されます");
+      setTimeout(() => setAnnouncementSaveMessage(null), 5000);
+    } catch (err: unknown) {
+      setAnnouncementSaveMessage(err instanceof Error ? err.message : "保存に失敗しました");
+    } finally {
+      setIsSavingAnnouncement(false);
+    }
+  };
 
   // テーマカードクリック時のリアルタイム試着プレビュー
   const handleSelectTheme = (themeId: ThemeId) => {
@@ -432,6 +475,181 @@ export default function AdminPage() {
             <span>{saveMessage}</span>
           </div>
         )}
+
+        {/* ヘッダー一言通知（アナウンスメント）設定カード */}
+        <section
+          id="announcement-section"
+          className="bg-white rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden"
+        >
+          <div className="bg-slate-50/80 border-b border-indigo-100/60 px-6 py-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Megaphone className="w-5 h-5 text-indigo-600" />
+              <h2 className="font-bold text-slate-800 text-base">ヘッダー一言通知（アナウンスメント）設定</h2>
+            </div>
+            <span className="text-xs text-slate-500">
+              全画面のヘッダー直下に表示する全体連絡・作業告知を設定できます
+            </span>
+          </div>
+
+          <form onSubmit={handleSaveAnnouncement} className="p-6 space-y-6">
+            {/* 有効/無効 トグルスイッチ */}
+            <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200/80 rounded-xl">
+              <div>
+                <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                  <span>一言通知を表示する</span>
+                  {announcementEnabled ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                      有効
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-600">
+                      無効
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  スイッチをONにすると、ログイン中の全メンバーのヘッダー直下にメッセージが表示されます
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={announcementEnabled}
+                  onChange={(e) => setAnnouncementEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-300 peer-focus:outline-hidden peer-focus:ring-2 peer-focus:ring-indigo-400 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+
+            {/* 通知種別（タイプ）選択 */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700">
+                通知タイプ（スタイル）
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {ANNOUNCEMENT_TYPE_OPTIONS.map((opt) => {
+                  const isSelected = announcementType === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setAnnouncementType(opt.value)}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
+                        isSelected
+                          ? "border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20 shadow-xs"
+                          : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-slate-800">{opt.badge}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                      </div>
+                      <span className="text-[11px] text-slate-500 leading-tight">
+                        {opt.description}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* メッセージ入力エリア */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700">
+                  通知メッセージ本文
+                </label>
+                <span className="text-[11px] text-slate-400">
+                  Markdown、URLリンク、課題キーに対応
+                </span>
+              </div>
+              <textarea
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+                rows={2}
+                placeholder="例: 【メンテ告知】本日 18:00〜18:30 にバックアップおよびサーバー更新作業を実施します。"
+                className="w-full text-xs rounded-xl border border-slate-300 px-3.5 py-2.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-colors"
+              />
+            </div>
+
+            {/* リアルタイム表示プレビュー */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700">
+                ヘッダー直下での表示プレビュー
+              </label>
+              <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-900 shadow-inner">
+                {/* ヘッダー風のモックバー */}
+                <div className="h-8 bg-slate-950 px-3 flex items-center justify-between border-b border-white/10 text-[11px] text-white/60">
+                  <span>Personal Backlog ヘッダー</span>
+                  <span className="text-[10px]">プレビュー</span>
+                </div>
+                {/* アナウンスメントバーのプレビュー */}
+                {announcementEnabled && announcementMessage.trim() ? (
+                  <div className="p-0">
+                    <div
+                      className={`px-3 py-2 text-xs flex items-center justify-between gap-3 border-b ${
+                        announcementType === "warning"
+                          ? "bg-amber-950/90 border-amber-500/35 text-amber-100"
+                          : announcementType === "alert"
+                          ? "bg-rose-950/90 border-rose-500/40 text-rose-100"
+                          : announcementType === "success"
+                          ? "bg-emerald-950/90 border-emerald-500/35 text-emerald-100"
+                          : "bg-sky-950/90 border-sky-500/30 text-sky-100"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span
+                          className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                            announcementType === "warning"
+                              ? "bg-amber-500/20 text-amber-300 border-amber-400/30"
+                              : announcementType === "alert"
+                              ? "bg-rose-500/25 text-rose-200 border-rose-400/40"
+                              : announcementType === "success"
+                              ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/30"
+                              : "bg-sky-500/20 text-sky-300 border-sky-400/30"
+                          }`}
+                        >
+                          {ANNOUNCEMENT_TYPE_OPTIONS.find((o) => o.value === announcementType)?.badge || "お知らせ"}
+                        </span>
+                        <span className="truncate text-[12px] font-medium">
+                          {announcementMessage}
+                        </span>
+                      </div>
+                      <div className="text-white/40 text-[10px]">× (閉じる)</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    通知が無効、またはメッセージが空のため、ヘッダー直下には何も表示されません。
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 保存・更新ボタン ＆ 保存完了メッセージ */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
+              <div className="text-xs text-slate-500">
+                保存すると、一度通知を閉じたメンバーにも新しい更新として再表示されます。
+              </div>
+              <div className="flex items-center gap-3">
+                {announcementSaveMessage && (
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    {announcementSaveMessage}
+                  </span>
+                )}
+                <button
+                  type="submit"
+                  disabled={isSavingAnnouncement}
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSavingAnnouncement ? "保存中..." : "一言通知を保存・更新"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </section>
 
         {/* デザイン・カラーテーマ設定カード */}
         <section className="bg-white rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">

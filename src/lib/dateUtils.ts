@@ -15,6 +15,10 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
   theme: "cosmic",
   weekStart: "monday",
   showHolidays: true,
+  announcementEnabled: false,
+  announcementMessage: "",
+  announcementType: "info",
+  announcementUpdatedAt: "",
 };
 
 // 管理ページで選択可能なタイムゾーン一覧

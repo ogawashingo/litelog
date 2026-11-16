@@ -905,6 +905,36 @@ async function runTests() {
   }
   console.log("✓ デザインカラーテーマ設定（モノクロ＆オレンジ、コズミック等）保存・更新検証成功");
 
+  // ヘッダー一言通知（アナウンスメント機能）の保存・更新検証
+  const updateAnnouncement = db.prepare(`
+    INSERT INTO settings (key, value, updated_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+  `);
+  updateAnnouncement.run("announcementEnabled", "true");
+  updateAnnouncement.run("announcementMessage", "【連絡】本日18:00よりメンテナンスを実施します");
+  updateAnnouncement.run("announcementType", "warning");
+  updateAnnouncement.run("announcementUpdatedAt", new Date().toISOString());
+
+  const annEnabledRow = db.prepare("SELECT value FROM settings WHERE key = 'announcementEnabled'").get();
+  const annMsgRow = db.prepare("SELECT value FROM settings WHERE key = 'announcementMessage'").get();
+  const annTypeRow = db.prepare("SELECT value FROM settings WHERE key = 'announcementType'").get();
+  const annUpdatedRow = db.prepare("SELECT value FROM settings WHERE key = 'announcementUpdatedAt'").get();
+
+  if (!annEnabledRow || annEnabledRow.value !== "true") {
+    throw new Error("一言通知の有効化フラグ取得に失敗しました");
+  }
+  if (!annMsgRow || !annMsgRow.value.includes("メンテナンス")) {
+    throw new Error("一言通知のメッセージ取得に失敗しました");
+  }
+  if (!annTypeRow || annTypeRow.value !== "warning") {
+    throw new Error("一言通知の種別取得に失敗しました");
+  }
+  if (!annUpdatedRow || !annUpdatedRow.value) {
+    throw new Error("一言通知の更新日時取得に失敗しました");
+  }
+  console.log("✓ ヘッダー一言通知（アナウンスメント機能: 有効化/本文/種別/更新日時）保存・更新検証成功");
+
   // SQLiteのUTC文字列 "2026-11-12 03:53:22" をUTCとしてパースし、Asia/Tokyo (UTC+9) で "2026/11/12 12:53:22" になることを検証
   const rawSqliteUtc = "2026-11-12 03:53:22";
   const parsedUtcDate = new Date(rawSqliteUtc.replace(/\s+/, "T") + "Z");
