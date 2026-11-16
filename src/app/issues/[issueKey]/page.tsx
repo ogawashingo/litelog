@@ -31,7 +31,7 @@ import { DatePicker } from "@/components/DatePicker";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project, isArchivedProject } from "@/types";
 import { setStoredProjectId } from "@/lib/projectStorage";
 import MentionTextarea from "@/components/MentionTextarea";
 import MentionText from "@/components/MentionText";
@@ -493,9 +493,9 @@ export default function IssueDetailPage() {
 
   const currentAssignee = users.find((u) => u.id === Number(editAssigneeId));
 
-  // 該当プロジェクトのプロジェクト情報およびアーカイブ状態判定
+  // 該当プロジェクトのプロジェクト情報およびアーカイブ状態判定（is_archivedフラグまたは名前に「アーカイブ」が含まれるか）
   const currentProject = projects.find((p) => p.id === issue?.project_id);
-  const isProjectArchived = Boolean(issue?.project_is_archived || currentProject?.is_archived);
+  const isProjectArchived = isArchivedProject(issue) || isArchivedProject(currentProject);
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
@@ -651,7 +651,7 @@ export default function IssueDetailPage() {
         {!isLoading && issue && (
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
             {/* 詳細カードヘッダー（スクロール時にも画面上部に追従固定） */}
-            <div className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200 shadow-2xs">
+            <div className="sticky top-0 z-20 bg-slate-50 border-b border-slate-200 shadow-2xs">
               {/* 上段: メタバッジ・キー・操作アクション */}
               <div className="px-4 sm:px-6 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200/60">
                 <div className="flex items-center gap-2 sm:gap-3 flex-wrap">

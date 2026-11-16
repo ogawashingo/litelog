@@ -29,6 +29,7 @@ export async function GET(request: Request) {
         p.name AS project_name,
         p.key AS project_key,
         p.color AS project_color,
+        COALESCE(p.is_archived, 0) AS project_is_archived,
         parent.issue_key AS parent_issue_key,
         parent.title AS parent_title,
         u.name AS assignee_name,
@@ -180,8 +181,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "指定されたプロジェクトが見つかりません" }, { status: 404 });
     }
 
-    // アーカイブされたプロジェクトは読み取り専用のため、新規課題作成を禁止
-    if (project.is_archived) {
+    // アーカイブされたプロジェクトは読み取り専用のため、新規課題作成を禁止（is_archivedフラグまたは名前に「アーカイブ」が含まれるか判定）
+    const isArchived = Boolean(
+      project.is_archived ||
+      project.name.includes("アーカイブ") ||
+      project.name.toLowerCase().includes("archive")
+    );
+    if (isArchived) {
       return NextResponse.json(
         { error: "このプロジェクトはアーカイブされているため、新しい課題を作成できません（読み取り専用）" },
         { status: 403 }

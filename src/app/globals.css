@@ -624,17 +624,21 @@ body {
 
 /* サブエリア・テーブル見出し・フィルターバー・レーン背景 */
 [data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-slate-50\/40,
 [data-theme="dark"] .bg-slate-50\/50,
 [data-theme="dark"] .bg-slate-50\/60,
 [data-theme="dark"] .bg-slate-50\/70,
 [data-theme="dark"] .bg-slate-50\/80,
 [data-theme="dark"] .bg-slate-50\/90,
+[data-theme="dark"] .bg-slate-50\/95,
 [data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-gray-50\/40,
 [data-theme="dark"] .bg-gray-50\/50,
 [data-theme="dark"] .bg-gray-50\/60,
 [data-theme="dark"] .bg-gray-50\/70,
 [data-theme="dark"] .bg-gray-50\/80,
 [data-theme="dark"] .bg-gray-50\/90,
+[data-theme="dark"] .bg-gray-50\/95,
 [data-theme="dark"] .bg-zinc-50 {
   background-color: #181822 !important;
 }
@@ -968,6 +972,8 @@ body {
 [data-theme="dark"] .bg-amber-100 {
   background-color: rgba(245, 158, 11, 0.18) !important;
 }
+[data-theme="dark"] .text-amber-950,
+[data-theme="dark"] .text-amber-900,
 [data-theme="dark"] .text-amber-800,
 [data-theme="dark"] .text-amber-700,
 [data-theme="dark"] .text-amber-600 {

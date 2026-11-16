@@ -64,7 +64,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const issue = db.prepare(`
-      SELECT i.*, p.is_archived AS project_is_archived
+      SELECT i.*, p.is_archived AS project_is_archived, p.name AS project_name
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
@@ -78,14 +78,22 @@ export async function POST(request: Request, { params }: RouteParams) {
       assignee_id: number | null;
       created_by: number | null;
       project_is_archived?: number;
+      project_name?: string;
     } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
     }
 
-    // アーカイブされたプロジェクトの課題は読み取り専用のため、コメント投稿を禁止
-    if (issue.project_is_archived) {
+    // アーカイブされたプロジェクトの課題は読み取り専用のため、コメント投稿を禁止（is_archivedまたは名前にアーカイブ含む）
+    const isArchived = Boolean(
+      issue.project_is_archived ||
+      (issue.project_name && (
+        issue.project_name.includes("アーカイブ") ||
+        issue.project_name.toLowerCase().includes("archive")
+      ))
+    );
+    if (isArchived) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、コメントを投稿できません（読み取り専用）" },
         { status: 403 }

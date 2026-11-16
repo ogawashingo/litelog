@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon, Archive } from "lucide-react";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -299,7 +299,8 @@ export default function IssueDetailModal({
 
   // 表示に使うアクティブな課題オブジェクト（ローカルで最新化されたものを優先）
   const activeIssue = currentIssue || issue;
-  const isProjectArchived = Boolean(activeIssue.project_is_archived);
+  // 所属プロジェクトのアーカイブ状態判定（is_archivedフラグまたは名前に「アーカイブ」が含まれるか）
+  const isProjectArchived = isArchivedProject(activeIssue);
 
   // 課題の更新を保存
   const handleSaveEdit = async () => {

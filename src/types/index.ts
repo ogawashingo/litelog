@@ -25,6 +25,23 @@ export interface Project {
   created_at: string;
 }
 
+/**
+ * プロジェクトまたは課題の所属プロジェクトがアーカイブ状態（読み取り専用）であるかを判定する共通ヘルパー
+ * - is_archived フラグが 1 または true
+ * - またはプロジェクト名・プロジェクトキーに「アーカイブ」や「archive」が含まれているものも対象
+ */
+export function isArchivedProject(
+  target?: { is_archived?: number | boolean; name?: string; key?: string; project_name?: string; project_key?: string; project_is_archived?: number | boolean } | null
+): boolean {
+  if (!target) return false;
+  if (Boolean(target.is_archived) || Boolean(target.project_is_archived)) return true;
+  const name = (target.name || target.project_name || "").toLowerCase();
+  const key = (target.key || target.project_key || "").toLowerCase();
+  if (name.includes("アーカイブ") || name.includes("archive")) return true;
+  if (key.includes("archive")) return true;
+  return false;
+}
+
 // 課題の種別
 export type IssueType = "task" | "bug" | "request" | "other";
 

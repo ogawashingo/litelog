@@ -4,7 +4,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive } from "lucide-react";
-import { Project } from "@/types";
+import { Project, isArchivedProject } from "@/types";
 import { useUser } from "./UserContext";
 
 interface ExtendedProject extends Project {
@@ -43,8 +43,8 @@ export default function ProjectList({
 
   // アーカイブ済みプロジェクトの表示トグル
   const [showArchived, setShowArchived] = useState(false);
-  const archivedCount = projects.filter((p) => Boolean(p.is_archived)).length;
-  const visibleProjects = showArchived ? projects : projects.filter((p) => !p.is_archived);
+  const archivedCount = projects.filter((p) => isArchivedProject(p)).length;
+  const visibleProjects = showArchived ? projects : projects.filter((p) => !isArchivedProject(p));
 
   // プロジェクト名の編集開始
   const startEditProject = (e: React.MouseEvent, proj: ExtendedProject) => {
@@ -227,7 +227,7 @@ export default function ProjectList({
           const isSelected = selectedProjectId === proj.id;
           const isEditingThis = editingProjectId === proj.id;
           const isDeletingThis = deletingProjectId === proj.id;
-          const isArchived = Boolean(proj.is_archived);
+          const isArchived = isArchivedProject(proj);
 
           return (
             <div

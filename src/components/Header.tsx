@@ -19,7 +19,7 @@ import {
   Search,
   ArrowRight,
 } from "lucide-react";
-import { Project, Issue } from "@/types";
+import { Project, Issue, isArchivedProject } from "@/types";
 import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -193,8 +193,8 @@ export default function Header({
   };
 
   // 進行中プロジェクトとクローズ済みプロジェクトの分離
-  const activeProjects = React.useMemo(() => projects.filter((p) => !p.is_archived), [projects]);
-  const archivedProjects = React.useMemo(() => projects.filter((p) => Boolean(p.is_archived)), [projects]);
+  const activeProjects = React.useMemo(() => projects.filter((p) => !isArchivedProject(p)), [projects]);
+  const archivedProjects = React.useMemo(() => projects.filter((p) => isArchivedProject(p)), [projects]);
 
   // 検索キーワードにマッチするプロジェクト候補（進行中を優先、上位4件）
   const matchingProjects = React.useMemo(() => {
@@ -206,7 +206,7 @@ export default function Header({
           p.name.toLowerCase().includes(trimmed) ||
           p.key.toLowerCase().includes(trimmed)
       )
-      .sort((a, b) => (a.is_archived ? 1 : 0) - (b.is_archived ? 1 : 0))
+      .sort((a, b) => (isArchivedProject(a) ? 1 : 0) - (isArchivedProject(b) ? 1 : 0))
       .slice(0, 4);
   }, [projects, searchKeyword]);
 
@@ -439,7 +439,7 @@ export default function Header({
                             <span className="text-xs text-white/95 truncate flex-1 font-medium">
                               {proj.name}
                             </span>
-                            {proj.is_archived ? (
+                            {isArchivedProject(proj) ? (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600 shrink-0">
                                 アーカイブ
                               </span>
@@ -655,7 +655,7 @@ export default function Header({
                       <span className="text-xs text-white/95 truncate flex-1 font-medium">
                         {proj.name}
                       </span>
-                      {proj.is_archived && (
+                      {isArchivedProject(proj) && (
                         <span className="text-[9px] px-1 py-0.5 rounded bg-slate-700 text-slate-300 border border-slate-600 shrink-0">
                           アーカイブ
                         </span>

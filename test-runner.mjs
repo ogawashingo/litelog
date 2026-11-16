@@ -1102,6 +1102,23 @@ async function runTests() {
   if (!unarchivedCheck.allowed) {
     throw new Error("アーカイブ解除後の起票可能検証に失敗しました");
   }
+
+  // 17-3. プロジェクト名またはキーに「アーカイブ/archive」が含まれる場合のリードオンリー判定検証
+  const isArchivedProjectCheck = (target) => {
+    if (!target) return false;
+    if (Boolean(target.is_archived) || Boolean(target.project_is_archived)) return true;
+    const name = (target.name || target.project_name || "").toLowerCase();
+    const key = (target.key || target.project_key || "").toLowerCase();
+    if (name.includes("アーカイブ") || name.includes("archive")) return true;
+    if (key.includes("archive")) return true;
+    return false;
+  };
+  if (!isArchivedProjectCheck({ is_archived: 1 })) throw new Error("フラグ判定失敗");
+  if (!isArchivedProjectCheck({ name: "2025年度案件アーカイブ" })) throw new Error("名前判定（日本語）失敗");
+  if (!isArchivedProjectCheck({ name: "Old Archive Project" })) throw new Error("名前判定（英語）失敗");
+  if (!isArchivedProjectCheck({ project_name: "旧案件（アーカイブ）" })) throw new Error("課題結合時名前判定失敗");
+  if (isArchivedProjectCheck({ name: "Active Development", is_archived: 0 })) throw new Error("通常プロジェクト誤判定");
+
   console.log("✓ 管理者(Admin)専用のプロジェクトアーカイブ＆アーカイブ解除・一覧分離・リードオンリー制御テスト成功");
 
   // 18. ダッシュボード課題一覧の完了済み(closed)デフォルト非表示フィルタリング検証

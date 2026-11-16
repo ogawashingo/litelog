@@ -18,7 +18,7 @@ import {
   CornerDownRight,
   Archive,
 } from "lucide-react";
-import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
+import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject } from "@/types";
 import { TypeBadge } from "./IssueBadge";
 import IssueDetailModal from "./IssueDetailModal";
 import CreateIssueModal from "./CreateIssueModal";
@@ -659,7 +659,7 @@ export default function GanttChart({
 
   // 行の高さ（ピクセル）
   const ROW_HEIGHT = 42;
-  const isArchived = Boolean(currentProject?.is_archived);
+  const isArchived = isArchivedProject(currentProject);
 
   return (
     <div className="space-y-3">

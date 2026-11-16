@@ -14,7 +14,7 @@ import {
   Paperclip,
   Archive,
 } from "lucide-react";
-import { Project, Issue, IssueStatus, IssueType, IssuePriority } from "@/types";
+import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject } from "@/types";
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
@@ -314,7 +314,7 @@ export default function BoardView({
     return map;
   }, [filteredIssues, childrenMap]);
 
-  const isArchived = Boolean(currentProject?.is_archived);
+  const isArchived = isArchivedProject(currentProject);
 
   return (
     <div className="space-y-3">

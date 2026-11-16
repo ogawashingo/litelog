@@ -126,7 +126,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const body = await request.json();
 
     const currentIssue = db.prepare(`
-      SELECT i.*, p.is_archived AS project_is_archived
+      SELECT i.*, p.is_archived AS project_is_archived, p.name AS project_name
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
@@ -145,14 +145,22 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       due_date: string | null;
       resolution?: string | null;
       project_is_archived?: number;
+      project_name?: string;
     } | undefined;
 
     if (!currentIssue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
     }
 
-    // アーカイブされたプロジェクトの課題は読み取り専用のため、更新を禁止
-    if (currentIssue.project_is_archived) {
+    // アーカイブされたプロジェクトの課題は読み取り専用のため、更新を禁止（is_archivedまたは名前にアーカイブ含む）
+    const isArchived = Boolean(
+      currentIssue.project_is_archived ||
+      (currentIssue.project_name && (
+        currentIssue.project_name.includes("アーカイブ") ||
+        currentIssue.project_name.toLowerCase().includes("archive")
+      ))
+    );
+    if (isArchived) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、編集・更新できません（読み取り専用）" },
         { status: 403 }
@@ -520,7 +528,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     const actorId = sessionUser.id;
 
     const currentIssue = db.prepare(`
-      SELECT i.*, p.is_archived AS project_is_archived
+      SELECT i.*, p.is_archived AS project_is_archived, p.name AS project_name
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
@@ -529,14 +537,22 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       issue_key: string;
       title: string;
       project_is_archived?: number;
+      project_name?: string;
     } | undefined;
 
     if (!currentIssue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
     }
 
-    // アーカイブされたプロジェクトの課題は読み取り専用のため、削除を禁止
-    if (currentIssue.project_is_archived) {
+    // アーカイブされたプロジェクトの課題は読み取り専用のため、削除を禁止（is_archivedまたは名前にアーカイブ含む）
+    const isArchived = Boolean(
+      currentIssue.project_is_archived ||
+      (currentIssue.project_name && (
+        currentIssue.project_name.includes("アーカイブ") ||
+        currentIssue.project_name.toLowerCase().includes("archive")
+      ))
+    );
+    if (isArchived) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、削除できません（読み取り専用）" },
         { status: 403 }
