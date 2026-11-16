@@ -1468,7 +1468,7 @@ export default function AdminPage() {
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
-                  進行中 ({projects.filter((p) => !p.is_archived).length})
+                  オープン ({projects.filter((p) => !p.is_archived).length})
                 </button>
                 <button
                   type="button"
@@ -1584,16 +1584,11 @@ export default function AdminPage() {
                           >
                             {p.name}
                           </span>
-                          {/* ステータスバッジ */}
-                          {isArchived ? (
+                          {/* クローズ済みの場合のみバッジを表示 */}
+                          {isArchived && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
                               <Archive className="w-3 h-3" />
                               <span>クローズ済</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                              <CheckCircle2 className="w-3 h-3" />
-                              <span>進行中</span>
                             </span>
                           )}
                         </div>
