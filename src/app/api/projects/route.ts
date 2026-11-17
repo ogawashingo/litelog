@@ -136,16 +136,16 @@ export async function POST(request: Request) {
     const result = insert.run(normalizedKey, String(name).trim(), color || "#4f46e5");
     const newProjectId = Number(result.lastInsertRowid);
 
-    // プロジェクト作成時にAdmin/PMOおよび指定メンバーを project_members に登録
+    // プロジェクト作成時にAdminおよび指定メンバーを project_members に登録
     const targetUserIds = new Set<number>();
     targetUserIds.add(sessionUser.id);
 
-    // Admin / PMO は自動的に追加
-    const adminAndPmo = db
-      .prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type IN ('admin', 'pmo')")
+    // Admin（管理者）は自動的に追加
+    const admins = db
+      .prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type = 'admin'")
       .all() as { id: number }[];
-    for (const ap of adminAndPmo) {
-      targetUserIds.add(ap.id);
+    for (const adm of admins) {
+      targetUserIds.add(adm.id);
     }
 
     // 指定メンバーがあれば追加

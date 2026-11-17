@@ -102,7 +102,7 @@ export default function ProjectMembersModal({
     if (!canManage) return;
     const requiredOnly = new Set<number>();
     for (const u of allUsers) {
-      if (u.is_admin || u.role_type === "admin" || u.role_type === "pmo") {
+      if (u.is_admin || u.role_type === "admin") {
         requiredOnly.add(u.id);
       }
     }
@@ -222,7 +222,7 @@ export default function ProjectMembersModal({
               )}
             </div>
             <p className="text-[11px] text-slate-500">
-              ※一般メンバーは参加しているプロジェクトのみアクセス・閲覧できます。管理者（Admin）およびPMOは全プロジェクトに常時参加します。
+              ※一般メンバーおよびPMOは参加しているプロジェクトのみアクセス・閲覧できます。管理者（Admin）は全プロジェクトに常時参加します。
             </p>
           </div>
 
@@ -252,7 +252,7 @@ export default function ProjectMembersModal({
                   onClick={clearNonAdmins}
                   className="text-[11px] px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded transition-colors cursor-pointer"
                 >
-                  一般メンバー解除
+                  一般・PMO解除
                 </button>
               </div>
             )}
@@ -266,7 +266,7 @@ export default function ProjectMembersModal({
               {filteredUsers.map((user) => {
                 const isSelected = selectedUserIds.has(user.id);
                 const isPermanent = Boolean(
-                  user.is_admin || user.role_type === "admin" || user.role_type === "pmo"
+                  user.is_admin || user.role_type === "admin"
                 );
 
                 return (

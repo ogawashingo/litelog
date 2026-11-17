@@ -185,7 +185,6 @@ export default function CreateProjectModal({
                           (u) =>
                             u.is_admin === 1 ||
                             u.role_type === "admin" ||
-                            u.role_type === "pmo" ||
                             u.id === currentUser?.id
                         )
                         .map((u) => u.id)
@@ -193,7 +192,7 @@ export default function CreateProjectModal({
                   }
                   className="text-[10px] text-slate-500 hover:underline cursor-pointer"
                 >
-                  必須のみ
+                  管理者・自分のみ
                 </button>
               </div>
             </div>
@@ -203,7 +202,6 @@ export default function CreateProjectModal({
                 const isPermanent =
                   u.is_admin === 1 ||
                   u.role_type === "admin" ||
-                  u.role_type === "pmo" ||
                   u.id === currentUser?.id;
 
                 return (

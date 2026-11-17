@@ -2285,18 +2285,19 @@ async function runTests() {
     const mB = db.prepare("INSERT INTO users (login_id, name, is_admin, role_type) VALUES ('test_mem_b', 'テストメンバーB', 0, 'member')").run();
     const memberB = db.prepare("SELECT * FROM users WHERE id = ?").get(mB.lastInsertRowid);
 
-    // ロジック関数
+    // ロジック関数（新仕様: Adminのみ全プロジェクト全権限。PMOおよび一般メンバーは参加プロジェクトのみアクセス可）
     function testCanUserAccessProject(db, userId, projectId, roleType, isAdmin) {
-      if (isAdmin === 1 || roleType === "admin" || roleType === "pmo") return true;
+      if (isAdmin === 1 || roleType === "admin") return true;
       const row = db.prepare("SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?").get(projectId, userId);
       return Boolean(row);
     }
 
     function testSetProjectMembers(db, projectId, userIds) {
       const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
-      const adminAndPmo = db.prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type IN ('admin', 'pmo')").all();
-      for (const ap of adminAndPmo) {
-        if (!uniqueIds.includes(ap.id)) uniqueIds.push(ap.id);
+      // Admin（管理者・社長）のみ常時保持、PMOおよび一般は選択式
+      const admins = db.prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type = 'admin'").all();
+      for (const adm of admins) {
+        if (!uniqueIds.includes(adm.id)) uniqueIds.push(adm.id);
       }
       db.prepare("DELETE FROM project_members WHERE project_id = ?").run(projectId);
       const insertStmt = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
@@ -2306,20 +2307,16 @@ async function runTests() {
     }
 
     function testGetUserAccessibleProjectIds(db, userId, roleType, isAdmin) {
-      if (isAdmin === 1 || roleType === "admin" || roleType === "pmo") return null;
+      if (isAdmin === 1 || roleType === "admin") return null;
       return db.prepare("SELECT project_id FROM project_members WHERE user_id = ?").all(userId).map((r) => r.project_id);
     }
 
-    // 1. 初期状態: プロジェクトAに memberA のみを参加させ、memberB は不参加にする
-    testSetProjectMembers(db, prjAId, [memberA.id]);
-    testSetProjectMembers(db, prjBId, [memberA.id, memberB.id]);
+    // 1. 初期状態: プロジェクトA（社長個人案件）にはAdminのみ。プロジェクトB（通常業務案件）にはAdmin、PMO、memberBを参加
+    testSetProjectMembers(db, prjAId, []); // Adminのみ自動参加、PMO・一般は不参加
+    testSetProjectMembers(db, prjBId, [pmoUser.id, memberB.id]);
 
     // 2. アクセス判定の検証
-    // memberA は案件Aにアクセス可能
-    if (!testCanUserAccessProject(db, memberA.id, prjAId, memberA.role_type, memberA.is_admin)) {
-      throw new Error("参加している memberA が案件Aにアクセスできません");
-    }
-    // memberB は案件Aにアクセス不可（遮断）
+    // memberB は案件A（社長個人案件）にアクセス不可（遮断）
     if (testCanUserAccessProject(db, memberB.id, prjAId, memberB.role_type, memberB.is_admin)) {
       throw new Error("参加していない memberB が案件Aにアクセスできてしまっています（重大なセキュリティ欠陥）");
     }
@@ -2328,35 +2325,44 @@ async function runTests() {
       throw new Error("参加している memberB が案件Bにアクセスできません");
     }
 
-    // 3. 特権判定の検証（AdminとPMOは全プロジェクトに常時アクセス可能）
+    // 3. 特権およびPMOアクセスの検証
+    // Admin（社長）は全案件にアクセス可能
     if (!testCanUserAccessProject(db, adminUser.id, prjAId, adminUser.role_type, adminUser.is_admin)) {
       throw new Error("Adminユーザーがプロジェクトにアクセスできません");
     }
-    if (!testCanUserAccessProject(db, pmoUser.id, prjAId, pmoUser.role_type, pmoUser.is_admin)) {
-      throw new Error("PMOユーザーがプロジェクトにアクセスできません");
+    // ★重要: PMOは非参加の案件A（社長個人案件）にはアクセス不可（完全に遮断）
+    if (testCanUserAccessProject(db, pmoUser.id, prjAId, pmoUser.role_type, pmoUser.is_admin)) {
+      throw new Error("参加していないPMOが案件A（社長個人プロジェクト）にアクセスできてしまっています");
+    }
+    // PMOは参加している案件Bには正常にアクセス可能
+    if (!testCanUserAccessProject(db, pmoUser.id, prjBId, pmoUser.role_type, pmoUser.is_admin)) {
+      throw new Error("参加しているPMOが案件Bにアクセスできません");
     }
 
     // 4. アクセス可能プロジェクト一覧の取得検証
-    const memberBAccessible = testGetUserAccessibleProjectIds(db, memberB.id, memberB.role_type, memberB.is_admin);
-    if (!memberBAccessible.includes(prjBId) || memberBAccessible.includes(prjAId)) {
-      throw new Error("memberB のアクセス可能プロジェクト一覧に不整合があります");
+    const pmoAccessible = testGetUserAccessibleProjectIds(db, pmoUser.id, pmoUser.role_type, pmoUser.is_admin);
+    if (!pmoAccessible.includes(prjBId) || pmoAccessible.includes(prjAId)) {
+      throw new Error("PMO のアクセス可能プロジェクト一覧に不整合があります（個人案件Aが含まれてしまっています）");
     }
     const adminAccessible = testGetUserAccessibleProjectIds(db, adminUser.id, adminUser.role_type, adminUser.is_admin);
     if (adminAccessible !== null) {
       throw new Error("Adminのアクセス可能プロジェクトは全件（null）である必要があります");
     }
 
-    // 5. メンバー更新時のAdmin/PMO自動保持検証
-    testSetProjectMembers(db, prjAId, []); // 空配列で更新しようとした場合
+    // 5. メンバー更新時のAdmin自動保持＆PMOの自由な追加/解除検証
+    testSetProjectMembers(db, prjAId, []); // 空配列で更新
     const prjAMembers = db.prepare("SELECT user_id FROM project_members WHERE project_id = ?").all(prjAId).map(r => r.user_id);
-    if (!prjAMembers.includes(adminUser.id) || !prjAMembers.includes(pmoUser.id)) {
-      throw new Error("プロジェクトメンバー更新時にAdminおよびPMOが自動保持されていません");
+    if (!prjAMembers.includes(adminUser.id)) {
+      throw new Error("プロジェクトメンバー更新時にAdminが自動保持されていません");
+    }
+    if (prjAMembers.includes(pmoUser.id)) {
+      throw new Error("PMOが除外したはずの案件Aに自動追加されてしまっています");
     }
 
     // 後始末
     db.prepare("DELETE FROM projects WHERE id IN (?, ?)").run(prjAId, prjBId);
     db.prepare("DELETE FROM users WHERE login_id IN ('test_admin_u', 'test_pmo_u', 'test_mem_a', 'test_mem_b')").run();
-    console.log("✓ プロジェクト参加メンバーシップ＆アクセス権限（Admin/PMO全権限・一般遮断・自動保持）検証テスト成功");
+    console.log("✓ プロジェクト参加メンバーシップ＆アクセス権限（Admin全権限・PMO参加制/個人案件遮断・Admin自動保持）検証テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

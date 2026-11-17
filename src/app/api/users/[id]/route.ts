@@ -209,17 +209,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // 所属プロジェクトの更新（Admin/PMOのみ変更可能）
     if (canManageMember && Array.isArray(body.projectIds)) {
-      const targetIsSpecial =
-        targetUser.is_admin === 1 ||
-        targetUser.role_type === "admin" ||
-        targetUser.role_type === "pmo" ||
-        body.isAdmin === true ||
-        body.isAdmin === 1 ||
-        body.roleType === "admin" ||
-        body.roleType === "pmo";
+      const finalRoleType = body.roleType ?? targetUser.role_type;
+      const finalIsAdmin = body.isAdmin !== undefined ? (body.isAdmin ? 1 : 0) : targetUser.is_admin;
+      const isAdminUser = finalIsAdmin === 1 || finalRoleType === "admin";
 
-      if (targetIsSpecial) {
-        // Admin/PMOは全プロジェクトに常時参加
+      if (isAdminUser) {
+        // Adminは全プロジェクトに常時参加
         db.prepare(`
           INSERT OR IGNORE INTO project_members (project_id, user_id)
           SELECT id, ? FROM projects

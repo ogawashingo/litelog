@@ -647,7 +647,7 @@ export function attachReactionsToComments<T extends { id: number }>(
   }));
 }
 
-// ユーザーが特定プロジェクトにアクセス可能か判定（Admin/PMOは全プロジェクトアクセス可）
+// ユーザーが特定プロジェクトにアクセス可能か判定（Adminは全プロジェクトアクセス可、PMOおよび一般メンバーは参加プロジェクトのみ）
 export function canUserAccessProject(
   db: DatabaseSync,
   userId: number,
@@ -655,7 +655,7 @@ export function canUserAccessProject(
   userRoleType?: string,
   isAdmin?: number
 ): boolean {
-  if (isAdmin === 1 || userRoleType === "admin" || userRoleType === "pmo") {
+  if (isAdmin === 1 || userRoleType === "admin") {
     return true;
   }
   const row = db
@@ -664,14 +664,14 @@ export function canUserAccessProject(
   return Boolean(row);
 }
 
-// ユーザーがアクセス可能なプロジェクトID一覧を取得（Admin/PMOの場合は null を返し、全件対象を示す）
+// ユーザーがアクセス可能なプロジェクトID一覧を取得（Adminの場合は null を返し、全件対象を示す）
 export function getUserAccessibleProjectIds(
   db: DatabaseSync,
   userId: number,
   userRoleType?: string,
   isAdmin?: number
 ): number[] | null {
-  if (isAdmin === 1 || userRoleType === "admin" || userRoleType === "pmo") {
+  if (isAdmin === 1 || userRoleType === "admin") {
     return null; // 全プロジェクト対象
   }
   const rows = db
@@ -701,17 +701,17 @@ export function getProjectMemberUsers(db: DatabaseSync, projectId: number) {
     .all(projectId);
 }
 
-// プロジェクトの参加メンバーを更新（Admin/PMOは常時自動参加を保証）
+// プロジェクトの参加メンバーを更新（Adminは常時自動参加を保証、PMOおよび一般は選択式）
 export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: number[]) {
   const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
 
-  // AdminとPMOのIDを取得して常に参加リストに含める
-  const adminAndPmo = db
-    .prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type IN ('admin', 'pmo')")
+  // Admin（管理者）のIDを取得して常に参加リストに含める
+  const admins = db
+    .prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type = 'admin'")
     .all() as { id: number }[];
-  for (const ap of adminAndPmo) {
-    if (!uniqueIds.includes(ap.id)) {
-      uniqueIds.push(ap.id);
+  for (const adm of admins) {
+    if (!uniqueIds.includes(adm.id)) {
+      uniqueIds.push(adm.id);
     }
   }
 
