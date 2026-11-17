@@ -205,6 +205,37 @@ export default function UserManageModal({
 
   const editingUser = editingId !== null ? users.find((u) => u.id === editingId) : null;
 
+  // 編集開始（Hookなので早期リターン if (!isOpen) より前に配置）
+  const startEdit = React.useCallback((user: User) => {
+    setEditingId(user.id);
+    setEditLoginId(user.login_id || "");
+    setEditPassword("");
+    setEditName(user.name);
+    setEditRole(user.role || "メンバー");
+    setEditRoleType(getUserRoleType(user));
+    setEditColor(user.color || "#4f46e5");
+    setEditWeekStart(user.week_start || "monday");
+    setEditShowHolidays(
+      user.show_holidays !== undefined ? Boolean(user.show_holidays) : true
+    );
+    setEditProjectIds((user.projects || []).map((p: any) => p.id));
+    setErrorMsg("");
+  }, []);
+
+  // initialUserId が指定されてモーダルが開いた場合は、直接そのユーザーの編集画面を開く
+  useEffect(() => {
+    if (isOpen) {
+      if (initialUserId) {
+        const target = users.find((u) => u.id === initialUserId);
+        if (target) {
+          startEdit(target);
+        }
+      } else {
+        setEditingId(null);
+      }
+    }
+  }, [isOpen, initialUserId, users, startEdit]);
+
   // プロジェクト一覧ロード
   useEffect(() => {
     if (isOpen) {
@@ -280,37 +311,6 @@ export default function UserManageModal({
       setIsSubmitting(false);
     }
   };
-
-  // 編集開始
-  const startEdit = React.useCallback((user: User) => {
-    setEditingId(user.id);
-    setEditLoginId(user.login_id || "");
-    setEditPassword("");
-    setEditName(user.name);
-    setEditRole(user.role || "メンバー");
-    setEditRoleType(getUserRoleType(user));
-    setEditColor(user.color || "#4f46e5");
-    setEditWeekStart(user.week_start || "monday");
-    setEditShowHolidays(
-      user.show_holidays !== undefined ? Boolean(user.show_holidays) : true
-    );
-    setEditProjectIds((user.projects || []).map((p: any) => p.id));
-    setErrorMsg("");
-  }, []);
-
-  // initialUserId が指定されてモーダルが開いた場合は、直接そのユーザーの編集画面を開く
-  useEffect(() => {
-    if (isOpen) {
-      if (initialUserId) {
-        const target = users.find((u) => u.id === initialUserId);
-        if (target) {
-          startEdit(target);
-        }
-      } else {
-        setEditingId(null);
-      }
-    }
-  }, [isOpen, initialUserId, users, startEdit]);
 
   // 編集保存
   const handleSaveEdit = async (userId: number) => {
