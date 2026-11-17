@@ -415,9 +415,9 @@ export default function IssueList({
         </div>
       </div>
 
-      {/* 課題一覧テーブル（スマホ・iPhone画面では枠内の状態ステータスを非表示にし、件名を全幅で広々と表示） */}
+      {/* 課題一覧テーブル（スマホ・iPhone画面ではtable-fixedで幅を枠内に固定し、枠内での折り返しを保証） */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse">
+        <table className="w-full text-left text-sm border-collapse table-fixed md:table-auto">
           <thead>
             <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
               <th className="hidden md:table-cell py-2.5 px-3 w-24 whitespace-nowrap">種別</th>
@@ -546,8 +546,8 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 件名（メイン列：スマホでは画面幅の大半を使って件名を表示） */}
-                    <td className="py-2.5 md:py-3 px-3 md:min-w-[240px]">
+                    {/* 件名（メイン列：スマホでは画面幅の大半を使って枠内で綺麗に折り返し表示） */}
+                    <td className="py-2.5 md:py-3 px-3 w-full max-w-0 md:max-w-none md:min-w-[240px]">
                       {/* スマホ専用の極小メタ行（課題キー・期限のみ控えめに表示） */}
                       <div className="flex md:hidden items-center gap-1.5 mb-0.5 text-[11px] text-slate-500">
                         {depth > 0 && (
@@ -589,7 +589,7 @@ export default function IssueList({
                             }
                           }}
                           title={issue.title}
-                          className={`text-left hover:text-indigo-700 transition-colors max-w-full cursor-pointer ${
+                          className={`text-left hover:text-indigo-700 transition-colors min-w-0 max-w-full cursor-pointer ${
                             isClosed
                               ? "text-slate-500"
                               : isParent
@@ -598,7 +598,7 @@ export default function IssueList({
                           }`}
                         >
                           <span
-                            className={`line-clamp-2 break-words ${
+                            className={`break-words break-all [overflow-wrap:anywhere] md:line-clamp-2 ${
                               isClosed ? "line-through" : ""
                             }`}
                           >
