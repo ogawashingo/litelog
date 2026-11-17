@@ -1764,109 +1764,109 @@ export default function AdminPage() {
                   return (
                     <div
                       key={u.id}
-                      className="px-3.5 py-2.5 flex items-center justify-between gap-2 text-sm bg-white hover:bg-slate-50/60 transition-colors"
+                      className="px-3.5 py-2.5 space-y-1.5 text-sm bg-white hover:bg-slate-50/60 transition-colors"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          style={{ backgroundColor: u.color || "#4f46e5" }}
-                          className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
-                          title={`${u.name}さんのテーマカラー: ${getAvatarColorLabel(u.color)}`}
-                        >
-                          {getUserInitials(u.name)}
-                        </div>
-                        <span className="font-bold text-slate-800 truncate">{u.name}</span>
-                        {getUserRoleType(u) === "admin" && (
-                          <span className="inline-flex items-center gap-0.5 text-xs bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
-                            <Crown className="w-3 h-3 text-amber-600" />
-                            Admin
-                          </span>
-                        )}
-                        {getUserRoleType(u) === "pmo" && (
-                          <span className="inline-flex items-center gap-0.5 text-xs bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
-                            PMO
-                          </span>
-                        )}
-
-                        {/* 所属プロジェクトタグ表示 */}
-                        <div className="hidden lg:flex items-center gap-1 shrink-0 ml-1">
-                          {u.is_admin === 1 || u.role_type === "admin" || u.role_type === "pmo" ? (
-                            <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
-                              全プロジェクト参加
+                      {/* 上段: アバター、名前、ロール、役職、個人設定ボタン */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            style={{ backgroundColor: u.color || "#4f46e5" }}
+                            className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
+                            title={`${u.name}さんのテーマカラー: ${getAvatarColorLabel(u.color)}`}
+                          >
+                            {getUserInitials(u.name)}
+                          </div>
+                          <span className="font-bold text-slate-800 truncate">{u.name}</span>
+                          {getUserRoleType(u) === "admin" && (
+                            <span className="inline-flex items-center gap-0.5 text-xs bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                              <Crown className="w-3 h-3 text-amber-600" />
+                              Admin
                             </span>
-                          ) : (u.projects || []).length > 0 ? (
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {(u.projects || []).slice(0, 3).map((p) => (
-                                <span
-                                  key={p.id}
-                                  className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200"
-                                  title={`${p.name} (${p.key})`}
-                                >
-                                  <span
-                                    className="w-1.5 h-1.5 rounded-full"
-                                    style={{ backgroundColor: p.color || "#4f46e5" }}
-                                  />
-                                  <span>{p.key}</span>
-                                </span>
-                              ))}
-                              {(u.projects || []).length > 3 && (
-                                <span
-                                  className="text-[10px] text-slate-500 font-medium"
-                                  title={(u.projects || []).map((p) => p.name).join("\n")}
-                                >
-                                  +{(u.projects || []).length - 3}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                              未配属
+                          )}
+                          {getUserRoleType(u) === "pmo" && (
+                            <span className="inline-flex items-center gap-0.5 text-xs bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                              PMO
+                            </span>
+                          )}
+                          {u.role && (
+                            <span className="text-slate-500 text-xs truncate max-w-[130px]" title={u.role}>
+                              {u.role}
                             </span>
                           )}
                         </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* 祝日表示個人設定切替（ON / OFF） */}
+                          <button
+                            type="button"
+                            onClick={() => updateUserShowHolidays(u.id, !userShowHolidays)}
+                            className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors cursor-pointer ${
+                              userShowHolidays
+                                ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                                : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
+                            }`}
+                            title={`${u.name}さんの日本の祝日表示: ${userShowHolidays ? "ON (赤字・祝日名)" : "OFF"}（クリックで切替）`}
+                          >
+                            祝{userShowHolidays ? "ON" : "OFF"}
+                          </button>
+                          {/* カレンダー個人設定切替（月曜始まり / 日曜始まり） */}
+                          <div className="inline-flex rounded border border-slate-200 bg-slate-50 p-0.5 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => updateUserWeekStart(u.id, "monday")}
+                              className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                                userWeekStart === "monday"
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "text-slate-500 hover:text-slate-800"
+                              }`}
+                              title={`${u.name}さんのカレンダーを月曜始まりに設定`}
+                            >
+                              月始
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateUserWeekStart(u.id, "sunday")}
+                              className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                                userWeekStart === "sunday"
+                                  ? "bg-indigo-600 text-white shadow-xs"
+                                  : "text-slate-500 hover:text-slate-800"
+                              }`}
+                              title={`${u.name}さんのカレンダーを日曜始まりに設定`}
+                            >
+                              日始
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-slate-500 text-xs hidden sm:inline mr-1">{u.role}</span>
-                        {/* 祝日表示個人設定切替（ON / OFF） */}
-                        <button
-                          type="button"
-                          onClick={() => updateUserShowHolidays(u.id, !userShowHolidays)}
-                          className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors cursor-pointer ${
-                            userShowHolidays
-                              ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                              : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
-                          }`}
-                          title={`${u.name}さんの日本の祝日表示: ${userShowHolidays ? "ON (赤字・祝日名)" : "OFF"}（クリックで切替）`}
-                        >
-                          祝{userShowHolidays ? "ON" : "OFF"}
-                        </button>
-                        {/* カレンダー個人設定切替（月曜始まり / 日曜始まり） */}
-                        <div className="inline-flex rounded border border-slate-200 bg-slate-50 p-0.5 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => updateUserWeekStart(u.id, "monday")}
-                            className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                              userWeekStart === "monday"
-                                ? "bg-indigo-600 text-white shadow-xs"
-                                : "text-slate-500 hover:text-slate-800"
-                            }`}
-                            title={`${u.name}さんのカレンダーを月曜始まりに設定`}
-                          >
-                            月始
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateUserWeekStart(u.id, "sunday")}
-                            className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                              userWeekStart === "sunday"
-                                ? "bg-indigo-600 text-white shadow-xs"
-                                : "text-slate-500 hover:text-slate-800"
-                            }`}
-                            title={`${u.name}さんのカレンダーを日曜始まりに設定`}
-                          >
-                            日始
-                          </button>
-                        </div>
+                      {/* 下段: 所属プロジェクトタグ表示 */}
+                      <div className="flex items-center gap-1.5 pl-9 flex-wrap text-xs">
+                        <span className="text-[11px] text-slate-400 shrink-0 font-medium">参加案件:</span>
+                        {u.is_admin === 1 || u.role_type === "admin" || u.role_type === "pmo" ? (
+                          <span className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-medium">
+                            全プロジェクト参加
+                          </span>
+                        ) : (u.projects || []).length > 0 ? (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {(u.projects || []).map((p) => (
+                              <span
+                                key={p.id}
+                                className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
+                                title={`${p.name} (${p.key})`}
+                              >
+                                <span
+                                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: p.color || "#4f46e5" }}
+                                />
+                                <span>{p.key}</span>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium">
+                            未配属
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
