@@ -9,6 +9,7 @@ import AvatarColorPicker from "./AvatarColorPicker";
 
 interface UserManageModalProps {
   isOpen: boolean;
+  initialUserId?: number | null;
   users: User[];
   currentUser: User | null;
   onSelectCurrentUser: (userId: number) => void;
@@ -168,6 +169,7 @@ export function getUserInitials(name?: string | null): string {
 
 export default function UserManageModal({
   isOpen,
+  initialUserId,
   users,
   currentUser,
   onClose,
@@ -280,7 +282,7 @@ export default function UserManageModal({
   };
 
   // 編集開始
-  const startEdit = (user: User) => {
+  const startEdit = React.useCallback((user: User) => {
     setEditingId(user.id);
     setEditLoginId(user.login_id || "");
     setEditPassword("");
@@ -294,7 +296,21 @@ export default function UserManageModal({
     );
     setEditProjectIds((user.projects || []).map((p: any) => p.id));
     setErrorMsg("");
-  };
+  }, []);
+
+  // initialUserId が指定されてモーダルが開いた場合は、直接そのユーザーの編集画面を開く
+  useEffect(() => {
+    if (isOpen) {
+      if (initialUserId) {
+        const target = users.find((u) => u.id === initialUserId);
+        if (target) {
+          startEdit(target);
+        }
+      } else {
+        setEditingId(null);
+      }
+    }
+  }, [isOpen, initialUserId, users, startEdit]);
 
   // 編集保存
   const handleSaveEdit = async (userId: number) => {

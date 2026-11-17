@@ -22,7 +22,7 @@ interface UserContextValue {
   logout: () => Promise<void>;
   setCurrentUserById: (id: number) => void;
   refreshUsers: () => Promise<void>;
-  openUserManageModal: () => void;
+  openUserManageModal: (initialUserId?: number) => void;
   openPasswordChangeModal: () => void;
   updateUserWeekStart: (userId: number, weekStart: WeekStartDay) => Promise<boolean>;
   effectiveWeekStart: WeekStartDay;
@@ -70,6 +70,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
+  const [initialEditUserId, setInitialEditUserId] = useState<number | null>(null);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SYSTEM_SETTINGS);
   const [previewTheme, setPreviewTheme] = useState<ThemeId | null>(null);
@@ -388,7 +389,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         logout,
         setCurrentUserById,
         refreshUsers,
-        openUserManageModal: () => setIsManageOpen(true),
+        openUserManageModal: (initialUserId?: number) => {
+          setInitialEditUserId(typeof initialUserId === "number" ? initialUserId : null);
+          setIsManageOpen(true);
+        },
         openPasswordChangeModal: () => setIsPasswordModalOpen(true),
         updateUserWeekStart,
         effectiveWeekStart,
@@ -405,10 +409,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       {children}
       <UserManageModal
         isOpen={isManageOpen}
+        initialUserId={initialEditUserId}
         users={users}
         currentUser={currentUser}
         onSelectCurrentUser={(id) => setCurrentUserById(id)}
-        onClose={() => setIsManageOpen(false)}
+        onClose={() => {
+          setIsManageOpen(false);
+          setInitialEditUserId(null);
+        }}
         onUpdated={refreshUsers}
         onOpenPasswordChange={() => setIsPasswordModalOpen(true)}
       />

@@ -18,6 +18,7 @@ import {
   Calendar,
   Sliders,
   Plus,
+  UserPlus,
   Edit2,
   Trash2,
   AlertTriangle,
@@ -1776,10 +1777,12 @@ export default function AdminPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={openUserManageModal}
-                  className="text-sm font-bold text-indigo-600 hover:underline cursor-pointer"
+                  onClick={() => openUserManageModal()}
+                  className="inline-flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                  title="新しいメンバーを追加"
                 >
-                  追加・編集を開く
+                  <Plus className="w-4 h-4" />
+                  <span>追加</span>
                 </button>
               </div>
               <p className="text-sm text-slate-500">
@@ -1864,6 +1867,17 @@ export default function AdminPage() {
                               日始
                             </button>
                           </div>
+                          {/* メンバー編集ボタン（クリックでそのメンバーの編集専用ビューを直接開く） */}
+                          {canManageIssues(currentUser) && (
+                            <button
+                              type="button"
+                              onClick={() => openUserManageModal(u.id)}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-md transition-colors cursor-pointer"
+                              title={`${u.name}さんの情報を編集（所属プロジェクト・権限・表示設定）`}
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -1914,7 +1928,7 @@ export default function AdminPage() {
 
             <button
               type="button"
-              onClick={openUserManageModal}
+              onClick={() => openUserManageModal()}
               className="w-full py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Users className="w-4 h-4" />

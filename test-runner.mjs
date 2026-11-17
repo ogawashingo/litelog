@@ -2390,7 +2390,7 @@ async function runTests() {
     console.log("✓ プロジェクト参加メンバーシップ＆アクセス権限（Admin/PMO/一般の自由な脱退・参加・個人案件遮断）検証テスト成功");
   }
 
-  // 44. メンバー管理画面における編集モードの視覚的独立（専用ビュー切り替え）検証
+  // 44. メンバー管理画面における編集モードの視覚的独立（専用ビュー切り替え）および管理画面からの直接編集連携検証
   {
     const manageModalSource = fs.readFileSync(path.join(process.cwd(), "src/components/UserManageModal.tsx"), "utf-8");
     if (!manageModalSource.includes("editingId !== null && editingUser")) {
@@ -2399,7 +2399,15 @@ async function runTests() {
     if (!manageModalSource.includes("を編集中") || !manageModalSource.includes("← 一覧に戻る")) {
       throw new Error("UserManageModal.tsx に編集対象メンバー明示ヘッダーまたは一覧に戻るボタンが含まれていません");
     }
-    console.log("✓ メンバー管理モーダル編集モード専用ビュー切り替え構造検証テスト成功");
+
+    const adminPageSource = fs.readFileSync(path.join(process.cwd(), "src/app/admin/page.tsx"), "utf-8");
+    if (!adminPageSource.includes("openUserManageModal(u.id)")) {
+      throw new Error("管理ページの各メンバー行に個別編集起動（openUserManageModal(u.id)）が含まれていません");
+    }
+    if (!adminPageSource.includes("<span>追加</span>")) {
+      throw new Error("管理ページの右上ボタンが「追加」になっていません");
+    }
+    console.log("✓ メンバー管理モーダル編集モード専用ビュー切り替え＆管理画面直接編集起動連携検証テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");
