@@ -415,7 +415,7 @@ export default function IssueList({
         </div>
       </div>
 
-      {/* 課題一覧テーブル（スマホ幅では件名メイン＋状態のみの2列構成にして横スクロールを解消） */}
+      {/* 課題一覧テーブル（スマホ・iPhone画面では枠内の状態ステータスを非表示にし、件名を全幅で広々と表示） */}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
@@ -424,7 +424,7 @@ export default function IssueList({
               <th className="hidden md:table-cell py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
               <th className="py-2 md:py-2.5 px-3 md:min-w-[240px]">件名</th>
               <th className="hidden md:table-cell py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
-              <th className="py-2 md:py-2.5 px-2.5 md:px-3 w-20 md:w-28 text-right md:text-left whitespace-nowrap">状態</th>
+              <th className="hidden md:table-cell py-2.5 px-3 w-28 whitespace-nowrap">状態</th>
               {isShowingClosed && (
                 <th className="hidden md:table-cell py-2.5 px-3 w-28 whitespace-nowrap">完了理由</th>
               )}
@@ -666,8 +666,8 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 状態（セレクトボックスで直接変更可能） */}
-                    <td className="py-2.5 md:py-3 px-2 md:px-3 whitespace-nowrap text-right md:text-left">
+                    {/* 状態（セレクトボックスで直接変更可能、スマホ・iPhoneでは件名表示を最大化するため非表示） */}
+                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap text-left">
                       <select
                         value={issue.status}
                         onChange={(e) => {
