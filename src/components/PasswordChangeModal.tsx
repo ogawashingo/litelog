@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut, Calendar } from "lucide-react";
+import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut, Calendar, Smartphone, QrCode, ShieldCheck, Copy } from "lucide-react";
 import { User, WeekStartDay, getUserRoleType } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
@@ -39,6 +39,101 @@ export default function PasswordChangeModal({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // 2要素認証（TOTP）管理用State
+  const [is2faEnabled, setIs2faEnabled] = useState(Boolean(currentUser?.totp_enabled));
+  const [showTotpSetup, setShowTotpSetup] = useState(false);
+  const [totpSetupData, setTotpSetupData] = useState<{ secret: string; uri: string; qrSvg: string } | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [copiedTotpSecret, setCopiedTotpSecret] = useState(false);
+  const [showTotpDisable, setShowTotpDisable] = useState(false);
+  const [totpDisablePassword, setTotpDisablePassword] = useState("");
+  const [isTotpLoading, setIsTotpLoading] = useState(false);
+
+  // 2要素認証セットアップ情報のロード
+  const handleStartTotpSetup = async () => {
+    try {
+      setIsTotpLoading(true);
+      setErrorMsg("");
+      const res = await fetch("/api/auth/2fa");
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "2FA情報の生成に失敗しました");
+      }
+      setTotpSetupData(data);
+      setShowTotpSetup(true);
+      setShowTotpDisable(false);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "2FA設定の開始に失敗しました");
+    } finally {
+      setIsTotpLoading(false);
+    }
+  };
+
+  // 2要素認証の有効化実行
+  const handleEnableTotp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!totpSetupData || !totpCode.trim()) {
+      setErrorMsg("認証アプリに表示されている6桁のコードを入力してください");
+      return;
+    }
+    try {
+      setIsTotpLoading(true);
+      setErrorMsg("");
+      const res = await fetch("/api/auth/2fa", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret: totpSetupData.secret,
+          code: totpCode.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "2要素認証の有効化に失敗しました");
+      }
+      setIs2faEnabled(true);
+      setShowTotpSetup(false);
+      setTotpCode("");
+      setSuccessMsg("2要素認証を有効化しました！次回ログイン時から確認コードが要求されます。");
+      if (onSuccess) await onSuccess();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "有効化エラーが発生しました");
+    } finally {
+      setIsTotpLoading(false);
+    }
+  };
+
+  // 2要素認証の解除実行
+  const handleDisableTotp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!totpDisablePassword) {
+      setErrorMsg("2要素認証を解除するには現在のパスワードを入力してください");
+      return;
+    }
+    try {
+      setIsTotpLoading(true);
+      setErrorMsg("");
+      const res = await fetch("/api/auth/2fa", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: totpDisablePassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "2要素認証の解除に失敗しました");
+      }
+      setIs2faEnabled(false);
+      setShowTotpDisable(false);
+      setTotpDisablePassword("");
+      setSuccessMsg("2要素認証を解除しました。");
+      if (onSuccess) await onSuccess();
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "解除エラーが発生しました");
+    } finally {
+      setIsTotpLoading(false);
+    }
+  };
+
   // モーダルを開いたときに現在のユーザー情報で初期化
   useEffect(() => {
     if (isOpen && currentUser) {
@@ -50,6 +145,11 @@ export default function PasswordChangeModal({
           ? Boolean(currentUser.show_holidays)
           : true
       );
+      setIs2faEnabled(Boolean(currentUser.totp_enabled));
+      setShowTotpSetup(false);
+      setShowTotpDisable(false);
+      setTotpCode("");
+      setTotpDisablePassword("");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -128,6 +228,11 @@ export default function PasswordChangeModal({
           ? "プロフィール設定とパスワードを変更しました。"
           : "プロフィール設定（テーマ色・表示名・カレンダー設定）を保存しました。"
       );
+      setIs2faEnabled(Boolean(currentUser.totp_enabled));
+      setShowTotpSetup(false);
+      setShowTotpDisable(false);
+      setTotpCode("");
+      setTotpDisablePassword("");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -398,6 +503,170 @@ export default function PasswordChangeModal({
                 )}
               </button>
             </div>
+          </div>
+
+          {/* 5. 2要素認証（TOTP）セキュリティ設定セクション */}
+          <div className="pt-3 border-t border-gray-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+                <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                <span>2要素認証（TOTP）設定</span>
+              </span>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  is2faEnabled
+                    ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                    : "bg-slate-100 text-slate-500 border border-slate-200"
+                }`}
+              >
+                {is2faEnabled ? "有効（保護中）" : "未設定"}
+              </span>
+            </div>
+
+            {is2faEnabled ? (
+              /* 2FA有効中の表示と解除ボタン */
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>スマートフォン認証アプリで保護されています</span>
+                  </div>
+                  {!showTotpDisable && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTotpDisable(true)}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-medium underline cursor-pointer"
+                    >
+                      解除する
+                    </button>
+                  )}
+                </div>
+
+                {showTotpDisable && (
+                  <div className="pt-2 border-t border-emerald-200 space-y-2 animate-in fade-in duration-150">
+                    <p className="text-[11px] text-slate-600">
+                      2要素認証を解除するには現在のパスワードを入力してください:
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={totpDisablePassword}
+                        onChange={(e) => setTotpDisablePassword(e.target.value)}
+                        placeholder="現在のパスワード"
+                        className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                      />
+                      <button
+                        type="button"
+                        disabled={isTotpLoading || !totpDisablePassword}
+                        onClick={handleDisableTotp}
+                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                      >
+                        {isTotpLoading ? "解除中..." : "解除を実行"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTotpDisable(false);
+                          setTotpDisablePassword("");
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs cursor-pointer font-medium"
+                      >
+                        中止
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* 2FA未設定時の案内と設定開始UI */
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Google Authenticator 等のアプリで6桁コードを要求し、アカウントを不正アクセスから強固に守ります。
+                  </p>
+                  {!showTotpSetup && (
+                    <button
+                      type="button"
+                      disabled={isTotpLoading}
+                      onClick={handleStartTotpSetup}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition cursor-pointer shrink-0 shadow-xs"
+                    >
+                      {isTotpLoading ? "準備中..." : "2FAを設定する"}
+                    </button>
+                  )}
+                </div>
+
+                {showTotpSetup && totpSetupData && (
+                  <div className="pt-2 border-t border-slate-200 space-y-3 animate-in fade-in duration-150">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-lg border border-slate-200">
+                      <div
+                        className="w-28 h-28 flex items-center justify-center p-1 bg-white rounded-lg border border-slate-100 shrink-0"
+                        dangerouslySetInnerHTML={{ __html: totpSetupData.qrSvg }}
+                      />
+                      <div className="text-[11px] text-slate-600 space-y-1.5 flex-1">
+                        <p className="font-semibold text-slate-800">
+                          ① スマホの認証アプリで左のQRを読み取ってください
+                        </p>
+                        <div>
+                          <span className="text-slate-400">または手動入力用コード:</span>
+                          <div className="flex items-center gap-1 font-mono text-[10px] bg-slate-100 px-2 py-1 rounded select-all mt-0.5">
+                            <span className="truncate">{totpSetupData.secret}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(totpSetupData.secret);
+                                setCopiedTotpSecret(true);
+                                setTimeout(() => setCopiedTotpSecret(false), 2000);
+                              }}
+                              className="ml-auto p-0.5 hover:text-indigo-600 cursor-pointer"
+                              title="コピー"
+                            >
+                              {copiedTotpSecret ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-semibold text-slate-700">
+                        ② アプリに表示された6桁の確認コードを入力してください
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={6}
+                          value={totpCode}
+                          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                          placeholder="例: 123456"
+                          className="w-36 text-center tracking-widest font-mono font-bold py-1.5 bg-white border border-slate-300 rounded-lg text-sm"
+                        />
+                        <button
+                          type="button"
+                          disabled={isTotpLoading || totpCode.length !== 6}
+                          onClick={handleEnableTotp}
+                          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-xs"
+                        >
+                          {isTotpLoading ? "検証中..." : "有効化して完了"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowTotpSetup(false);
+                            setTotpCode("");
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium cursor-pointer"
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* フッターボタン */}

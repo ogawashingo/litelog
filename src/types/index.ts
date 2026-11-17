@@ -17,6 +17,7 @@ export interface User {
   color: string;     // アバターカラー（16進数カラーコード）
   week_start?: WeekStartDay; // カレンダー週開始曜日（'monday' | 'sunday'）
   show_holidays?: boolean;   // 日本の祝日表示フラグ（true: 表示, false: 非表示）
+  totp_enabled?: number;     // 2要素認証（TOTP）有効フラグ（1: 有効, 0: 未設定）
   created_at: string;
   issue_count?: number;      // 担当課題総数（集計時）
   open_issue_count?: number; // 未完了の担当課題数（集計時）

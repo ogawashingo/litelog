@@ -17,6 +17,7 @@ export interface SessionUser {
   color: string;
   week_start?: string;
   show_holidays?: number;
+  totp_enabled?: number;
   created_at: string;
 }
 
@@ -150,6 +151,56 @@ export function verifySessionToken(token: string | undefined | null): number | n
 }
 
 /**
+ * 2要素認証コード入力待機用の一時署名トークン（有効期限5分）を生成します
+ * 形式: 2fa.<userId>.<expiresAtMs>.<signatureHex>
+ */
+export function createTemp2faToken(userId: number, maxAgeSec = 300): string {
+  const expiresAt = Date.now() + maxAgeSec * 1000;
+  const payload = `2fa.${userId}.${expiresAt}`;
+  const secret = getSessionSecret();
+  const signature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  return `${payload}.${signature}`;
+}
+
+/**
+ * 2要素認証用の一時署名トークンを検証し、有効であればユーザーIDを返します
+ */
+export function verifyTemp2faToken(token: string | undefined | null): number | null {
+  if (!token || typeof token !== "string") return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 4 || parts[0] !== "2fa") {
+    return null;
+  }
+
+  const [, uidStr, expStr, sigHex] = parts;
+  const userId = Number(uidStr);
+  const expiresAt = Number(expStr);
+
+  if (!Number.isInteger(userId) || userId <= 0 || !Number.isFinite(expiresAt)) {
+    return null;
+  }
+
+  if (Date.now() > expiresAt) {
+    return null;
+  }
+
+  const payload = `2fa.${uidStr}.${expStr}`;
+  const secret = getSessionSecret();
+  const expectedSigHex = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+
+  try {
+    const sigBuf = Buffer.from(sigHex, "hex");
+    const expectedBuf = Buffer.from(expectedSigHex, "hex");
+    if (sigBuf.length !== expectedBuf.length) return null;
+    if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+    return userId;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 現在のリクエストのCookieからログイン中のユーザー情報を取得します
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -168,7 +219,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const db = getDb();
     const user = db
       .prepare(`
-        SELECT id, login_id, name, role, is_admin, role_type, color, week_start, show_holidays, created_at
+        SELECT id, login_id, name, role, is_admin, role_type, color, week_start, show_holidays, totp_enabled, created_at
         FROM users
         WHERE id = ?
       `)

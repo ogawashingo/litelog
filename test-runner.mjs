@@ -90,6 +90,12 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     db.exec("ALTER TABLE users ADD COLUMN show_holidays INTEGER NOT NULL DEFAULT 1;");
     console.log("✓ users.show_holidays カラムのマイグレーションが成功しました");
   }
+  if (!userCols.some((col) => col.name === "totp_secret")) {
+    db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT;");
+  }
+  if (!userCols.some((col) => col.name === "totp_enabled")) {
+    db.exec("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;");
+  }
   db.prepare(`
     UPDATE users
     SET is_admin = 1,
@@ -295,6 +301,19 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     );
     CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
+  `);
+  // 招待トークンテーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS invitations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT UNIQUE NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
+    CREATE INDEX IF NOT EXISTS idx_invitations_user_id ON invitations(user_id);
   `);
   // 既存の「〜にコメントを追加しました」を実際のコメント内容へマイグレーション
   db.exec(`
@@ -2598,6 +2617,144 @@ async function runTests() {
     db.prepare("UPDATE users SET is_admin = 1, role_type = 'admin' WHERE login_id = 'yamada'").run();
 
     console.log("✓ 最後のシステム管理者（Admin）削除防止および権限解除防止検証テスト成功");
+  }
+
+  // 42. TOTP 2要素認証・QRコード生成・招待リンク発行＆受諾フロー検証テスト
+  {
+    const { generateTotpSecret, generateTotpCode, verifyTotpCode, getTotpUri, base32Encode, base32Decode } = await import("./src/lib/totp.ts");
+    const { generateQrCodeSvg, generateQrMatrix } = await import("./src/lib/qrcode.ts");
+
+    // 2FA一時署名トークンの検証用ヘルパー（src/lib/auth.ts と同一ロジック）
+    const testSecret = "test_session_secret_key_1234567890";
+    function createTestTemp2faToken(userId, maxAgeSec = 300) {
+      const expiresAt = Date.now() + maxAgeSec * 1000;
+      const payload = `2fa.${userId}.${expiresAt}`;
+      const signature = crypto.createHmac("sha256", testSecret).update(payload).digest("hex");
+      return `${payload}.${signature}`;
+    }
+    function verifyTestTemp2faToken(token) {
+      if (!token || typeof token !== "string") return null;
+      const parts = token.split(".");
+      if (parts.length !== 4 || parts[0] !== "2fa") return null;
+      const [, uidStr, expStr, sigHex] = parts;
+      const userId = Number(uidStr);
+      const expiresAt = Number(expStr);
+      if (!Number.isInteger(userId) || userId <= 0 || !Number.isFinite(expiresAt)) return null;
+      if (Date.now() > expiresAt) return null;
+      const payload = `2fa.${uidStr}.${expStr}`;
+      const expectedSigHex = crypto.createHmac("sha256", testSecret).update(payload).digest("hex");
+      try {
+        const sigBuf = Buffer.from(sigHex, "hex");
+        const expBuf = Buffer.from(expectedSigHex, "hex");
+        if (sigBuf.length !== expBuf.length) return null;
+        if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+        return userId;
+      } catch {
+        return null;
+      }
+    }
+
+    // A. Base32相互変換
+    const sampleBuffer = Buffer.from("PersonalBacklogSecurityTest123!");
+    const encoded = base32Encode(sampleBuffer);
+    const decoded = base32Decode(encoded);
+    if (decoded.toString() !== "PersonalBacklogSecurityTest123!") {
+      throw new Error("Base32相互エンコード・デコードテストに失敗しました");
+    }
+
+    // B. TOTP生成・照合・時刻ズレ耐性
+    const secret = generateTotpSecret();
+    if (!secret || secret.length !== 32) {
+      throw new Error(`TOTP秘密鍵生成テスト失敗: length=${secret?.length}`);
+    }
+
+    const testTime = 1731859200000; // 基準時刻
+    const code = generateTotpCode(secret, testTime);
+    if (!/^\d{6}$/.test(code)) {
+      throw new Error(`TOTPコードフォーマット不正: ${code}`);
+    }
+
+    // 正しいコード
+    if (!verifyTotpCode(code, secret, 1, testTime)) {
+      throw new Error("TOTPコード同一時刻検証失敗");
+    }
+    // ±25秒後（同一または隣接ウィンドウ）
+    if (!verifyTotpCode(code, secret, 1, testTime + 25000)) {
+      throw new Error("TOTP +25秒ウィンドウ検証失敗");
+    }
+    // 不正なコード
+    if (verifyTotpCode("000000", secret, 1, testTime)) {
+      throw new Error("TOTP 不正コードが通過してしまいました");
+    }
+
+    // C. QRコードSVG生成テスト
+    const uri = getTotpUri(secret, "invitee_user", "PersonalBacklog");
+    const matrix = generateQrMatrix(uri);
+    if (!matrix || matrix.length < 21 || matrix.length > 100) {
+      throw new Error(`QRマトリクスサイズ異常: ${matrix?.length}`);
+    }
+    const svg = generateQrCodeSvg(uri);
+    if (!svg.includes("<svg") || !svg.includes("</svg>") || !svg.includes("path")) {
+      throw new Error("QRコードSVG生成テスト失敗");
+    }
+
+    // D. 2FA一時署名トークン生成＆検証
+    const tempToken = createTestTemp2faToken(999, 300);
+    const verifiedUserId = verifyTestTemp2faToken(tempToken);
+    if (verifiedUserId !== 999) {
+      throw new Error(`2FA一時トークン検証失敗: 期待=999, 実際=${verifiedUserId}`);
+    }
+    const tamperedToken = tempToken.replace(/^2fa\.999\./, "2fa.888.");
+    if (verifyTestTemp2faToken(tamperedToken) !== null) {
+      throw new Error("改ざんされた2FA一時トークンが通過してしまいました");
+    }
+
+    // E. 招待トークンテーブルへの発行・検証・受諾テスト
+    const inviteUser = db.prepare(`
+      INSERT INTO users (login_id, password, name, role, role_type, is_admin, color)
+      VALUES ('invite_target', 'temp_pass', '招待受諾テストユーザー', 'メンバー', 'member', 0, '#0284c7')
+    `).run().lastInsertRowid;
+
+    const inviteToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString().replace("T", " ").slice(0, 19);
+
+    db.prepare(`
+      INSERT INTO invitations (token, user_id, expires_at)
+      VALUES (?, ?, ?)
+    `).run(inviteToken, inviteUser, expiresAt);
+
+    // 未使用確認
+    const invRow = db.prepare("SELECT * FROM invitations WHERE token = ?").get(inviteToken);
+    if (!invRow || invRow.used_at !== null || invRow.user_id !== Number(inviteUser)) {
+      throw new Error("招待トークン発行テスト失敗");
+    }
+
+    // 受諾（パスワード設定 ＆ 2FA有効化 ＆ トークン消費）
+    const newPass = "NewSecurePassword2026!";
+    const newHash = hashPassword(newPass);
+    db.prepare(`
+      UPDATE users
+      SET password = ?, totp_secret = ?, totp_enabled = 1
+      WHERE id = ?
+    `).run(newHash, secret, inviteUser);
+
+    db.prepare("UPDATE invitations SET used_at = CURRENT_TIMESTAMP WHERE id = ?").run(invRow.id);
+
+    // 受諾後の検証
+    const updatedUser = db.prepare("SELECT * FROM users WHERE id = ?").get(inviteUser);
+    if (updatedUser.totp_enabled !== 1 || !verifyPassword(newPass, updatedUser.password)) {
+      throw new Error("招待受諾後のユーザーパスワード・2FA更新テスト失敗");
+    }
+
+    const consumedInv = db.prepare("SELECT * FROM invitations WHERE token = ?").get(inviteToken);
+    if (!consumedInv.used_at) {
+      throw new Error("招待トークンの使用済み更新テスト失敗");
+    }
+
+    // 後始末
+    db.prepare("DELETE FROM users WHERE id = ?").run(inviteUser);
+
+    console.log("✓ 招待リンク発行・受諾＆TOTP 2要素認証・QRコード生成検証テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

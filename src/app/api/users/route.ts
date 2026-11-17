@@ -18,6 +18,7 @@ export async function GET() {
         u.color,
         u.week_start,
         u.show_holidays,
+        COALESCE(u.totp_enabled, 0) AS totp_enabled,
         u.created_at,
         COUNT(i.id) AS issue_count,
         SUM(CASE WHEN i.id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END) AS open_issue_count
@@ -168,6 +169,7 @@ export async function POST(request: Request) {
         u.color,
         u.week_start,
         u.show_holidays,
+        COALESCE(u.totp_enabled, 0) AS totp_enabled,
         u.created_at,
         0 AS issue_count,
         0 AS open_issue_count

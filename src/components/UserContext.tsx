@@ -11,6 +11,8 @@ import PasswordChangeModal from "./PasswordChangeModal";
 interface LoginResult {
   ok: boolean;
   error?: string;
+  requires2fa?: boolean;
+  tempToken?: string;
 }
 
 interface UserContextValue {
@@ -18,8 +20,10 @@ interface UserContextValue {
   currentUser: User | null;
   isAuthReady: boolean;
   login: (loginId: string, password: string) => Promise<LoginResult>;
+  verify2fa: (tempToken: string, code: string) => Promise<LoginResult>;
   setupAdmin: (name: string, loginId: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
+  setCurrentUser: (user: User) => void;
   setCurrentUserById: (id: number) => void;
   refreshUsers: () => Promise<void>;
   openUserManageModal: (initialUserId?: number) => void;
@@ -41,8 +45,10 @@ const UserContext = createContext<UserContextValue>({
   currentUser: null,
   isAuthReady: false,
   login: async () => ({ ok: false }),
+  verify2fa: async () => ({ ok: false }),
   setupAdmin: async () => ({ ok: false }),
   logout: async () => {},
+  setCurrentUser: () => {},
   setCurrentUserById: () => {},
   refreshUsers: async () => {},
   openUserManageModal: () => {},
@@ -216,10 +222,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     refreshSettings();
   }, [refreshUsers, refreshSettings]);
 
-  // 未ログイン状態で /login 以外のページにアクセスした場合は /login へ誘導
+  // 未ログイン状態で /login および /invite 以外のページにアクセスした場合は /login へ誘導
   useEffect(() => {
     if (!isAuthReady) return;
-    if (!currentUserId && pathname !== "/login") {
+    if (!currentUserId && pathname !== "/login" && !pathname.startsWith("/invite")) {
       router.replace("/login");
     }
   }, [isAuthReady, currentUserId, pathname, router]);
@@ -235,6 +241,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         });
 
         const data = await res.json();
+
+        // 2要素認証コード入力が必要な場合
+        if (data.requires2fa && data.tempToken) {
+          return {
+            ok: true,
+            requires2fa: true,
+            tempToken: data.tempToken,
+          };
+        }
+
         if (!res.ok || !data.authenticated) {
           return { ok: false, error: data.error || "ログインに失敗しました" };
         }
@@ -247,6 +263,34 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         return { ok: true };
       } catch {
         return { ok: false, error: "ログイン通信に失敗しました" };
+      }
+    },
+    [refreshUsers]
+  );
+
+  // 2要素認証コードの検証とログイン完了
+  const verify2fa = useCallback(
+    async (tempToken: string, code: string): Promise<LoginResult> => {
+      try {
+        const res = await fetch("/api/auth/2fa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tempToken, code }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.authenticated) {
+          return { ok: false, error: data.error || "2要素認証コードが正しくありません" };
+        }
+
+        setCurrentUserId(data.user.id);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, String(data.user.id));
+        }
+        await refreshUsers();
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "2要素認証通信に失敗しました" };
       }
     },
     [refreshUsers]
@@ -301,6 +345,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY, String(id));
     }
+  }, []);
+
+  const setCurrentUser = useCallback((user: User) => {
+    setCurrentUserId(user.id);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, String(user.id));
+    }
+    setUsers((prev) => {
+      const exists = prev.some((u) => u.id === user.id);
+      if (exists) {
+        return prev.map((u) => (u.id === user.id ? user : u));
+      }
+      return [...prev, user];
+    });
   }, []);
 
   const currentUser = users.find((u) => u.id === currentUserId) || null;
@@ -385,8 +443,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         currentUser,
         isAuthReady,
         login,
+        verify2fa,
         setupAdmin,
         logout,
+        setCurrentUser,
         setCurrentUserById,
         refreshUsers,
         openUserManageModal: (initialUserId?: number) => {

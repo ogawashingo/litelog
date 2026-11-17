@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck, Search } from "lucide-react";
+import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck, Search, Mail, Copy, ExternalLink, Send } from "lucide-react";
 import { User, WeekStartDay, UserRoleType, getUserRoleType, isAdminUser, canManageIssues } from "@/types";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
 import AvatarColorPicker from "./AvatarColorPicker";
@@ -198,6 +198,47 @@ export default function UserManageModal({
   const [editWeekStart, setEditWeekStart] = useState<WeekStartDay>("monday");
   const [editShowHolidays, setEditShowHolidays] = useState(true);
   const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
+
+  // 招待リンク発行State
+  const [inviteResult, setInviteResult] = useState<{
+    url: string;
+    userName: string;
+    expiresAt: string;
+  } | null>(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+  const [isGeneratingInvite, setIsGeneratingInvite] = useState(false);
+
+  // 招待リンク発行処理
+  const handleGenerateInvite = async (userId: number, userName: string) => {
+    try {
+      setIsGeneratingInvite(true);
+      setErrorMsg("");
+      const res = await fetch("/api/invitations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, hoursValid: 24 }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "招待リンクの発行に失敗しました");
+      }
+      setInviteResult({
+        url: data.inviteUrl,
+        userName,
+        expiresAt: data.expiresAt,
+      });
+      // 自動でクリップボードにコピー
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(data.inviteUrl);
+        setCopiedInvite(true);
+        setTimeout(() => setCopiedInvite(false), 3000);
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setIsGeneratingInvite(false);
+    }
+  };
 
   const editingUser = editingId !== null ? users.find((u) => u.id === editingId) : null;
 
@@ -474,6 +515,55 @@ export default function UserManageModal({
             </div>
           )}
 
+          {/* 招待リンク発行成功バナー */}
+          {inviteResult && (
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
+                  <Send className="w-4 h-4 text-emerald-600" />
+                  「{inviteResult.userName}」さんの招待リンクを発行しました（24時間有効）
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInviteResult(null)}
+                  className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer p-0.5"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-emerald-200 shadow-2xs">
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteResult.url}
+                  className="w-full text-xs font-mono text-slate-700 bg-transparent outline-hidden select-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(inviteResult.url);
+                    setCopiedInvite(true);
+                    setTimeout(() => setCopiedInvite(false), 3000);
+                  }}
+                  className="flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors shrink-0 cursor-pointer shadow-xs"
+                >
+                  {copiedInvite ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" /> コピー完了！
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" /> コピー
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="text-[11px] text-emerald-700 leading-relaxed">
+                💡 このURLをSlackやメール等で相手に送るだけで、本人が安全にパスワードと2要素認証を設定できます。（管理者がパスワードを決める必要はありません）
+              </p>
+            </div>
+          )}
+
           {/* 編集モード時は編集専用ビューを表示（他メンバーやログイン中カードを隠し、誰を編集しているかを明確化） */}
           {editingId !== null && editingUser ? (
             <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4">
@@ -737,6 +827,18 @@ export default function UserManageModal({
                     })()}
                   </div>
                   <div className="flex items-center gap-2">
+                    {isCurrentUserAdmin && (
+                      <button
+                        type="button"
+                        disabled={isGeneratingInvite || isSubmitting}
+                        onClick={() => handleGenerateInvite(editingUser.id, editName)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border border-emerald-300 rounded-md transition-colors cursor-pointer font-medium disabled:opacity-50"
+                        title="本人にパスワードと2要素認証を設定してもらう招待URLを発行してクリップボードにコピーします"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{isGeneratingInvite ? "発行中..." : "招待リンクを発行"}</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditingId(null)}
@@ -800,11 +902,11 @@ export default function UserManageModal({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    初期パスワード（省略時: ID+123）
+                    初期パスワード（省略時は招待リンクで本人が設定可）
                   </label>
                   <input
                     type="text"
-                    placeholder="例: takahashi123"
+                    placeholder="省略可（追加後に招待リンクを発行できます）"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
@@ -1043,8 +1145,20 @@ export default function UserManageModal({
                           </div>
                         </div>
 
-                        {/* 右側: 編集・削除ボタン */}
+                        {/* 右側: 招待・編集・削除ボタン */}
                         <div className="flex items-center gap-1.5 shrink-0">
+                          {isCurrentUserAdmin && (
+                            <button
+                              type="button"
+                              disabled={isGeneratingInvite}
+                              onClick={() => handleGenerateInvite(u.id, u.name)}
+                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 border border-emerald-300 rounded-md transition-colors cursor-pointer font-medium disabled:opacity-50"
+                              title={`【招待リンク発行】${u.name}さん専用のパスワード・2FA設定URLを発行してクリップボードにコピー`}
+                            >
+                              <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="hidden sm:inline">招待</span>
+                            </button>
+                          )}
                           {!canCurrentUserManageMembers && isCurrent && onOpenPasswordChange && (
                             <button
                               type="button"

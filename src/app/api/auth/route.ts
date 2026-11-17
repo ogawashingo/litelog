@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import {
   SESSION_COOKIE_NAME,
   createSessionToken,
+  createTemp2faToken,
   getSessionCookieOptions,
   getSessionUser,
   hashPassword,
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     const cleanLoginId = String(loginId).trim();
 
     const row = db.prepare(`
-      SELECT id, login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays, created_at
+      SELECT id, login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays, totp_enabled, created_at
       FROM users
       WHERE LOWER(login_id) = LOWER(?)
     `).get(cleanLoginId) as {
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       color: string;
       week_start: string;
       show_holidays: number;
+      totp_enabled?: number;
       created_at: string;
     } | undefined;
 
@@ -79,6 +81,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // 2要素認証（TOTP）が有効化されている場合、一時トークンを返し認証コード入力を要求
+    if (row.totp_enabled === 1) {
+      const tempToken = createTemp2faToken(row.id);
+      return NextResponse.json({
+        requires2fa: true,
+        tempToken,
+        message: "2要素認証コード（6桁）を入力してください",
+      });
+    }
+
     const user = {
       id: row.id,
       login_id: row.login_id,
@@ -89,6 +101,7 @@ export async function POST(request: Request) {
       color: row.color,
       week_start: row.week_start || "monday",
       show_holidays: row.show_holidays !== 0,
+      totp_enabled: 0,
       created_at: row.created_at,
     };
 

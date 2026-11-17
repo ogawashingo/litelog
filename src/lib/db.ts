@@ -77,6 +77,12 @@ function initDb(db: DatabaseSync) {
     if (!userCols.some((col) => col.name === "show_holidays")) {
       db.exec("ALTER TABLE users ADD COLUMN show_holidays INTEGER NOT NULL DEFAULT 1;");
     }
+    if (!userCols.some((col) => col.name === "totp_secret")) {
+      db.exec("ALTER TABLE users ADD COLUMN totp_secret TEXT;");
+    }
+    if (!userCols.some((col) => col.name === "totp_enabled")) {
+      db.exec("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;");
+    }
 
     // is_admin=1 のユーザーは常に role_type='admin' となるよう整合性を維持
     db.exec("UPDATE users SET role_type = 'admin' WHERE is_admin = 1 AND role_type != 'admin';");
@@ -342,6 +348,20 @@ function initDb(db: DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
+  `);
+
+  // 招待トークンテーブル（新規メンバーの初期パスワード手動手渡し解消・ワンタイム招待リンク）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS invitations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT UNIQUE NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
+    CREATE INDEX IF NOT EXISTS idx_invitations_user_id ON invitations(user_id);
   `);
 
   // project_members の初期データ移行（初回のみ1回だけ実行。ユーザーによる脱退操作を勝手に上書き・再登録しないようにガード）
