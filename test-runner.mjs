@@ -2355,10 +2355,51 @@ async function runTests() {
       throw new Error("参加させたmemberBが登録されていません");
     }
 
+    // 6. ユーザー起点での所属プロジェクト更新（setUserProjects）検証
+    // memberB を prjA と prjB の両方に参加させてから、prjA だけを脱退
+    function testSetUserProjects(d, uid, pids) {
+      d.exec("BEGIN IMMEDIATE;");
+      try {
+        d.prepare("DELETE FROM project_members WHERE user_id = ?").run(uid);
+        const ins = d.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
+        for (const p of pids) ins.run(p, uid);
+        d.exec("COMMIT;");
+      } catch (e) {
+        d.exec("ROLLBACK;");
+        throw e;
+      }
+    }
+    testSetUserProjects(db, memberB.id, [prjAId, prjBId]);
+    let bProjects = db.prepare("SELECT project_id FROM project_members WHERE user_id = ?").all(memberB.id).map(r => r.project_id);
+    if (!bProjects.includes(prjAId) || !bProjects.includes(prjBId)) {
+      throw new Error("setUserProjects 初期同期に失敗しました");
+    }
+    // prjAを脱退（prjBのみ残す）
+    testSetUserProjects(db, memberB.id, [prjBId]);
+    bProjects = db.prepare("SELECT project_id FROM project_members WHERE user_id = ?").all(memberB.id).map(r => r.project_id);
+    if (bProjects.includes(prjAId)) {
+      throw new Error("setUserProjects で脱退させたはずのprjAが残っています");
+    }
+    if (!bProjects.includes(prjBId)) {
+      throw new Error("setUserProjects で残したはずのprjBが存在しません");
+    }
+
     // 後始末
     db.prepare("DELETE FROM projects WHERE id IN (?, ?)").run(prjAId, prjBId);
     db.prepare("DELETE FROM users WHERE login_id IN ('test_admin_u', 'test_pmo_u', 'test_mem_a', 'test_mem_b')").run();
     console.log("✓ プロジェクト参加メンバーシップ＆アクセス権限（Admin/PMO/一般の自由な脱退・参加・個人案件遮断）検証テスト成功");
+  }
+
+  // 44. メンバー管理画面における編集モードの視覚的独立（専用ビュー切り替え）検証
+  {
+    const manageModalSource = fs.readFileSync(path.join(process.cwd(), "src/components/UserManageModal.tsx"), "utf-8");
+    if (!manageModalSource.includes("editingId !== null && editingUser")) {
+      throw new Error("UserManageModal.tsx に編集専用ビュー切り替えロジックが含まれていません");
+    }
+    if (!manageModalSource.includes("を編集中") || !manageModalSource.includes("← 一覧に戻る")) {
+      throw new Error("UserManageModal.tsx に編集対象メンバー明示ヘッダーまたは一覧に戻るボタンが含まれていません");
+    }
+    console.log("✓ メンバー管理モーダル編集モード専用ビュー切り替え構造検証テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

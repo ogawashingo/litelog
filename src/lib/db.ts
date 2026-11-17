@@ -323,6 +323,15 @@ function initDb(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_attachments_comment_id ON attachments(comment_id);
   `);
 
+  // システム設定（時刻・タイムゾーン・マイグレーションバージョン管理等）テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // プロジェクト参加メンバー（メンバーシップ）テーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS project_members (
@@ -335,53 +344,54 @@ function initDb(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
   `);
 
-  // project_members の初期データ移行（AdminおよびPMO、既存課題・コメントに関わるユーザーを自動登録）
+  // project_members の初期データ移行（初回のみ1回だけ実行。ユーザーによる脱退操作を勝手に上書き・再登録しないようにガード）
   try {
-    // 1. AdminおよびPMOは全プロジェクトに参加
-    db.exec(`
-      INSERT OR IGNORE INTO project_members (project_id, user_id)
-      SELECT p.id, u.id
-      FROM projects p
-      CROSS JOIN users u
-      WHERE u.is_admin = 1 OR u.role_type IN ('admin', 'pmo');
-    `);
+    const isMigrated = db
+      .prepare("SELECT value FROM settings WHERE key = 'migrated_project_members_initial'")
+      .get() as { value: string } | undefined;
 
-    // 2. 各プロジェクトの課題にアサインされているユーザーを登録
-    db.exec(`
-      INSERT OR IGNORE INTO project_members (project_id, user_id)
-      SELECT DISTINCT i.project_id, i.assignee_id
-      FROM issues i
-      WHERE i.assignee_id IS NOT NULL;
-    `);
+    if (!isMigrated) {
+      // 1. AdminおよびPMOは全プロジェクトに参加
+      db.exec(`
+        INSERT OR IGNORE INTO project_members (project_id, user_id)
+        SELECT p.id, u.id
+        FROM projects p
+        CROSS JOIN users u
+        WHERE u.is_admin = 1 OR u.role_type IN ('admin', 'pmo');
+      `);
 
-    // 3. 各プロジェクトの課題を作成したユーザーを登録
-    db.exec(`
-      INSERT OR IGNORE INTO project_members (project_id, user_id)
-      SELECT DISTINCT i.project_id, i.created_by
-      FROM issues i
-      WHERE i.created_by IS NOT NULL;
-    `);
+      // 2. 各プロジェクトの課題にアサインされているユーザーを登録
+      db.exec(`
+        INSERT OR IGNORE INTO project_members (project_id, user_id)
+        SELECT DISTINCT i.project_id, i.assignee_id
+        FROM issues i
+        WHERE i.assignee_id IS NOT NULL;
+      `);
 
-    // 4. 各プロジェクトの課題にコメントしたユーザーを登録
-    db.exec(`
-      INSERT OR IGNORE INTO project_members (project_id, user_id)
-      SELECT DISTINCT i.project_id, c.user_id
-      FROM comments c
-      JOIN issues i ON c.issue_id = i.id
-      WHERE c.user_id IS NOT NULL;
-    `);
+      // 3. 各プロジェクトの課題を作成したユーザーを登録
+      db.exec(`
+        INSERT OR IGNORE INTO project_members (project_id, user_id)
+        SELECT DISTINCT i.project_id, i.created_by
+        FROM issues i
+        WHERE i.created_by IS NOT NULL;
+      `);
+
+      // 4. 各プロジェクトの課題にコメントしたユーザーを登録
+      db.exec(`
+        INSERT OR IGNORE INTO project_members (project_id, user_id)
+        SELECT DISTINCT i.project_id, c.user_id
+        FROM comments c
+        JOIN issues i ON c.issue_id = i.id
+        WHERE c.user_id IS NOT NULL;
+      `);
+
+      db.prepare(
+        "INSERT INTO settings (key, value, updated_at) VALUES ('migrated_project_members_initial', '1', CURRENT_TIMESTAMP)"
+      ).run();
+    }
   } catch (pmErr) {
     console.error("project_members 初期データ登録エラー:", pmErr);
   }
-
-  // システム設定（時刻・タイムゾーン・マイグレーションバージョン管理等）テーブル
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
 
   // デフォルト設定の初期投入（未登録キーのみ）
   const insertSetting = db.prepare(`
@@ -718,4 +728,23 @@ export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: 
     throw err;
   }
 }
+
+// ユーザーの所属プロジェクト一覧を更新（選択されたプロジェクトID一覧で正確に同期・脱退）
+export function setUserProjects(db: DatabaseSync, userId: number, projectIds: number[]) {
+  const uniqueProjectIds = Array.from(new Set(projectIds.map(Number))).filter(Boolean);
+
+  db.exec("BEGIN IMMEDIATE;");
+  try {
+    db.prepare("DELETE FROM project_members WHERE user_id = ?").run(userId);
+    const insertStmt = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
+    for (const pid of uniqueProjectIds) {
+      insertStmt.run(pid, userId);
+    }
+    db.exec("COMMIT;");
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
+  }
+}
+
 

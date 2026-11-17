@@ -201,6 +201,8 @@ export default function UserManageModal({
   const [editShowHolidays, setEditShowHolidays] = useState(true);
   const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
 
+  const editingUser = editingId !== null ? users.find((u) => u.id === editingId) : null;
+
   // プロジェクト一覧ロード
   useEffect(() => {
     if (isOpen) {
@@ -302,6 +304,7 @@ export default function UserManageModal({
     }
 
     try {
+      setIsSubmitting(true);
       setErrorMsg("");
       const defaultRoleLabel =
         editRoleType === "admin" ? "管理者" : editRoleType === "pmo" ? "PMO" : "メンバー";
@@ -335,6 +338,8 @@ export default function UserManageModal({
       await onUpdated();
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "更新エラーが発生しました");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -426,7 +431,246 @@ export default function UserManageModal({
             </div>
           )}
 
-          {/* 新規メンバー追加フォーム（AdminまたはPMO権限で操作可能） */}
+          {/* 編集モード時は編集専用ビューを表示（他メンバーやログイン中カードを隠し、誰を編集しているかを明確化） */}
+          {editingId !== null && editingUser ? (
+            <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4">
+              {/* 編集ヘッダー: 編集対象のアカウント情報を目立つ形で明示 */}
+              <div className="flex items-center justify-between pb-3.5 border-b border-slate-200">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    style={{ backgroundColor: editColor || "#4f46e5" }}
+                    className="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs"
+                  >
+                    {getUserInitials(editName)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-bold text-slate-800 truncate">
+                        {editName || "メンバー"} を編集中
+                      </h4>
+                      <span className="font-mono text-xs bg-slate-200/80 text-slate-700 px-2 py-0.5 rounded">
+                        ID: {editLoginId}
+                      </span>
+                      {editingUser.id === currentUser?.id ? (
+                        <span className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full border border-indigo-200">
+                          ログイン中（自分）
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded-full border border-slate-200">
+                          メンバー
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      所属プロジェクト（参加・脱退）、権限ロール、表示設定を変更して「保存」を押してください
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingId(null)}
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900 border border-slate-300 rounded-lg hover:bg-white transition-colors cursor-pointer shrink-0 font-medium"
+                >
+                  ← 一覧に戻る
+                </button>
+              </div>
+
+              {/* 編集フォーム */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      氏名 <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      placeholder="メンバー名"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      役割・肩書き
+                    </label>
+                    <input
+                      type="text"
+                      value={editRole}
+                      onChange={(e) => setEditRole(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      placeholder="役割・肩書き"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      ログインID <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editLoginId}
+                      onChange={(e) => setEditLoginId(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      placeholder="ログインID"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      新しいパスワード（変更時のみ入力）
+                    </label>
+                    <input
+                      type="password"
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      placeholder="変更しない場合は空欄"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-slate-500 font-medium shrink-0">色:</span>
+                      <AvatarColorPicker
+                        selectedColor={editColor}
+                        onChange={setEditColor}
+                        mode="popover"
+                        size="sm"
+                      />
+                    </div>
+                    {/* 編集時: 3段階ロール（一般 / PMO / Admin）切替 */}
+                    <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                      <Shield className="w-3.5 h-3.5 text-slate-400" />
+                      <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditRoleType("member");
+                            if (editRole === "管理者" || editRole === "PMO") setEditRole("メンバー");
+                          }}
+                          className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                            editRoleType === "member"
+                              ? "bg-slate-700 text-white"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                        >
+                          一般
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditRoleType("pmo");
+                            if (editRole === "メンバー" || editRole === "管理者") setEditRole("PMO");
+                          }}
+                          className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
+                            editRoleType === "pmo"
+                              ? "bg-emerald-600 text-white"
+                              : "text-slate-600 hover:text-slate-900"
+                          }`}
+                          title="PMO: 全課題の検収・完了が可能"
+                        >
+                          <ClipboardCheck className="w-2.5 h-2.5" />
+                          PMO
+                        </button>
+                        {isCurrentUserAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditRoleType("admin");
+                              if (editRole === "メンバー" || editRole === "PMO") setEditRole("管理者");
+                            }}
+                            className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
+                              editRoleType === "admin"
+                                ? "bg-amber-500 text-amber-950 font-bold"
+                                : "text-slate-600 hover:text-slate-900"
+                            }`}
+                            title="Admin: システム管理者"
+                          >
+                            <Crown className="w-2.5 h-2.5" />
+                            Admin
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 週開始曜日 & 祝日表示 */}
+                  <div className="flex items-center gap-3">
+                    <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
+                      <button
+                        type="button"
+                        onClick={() => setEditWeekStart("monday")}
+                        className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                          editWeekStart === "monday"
+                            ? "bg-indigo-600 text-white"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        月曜始まり
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditWeekStart("sunday")}
+                        className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                          editWeekStart === "sunday"
+                            ? "bg-indigo-600 text-white"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        日曜始まり
+                      </button>
+                    </div>
+
+                    <label className="inline-flex items-center gap-1 text-xs text-slate-700 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editShowHolidays}
+                        onChange={(e) => setEditShowHolidays(e.target.checked)}
+                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                      />
+                      <span>日本の祝日表示</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 編集時の所属プロジェクト選択（全ロールで自由に参加・脱退を選択可能） */}
+                {projectsList.length > 0 && (
+                  <div className="w-full pt-2 border-t border-slate-200">
+                    <ProjectSelector
+                      projects={projectsList}
+                      selectedIds={editProjectIds}
+                      onChange={setEditProjectIds}
+                      label="所属プロジェクト"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    disabled={isSubmitting}
+                    className="px-4 py-1.5 text-xs border border-slate-300 rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer font-medium disabled:opacity-50"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => handleSaveEdit(editingUser.id)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 text-xs app-primary-btn text-white font-bold rounded-md cursor-pointer disabled:opacity-50 shadow-xs"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{isSubmitting ? "保存中..." : "保存"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* 新規メンバー追加フォーム（AdminまたはPMO権限で操作可能） */}
           {canCurrentUserManageMembers ? (
             <form
               onSubmit={handleAddUser}
@@ -660,8 +904,6 @@ export default function UserManageModal({
             <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
               {users.map((u) => {
                 const isCurrent = currentUser?.id === u.id;
-                const isEditingThis = editingId === u.id;
-
                 return (
                   <div
                     key={u.id}
@@ -669,193 +911,7 @@ export default function UserManageModal({
                       isCurrent ? "bg-indigo-50/50" : "hover:bg-slate-50"
                     }`}
                   >
-                    {isEditingThis ? (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
-                              氏名
-                            </label>
-                            <input
-                              type="text"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900"
-                              placeholder="メンバー名"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
-                              役割・肩書き
-                            </label>
-                            <input
-                              type="text"
-                              value={editRole}
-                              onChange={(e) => setEditRole(e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900"
-                              placeholder="役割・肩書き"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
-                              ログインID
-                            </label>
-                            <input
-                              type="text"
-                              value={editLoginId}
-                              onChange={(e) => setEditLoginId(e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900 font-mono"
-                              placeholder="ログインID"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
-                              新しいパスワード（変更時のみ入力）
-                            </label>
-                            <input
-                              type="password"
-                              value={editPassword}
-                              onChange={(e) => setEditPassword(e.target.value)}
-                              className="w-full bg-white border border-slate-300 rounded px-2.5 py-1 text-xs text-slate-900 font-mono"
-                              placeholder="変更しない場合は空欄"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] text-slate-500 font-medium shrink-0">色:</span>
-                              <AvatarColorPicker
-                                selectedColor={editColor}
-                                onChange={setEditColor}
-                                mode="popover"
-                                size="sm"
-                              />
-                            </div>
-                            {/* 編集時: 3段階ロール（一般 / PMO / Admin）切替 */}
-                            <div className="flex items-center gap-1 text-[11px] text-slate-600">
-                              <Shield className="w-3.5 h-3.5 text-slate-400" />
-                              <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditRoleType("member");
-                                    if (editRole === "管理者" || editRole === "PMO") setEditRole("メンバー");
-                                  }}
-                                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                                    editRoleType === "member"
-                                      ? "bg-slate-700 text-white"
-                                      : "text-slate-600 hover:text-slate-900"
-                                  }`}
-                                >
-                                  一般
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditRoleType("pmo");
-                                    if (editRole === "メンバー" || editRole === "管理者") setEditRole("PMO");
-                                  }}
-                                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
-                                    editRoleType === "pmo"
-                                      ? "bg-emerald-600 text-white"
-                                      : "text-slate-600 hover:text-slate-900"
-                                  }`}
-                                >
-                                  <ClipboardCheck className="w-2.5 h-2.5" />
-                                  PMO
-                                </button>
-                                {isCurrentUserAdmin && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditRoleType("admin");
-                                      if (editRole === "メンバー" || editRole === "PMO") setEditRole("管理者");
-                                    }}
-                                    className={`px-1.5 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
-                                      editRoleType === "admin"
-                                        ? "bg-amber-500 text-amber-950 font-bold"
-                                        : "text-slate-600 hover:text-slate-900"
-                                    }`}
-                                  >
-                                    <Crown className="w-2.5 h-2.5" />
-                                    Admin
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {/* カレンダー個人設定切替 */}
-                            <div className="flex items-center gap-1 text-[11px] text-slate-600 ml-1">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditWeekStart("monday")}
-                                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                                    editWeekStart === "monday"
-                                      ? "bg-indigo-600 text-white"
-                                      : "text-slate-600 hover:text-slate-900"
-                                  }`}
-                                >
-                                  月始
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditWeekStart("sunday")}
-                                  className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                                    editWeekStart === "sunday"
-                                      ? "bg-indigo-600 text-white"
-                                      : "text-slate-600 hover:text-slate-900"
-                                  }`}
-                                >
-                                  日始
-                                </button>
-                              </div>
-                            </div>
-                            <label className="inline-flex items-center gap-1 text-[11px] text-slate-700 cursor-pointer ml-1 select-none">
-                              <input
-                                type="checkbox"
-                                checked={editShowHolidays}
-                                onChange={(e) => setEditShowHolidays(e.target.checked)}
-                                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
-                              />
-                              <span>祝日表示</span>
-                            </label>
-                          </div>
-
-                          {/* 編集時の所属プロジェクト選択（全ロールで自由に参加・脱退を選択可能） */}
-                          {projectsList.length > 0 && (
-                            <div className="w-full pt-1.5 border-t border-slate-200">
-                              <ProjectSelector
-                                projects={projectsList}
-                                selectedIds={editProjectIds}
-                                onChange={setEditProjectIds}
-                                label="所属プロジェクト"
-                              />
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setEditingId(null)}
-                              className="px-2.5 py-1 text-xs border border-slate-300 rounded text-slate-600 hover:bg-slate-100 cursor-pointer"
-                            >
-                              キャンセル
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleSaveEdit(u.id)}
-                              className="flex items-center gap-1 px-3 py-1 text-xs app-primary-btn text-white font-bold rounded cursor-pointer"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span>保存</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center justify-between gap-3">
                         {/* 左側: アバターと名前・ログインID・権限（本人の場合はクリックでマイアカウント設定を起動） */}
                         <div className="flex items-center gap-3 min-w-0">
                           <button
@@ -1010,12 +1066,13 @@ export default function UserManageModal({
                           )}
                         </div>
                       </div>
-                    )}
                   </div>
                 );
               })}
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* フッター */}

@@ -1,6 +1,6 @@
 // ユーザー（チームメンバー）更新・削除API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, setUserProjects } from "@/lib/db";
 import { getSessionUser, hashPassword, verifyPassword } from "@/lib/auth";
 
 interface RouteParams {
@@ -209,11 +209,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // 所属プロジェクトの更新（Admin/PMOのみ変更可能。指定されたprojectIdsで正確に同期し、脱退・参加を反映）
     if (canManageMember && Array.isArray(body.projectIds)) {
-      db.prepare("DELETE FROM project_members WHERE user_id = ?").run(targetId);
-      const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
-      for (const pid of body.projectIds) {
-        if (Number(pid)) pmInsert.run(Number(pid), targetId);
-      }
+      setUserProjects(db, targetId, body.projectIds.map(Number));
     }
 
     const updated = db.prepare(`
