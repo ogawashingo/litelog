@@ -82,9 +82,15 @@ export default function AdminPage() {
   }, [isAuthReady, currentUser, router]);
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+
+  // マウント後にローカルストレージから選択中プロジェクトを同期（Hydration Error防止）
+  useEffect(() => {
+    setSelectedProjectId(getStoredProjectId());
+  }, []);
 
   // デザイン・カラーテーマ選択用State
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(settings.theme || "cosmic");
@@ -493,8 +499,9 @@ export default function AdminPage() {
       <Header
         activeNav="admin"
         projects={projects}
-        selectedProjectId={getStoredProjectId()}
+        selectedProjectId={selectedProjectId}
         onSelectProject={(id) => {
+          setSelectedProjectId(id);
           setStoredProjectId(id);
           if (id) {
             router.push(`/?projectId=${id}`);

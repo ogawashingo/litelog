@@ -13,8 +13,13 @@ import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 function GanttIndexContent() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setSelectedProjectId(getStoredProjectId());
+  }, []);
 
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
@@ -69,8 +74,9 @@ function GanttIndexContent() {
       <Header
         activeNav="gantt"
         projects={projects}
-        selectedProjectId={getStoredProjectId()}
+        selectedProjectId={selectedProjectId}
         onSelectProject={(id) => {
+          setSelectedProjectId(id);
           setStoredProjectId(id);
           if (id) {
             const found = projects.find((p) => p.id === id);

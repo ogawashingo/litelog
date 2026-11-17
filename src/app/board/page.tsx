@@ -15,8 +15,13 @@ export default function BoardIndexPage() {
   const router = useRouter();
   const { currentUser } = useUser();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setSelectedProjectId(getStoredProjectId());
+  }, []);
 
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
@@ -106,8 +111,9 @@ export default function BoardIndexPage() {
       <Header
         activeNav="board"
         projects={projects}
-        selectedProjectId={getStoredProjectId()}
+        selectedProjectId={selectedProjectId}
         onSelectProject={(id) => {
+          setSelectedProjectId(id);
           setStoredProjectId(id);
           if (id) {
             const found = projects.find((p) => p.id === id);
