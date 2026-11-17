@@ -181,11 +181,6 @@ export default function UserManageModal({
   const [newPassword, setNewPassword] = useState("");
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("メンバー");
-  const [newRoleType, setNewRoleType] = useState<UserRoleType>("member");
-  const [newColor, setNewColor] = useState(AVATAR_COLOR_VALUES[0]);
-  const [newWeekStart, setNewWeekStart] = useState<WeekStartDay>("monday");
-  const [newShowHolidays, setNewShowHolidays] = useState(true);
-  const [newProjectIds, setNewProjectIds] = useState<number[]>([]);
   const [projectsList, setProjectsList] = useState<any[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -244,7 +239,6 @@ export default function UserManageModal({
         .then((data) => {
           if (Array.isArray(data)) {
             setProjectsList(data);
-            setNewProjectIds(data.map((p: any) => p.id));
           }
         })
         .catch((err) => console.error("プロジェクト一覧取得失敗:", err));
@@ -256,7 +250,7 @@ export default function UserManageModal({
 
   if (!isOpen) return null;
 
-  // 新規メンバー追加
+  // 新規メンバー追加（基本情報のみで発行し、詳細設定は一覧の「編集」ボタンから行う）
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canCurrentUserManageMembers) {
@@ -271,8 +265,9 @@ export default function UserManageModal({
     try {
       setIsSubmitting(true);
       setErrorMsg("");
-      const defaultRoleLabel =
-        newRoleType === "admin" ? "管理者" : newRoleType === "pmo" ? "PMO" : "メンバー";
+      const defaultRoleLabel = "メンバー";
+      // テーマ色は既存メンバー数に応じてローテーション
+      const autoColor = AVATAR_COLOR_VALUES[users.length % AVATAR_COLOR_VALUES.length];
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -281,12 +276,12 @@ export default function UserManageModal({
           password: newPassword.trim() || `${newLoginId.trim().toLowerCase()}123`,
           name: newName.trim(),
           role: newRole.trim() || defaultRoleLabel,
-          isAdmin: newRoleType === "admin",
-          roleType: newRoleType,
-          color: newColor,
-          weekStart: newWeekStart,
-          showHolidays: newShowHolidays,
-          projectIds: newProjectIds,
+          isAdmin: false,
+          roleType: "member",
+          color: autoColor,
+          weekStart: "monday",
+          showHolidays: true,
+          projectIds: projectsList.map((p: any) => p.id),
         }),
       });
 
@@ -299,11 +294,6 @@ export default function UserManageModal({
       setNewPassword("");
       setNewName("");
       setNewRole("メンバー");
-      setNewRoleType("member");
-      setNewWeekStart("monday");
-      setNewShowHolidays(true);
-      const nextColorIdx = (users.length + 1) % AVATAR_COLOR_VALUES.length;
-      setNewColor(AVATAR_COLOR_VALUES[nextColorIdx]);
       await onUpdated();
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
@@ -776,127 +766,9 @@ export default function UserManageModal({
                 </div>
               </div>
 
-              {/* アバターカラー ＆ Admin権限付与チェック */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500 font-medium shrink-0">テーマ色:</span>
-                  <AvatarColorPicker
-                    selectedColor={newColor}
-                    onChange={setNewColor}
-                    mode="popover"
-                    size="sm"
-                  />
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="text-[11px] font-semibold text-slate-600">カレンダー:</span>
-                    <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
-                      <button
-                        type="button"
-                        onClick={() => setNewWeekStart("monday")}
-                        className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                          newWeekStart === "monday"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        月曜始まり
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewWeekStart("sunday")}
-                        className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                          newWeekStart === "sunday"
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        日曜始まり
-                      </button>
-                    </div>
-                  </div>
-
-                  <label className="inline-flex items-center gap-1 text-xs text-slate-700 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={newShowHolidays}
-                      onChange={(e) => setNewShowHolidays(e.target.checked)}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
-                    />
-                    <span>日本の祝日表示</span>
-                  </label>
-
-                  {/* 3段階ロール（一般 / PMO / Admin）選択 */}
-                  <div className="flex items-center gap-1.5 text-xs text-slate-700">
-                    <Shield className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="text-[11px] font-semibold text-slate-600">権限ロール:</span>
-                    <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewRoleType("member");
-                          if (newRole === "管理者" || newRole === "PMO") setNewRole("メンバー");
-                        }}
-                        className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                          newRoleType === "member"
-                            ? "bg-slate-700 text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        一般
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewRoleType("pmo");
-                          if (newRole === "メンバー" || newRole === "管理者") setNewRole("PMO");
-                        }}
-                        className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
-                          newRoleType === "pmo"
-                            ? "bg-emerald-600 text-white"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                        title="PMO / 進行管理: 全課題の検収・完了が可能（システム設定やユーザー削除は不可）"
-                      >
-                        <ClipboardCheck className="w-2.5 h-2.5" />
-                        PMO
-                      </button>
-                      {isCurrentUserAdmin && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewRoleType("admin");
-                            if (newRole === "メンバー" || newRole === "PMO") setNewRole("管理者");
-                          }}
-                          className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
-                            newRoleType === "admin"
-                              ? "bg-amber-500 text-amber-950 font-bold"
-                              : "text-slate-600 hover:text-slate-900"
-                          }`}
-                          title="システム管理者: メンバー管理・システム設定などすべての操作が可能"
-                        >
-                          <Crown className="w-2.5 h-2.5" />
-                          Admin
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 新規追加時の所属プロジェクト選択（全ロールで自由に参加・脱退を選択可能） */}
-                {projectsList.length > 0 && (
-                  <div className="w-full pt-2 border-t border-indigo-100">
-                    <ProjectSelector
-                      projects={projectsList}
-                      selectedIds={newProjectIds}
-                      onChange={setNewProjectIds}
-                      label="所属プロジェクト"
-                    />
-                  </div>
-                )}
-              </div>
+              <p className="text-[11px] text-slate-500 pt-0.5">
+                ※ 権限ロール、所属プロジェクト、テーマ色等の詳細設定は、追加後に一覧の「編集」ボタンから行えます。
+              </p>
             </form>
           ) : (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 flex items-center justify-between gap-3 text-xs text-amber-900">
@@ -1054,20 +926,22 @@ export default function UserManageModal({
                             <button
                               type="button"
                               onClick={onOpenPasswordChange}
-                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-300 rounded-md transition-colors cursor-pointer font-medium"
                               title="マイアカウント設定（アイコン色・パスワード変更）"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>編集</span>
                             </button>
                           )}
                           {(isCurrentUserAdmin || (canCurrentUserManageMembers && getUserRoleType(u) !== "admin")) && (
                             <button
                               type="button"
                               onClick={() => startEdit(u)}
-                              className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors cursor-pointer"
-                              title="メンバー情報を編集（Admin / PMO）"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-slate-700 hover:text-indigo-600 hover:bg-indigo-50 border border-slate-300 rounded-md transition-colors cursor-pointer font-medium"
+                              title="メンバー情報を編集（権限・所属プロジェクト・表示設定等）"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-3.5 h-3.5" />
+                              <span>編集</span>
                             </button>
                           )}
                           {isCurrentUserAdmin && users.length > 1 && (

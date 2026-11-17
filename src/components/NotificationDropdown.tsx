@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCheck, Trash2, ExternalLink } from "lucide-react";
+import { Bell, CheckCheck, Trash2, ExternalLink, X } from "lucide-react";
 import { Notification } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 import { useUser } from "./UserContext";
@@ -64,18 +64,29 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
     setIsOpen(!isOpen);
   };
 
-  // 外側クリックで閉じる
+  // 外側クリックおよびESCキーで閉じる
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [isOpen]);
 
   // 単一通知のクリック（既読化 ＆ 該当課題を開く）
   const handleItemClick = async (notification: Notification) => {
@@ -160,6 +171,8 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
           isOpen ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
         }`}
         title="通知"
+        aria-label="通知一覧を開く"
+        aria-expanded={isOpen}
       >
         <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.2]" />
         {unreadCount > 0 && (
@@ -169,12 +182,25 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
         )}
       </button>
 
-      {/* ドロップダウンメニュー */}
+      {/* モバイル表示時の半透明背景オーバーレイ（タップでドロップダウンを閉じる） */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+        <div
+          className="fixed inset-0 bg-black/25 z-40 sm:hidden animate-in fade-in duration-150"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ドロップダウンメニュー（スマホでは画面中央寄せ・左右マージン確保で画面外はみ出しを完全防止） */}
+      {isOpen && (
+        <div
+          className="fixed top-[calc(var(--app-header-height,3.5rem)+0.5rem)] left-2.5 right-2.5 max-w-md mx-auto sm:max-w-none sm:absolute sm:top-full sm:left-auto sm:right-0 sm:mt-2 sm:w-96 max-h-[calc(100dvh-5.5rem)] sm:max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 text-slate-800 animate-in fade-in zoom-in-95 duration-100 overflow-hidden"
+          role="dialog"
+          aria-label="通知一覧"
+        >
           {/* ヘッダー */}
-          <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
+          <div className="px-3.5 sm:px-4 py-2.5 sm:py-3 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="font-extrabold text-sm text-slate-900">通知</span>
               {unreadCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700">
@@ -183,7 +209,7 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
               )}
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5">
               {unreadCount > 0 && (
                 <button
                   type="button"
@@ -193,7 +219,7 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
                   title="すべて既読にする"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
-                  <span>すべて既読</span>
+                  <span className="whitespace-nowrap">すべて既読</span>
                 </button>
               )}
               {notifications.length > 0 && (
@@ -201,17 +227,27 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
                   type="button"
                   onClick={handleDeleteAll}
                   disabled={isLoading}
-                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1 rounded-md transition-colors cursor-pointer"
+                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-md transition-colors cursor-pointer"
                   title="通知をすべてクリア"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               )}
+              {/* モバイル用 閉じるボタン */}
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="sm:hidden text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 p-1 rounded-md transition-colors cursor-pointer ml-0.5"
+                title="閉じる"
+                aria-label="閉じる"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
           {/* 通知リスト本体 */}
-          <div className="overflow-y-auto flex-1 divide-y divide-slate-100 max-h-[460px]">
+          <div className="overflow-y-auto flex-1 divide-y divide-slate-100 max-h-[calc(100dvh-11rem)] sm:max-h-[460px] overscroll-contain">
             {notifications.length === 0 ? (
               <div className="py-12 px-4 text-center">
                 <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
@@ -229,7 +265,7 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
                   <div
                     key={n.id}
                     onClick={() => handleItemClick(n)}
-                    className={`px-4 py-3 flex items-start gap-3 transition-colors cursor-pointer group ${
+                    className={`px-3.5 sm:px-4 py-2.5 sm:py-3 flex items-start gap-2.5 sm:gap-3 transition-colors cursor-pointer group ${
                       isUnread
                         ? "bg-indigo-50/40 hover:bg-indigo-50/80 font-medium"
                         : "hover:bg-slate-50/80 text-slate-600"
@@ -288,15 +324,15 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
                       </div>
 
                       {/* 課題タイトル */}
-                      <div className="flex items-center gap-1.5 text-xs text-slate-800 font-bold bg-white/70 px-2 py-1 rounded-md border border-slate-200/60 truncate group-hover:border-indigo-200">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-800 font-bold bg-white/70 px-2 py-1 rounded-md border border-slate-200/60 min-w-0 group-hover:border-indigo-200">
                         <span
                           style={{ color: n.project_color || "#4f46e5" }}
-                          className="font-mono text-[11px] shrink-0"
+                          className="font-mono text-[11px] shrink-0 font-bold"
                         >
                           [{n.issue_key}]
                         </span>
-                        <span className="truncate">{n.issue_title}</span>
-                        <ExternalLink className="w-3 h-3 text-slate-400 ml-auto shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="truncate min-w-0 flex-1">{n.issue_title}</span>
+                        <ExternalLink className="w-3 h-3 text-slate-400 shrink-0 opacity-0 sm:group-hover:opacity-100 transition-opacity" />
                       </div>
 
                       {/* メンション本文抜粋 */}

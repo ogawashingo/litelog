@@ -2,9 +2,9 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip } from "lucide-react";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDeleteIssue } from "@/types";
-import { ISSUE_STATUS_CONFIG } from "./IssueBadge";
+import { ISSUE_STATUS_CONFIG, TypeBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { parseDbTimestamp, getTodayDateString } from "@/lib/dateUtils";
@@ -415,10 +415,159 @@ export default function IssueList({
         </div>
       </div>
 
-      {/* 課題一覧テーブル（スマホではblock表示に切り替えて枠幅100%に完全一致させ、件名の折り返しを保証。PCではtable表示） */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse block md:table">
-          <thead className="hidden md:table-header-group">
+      {/* スマホ・iPhone用 課題一覧リスト（SummaryCardsと同様のブロック構造ではみ出し・横スクロールを完全排除） */}
+      <div className="md:hidden divide-y divide-slate-100">
+        {displayedIssues.length === 0 ? (
+          <div className="py-12 text-center text-slate-400">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <Filter className="w-8 h-8 text-slate-300" />
+              <p className="text-sm font-medium">該当する課題が見つかりません</p>
+              <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+            </div>
+          </div>
+        ) : (
+          displayedIssues.map(({ issue, depth }, index) => {
+            const dueInfo = formatDueDate(issue.due_date);
+            const isClosed = issue.status === "closed";
+            const issueAlert = getIssueAlert(issue, settings);
+
+            // 親子判定
+            const isChild = Boolean(issue.parent_id);
+            const childrenOfThis = issues.filter((child) => child.parent_id === issue.id);
+            const isParent = childrenOfThis.length > 0;
+
+            // 左端ボーダーおよび行の背景色
+            const borderClass = isClosed
+              ? "border-l-4 border-transparent"
+              : issueAlert?.level === "critical"
+              ? "border-l-4 border-rose-500 bg-rose-50/20"
+              : issueAlert?.level === "warning"
+              ? "border-l-4 border-amber-500 bg-amber-50/20"
+              : issueAlert?.level === "caution"
+              ? "border-l-4 border-purple-500 bg-purple-50/15"
+              : isParent
+              ? "border-l-4 border-indigo-600 bg-indigo-50/30"
+              : isChild
+              ? "border-l-4 border-indigo-200/50 bg-white"
+              : "border-l-4 border-transparent";
+
+            return (
+              <div
+                key={`mobile-${issue.id}`}
+                className={`p-3 transition-colors ${
+                  isClosed
+                    ? "bg-slate-50/60 text-slate-400"
+                    : isParent && !issueAlert
+                    ? "bg-indigo-50/30"
+                    : isChild && !issueAlert
+                    ? "bg-white"
+                    : !issueAlert
+                    ? "hover:bg-indigo-50/40"
+                    : ""
+                } ${borderClass} ${depth > 0 ? "pl-5" : ""}`}
+              >
+                {/* 上段メタ行: キー、子課題アイコン、種別、アラートバッジ、優先度高、期日 */}
+                <div className="flex items-center gap-1.5 flex-wrap text-xs mb-1.5">
+                  {depth > 0 && (
+                    <CornerDownRight className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  )}
+                  <span className="font-mono font-bold text-indigo-600">
+                    {issue.issue_key}
+                  </span>
+                  <div className="shrink-0">
+                    <TypeBadge type={issue.issue_type} showLabel={false} />
+                  </div>
+                  {issueAlert && (
+                    <div className="shrink-0">
+                      <IssueAlertBadge alert={issueAlert} size="sm" />
+                    </div>
+                  )}
+                  {issue.priority === "high" && (
+                    <span
+                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
+                      title="優先度: 高"
+                    >
+                      <ArrowUp className="w-3 h-3 text-rose-600" />
+                      <span>高</span>
+                    </span>
+                  )}
+                  {issue.due_date && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-semibold shrink-0 ${
+                        dueInfo.isOverdue && !isClosed
+                          ? "bg-rose-100 text-rose-700 font-bold"
+                          : dueInfo.isToday && !isClosed
+                          ? "bg-amber-100 text-amber-800 font-bold"
+                          : "text-slate-500 bg-slate-100"
+                      }`}
+                    >
+                      {dueInfo.isOverdue && !isClosed
+                        ? `期限超過 (${issue.due_date.slice(5)})`
+                        : dueInfo.isToday && !isClosed
+                        ? "本日締切"
+                        : `期日: ${issue.due_date.slice(5)}`}
+                    </span>
+                  )}
+                </div>
+
+                {/* 中段: 件名タイトル（SummaryCardsと同様に枠幅100%を使い、枠幅の中で自然に美しく折り返し） */}
+                <div className="w-full mb-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onSelectIssue(issue)}
+                    className={`text-left font-bold text-sm hover:text-indigo-600 transition-colors cursor-pointer w-full break-words break-all [overflow-wrap:anywhere] leading-snug ${
+                      isClosed
+                        ? "text-slate-400 line-through"
+                        : "text-slate-900"
+                    }`}
+                  >
+                    {issue.title}
+                  </button>
+                </div>
+
+                {/* 下段: 担当者情報、コメント数バッジ、添付ファイルバッジ */}
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
+                  <span className="truncate">
+                    担当: <strong className="text-slate-700 font-medium">{issue.assignee_name || "未割当"}</strong>
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {Boolean(issue.comment_count && issue.comment_count > 0) && (
+                      <CommentPreviewBadge
+                        issueId={issue.id}
+                        commentCount={issue.comment_count}
+                        latestCommentContent={issue.latest_comment_content}
+                        latestCommentCreatedAt={issue.latest_comment_created_at}
+                        latestCommentUserName={issue.latest_comment_user_name}
+                        latestCommentUserColor={issue.latest_comment_user_color}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          onSelectIssue(issue);
+                        }}
+                        placement={index < 2 ? "bottom" : "top"}
+                      />
+                    )}
+                    {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
+                      <span
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                        title={`添付ファイル ${issue.attachment_count}件`}
+                      >
+                        <Paperclip className="w-3 h-3 text-slate-500" />
+                        <span>{issue.attachment_count}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* PC・タブレット用 課題一覧テーブル */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead>
             <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
               <th className="py-2.5 px-3 w-24 whitespace-nowrap">種別</th>
               <th className="py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
@@ -433,10 +582,10 @@ export default function IssueList({
               <th className="py-2.5 px-2 w-10 text-center"></th>
             </tr>
           </thead>
-          <tbody className="block md:table-row-group divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100">
             {displayedIssues.length === 0 ? (
-              <tr className="block md:table-row">
-                <td colSpan={isShowingClosed ? 9 : 8} className="block md:table-cell py-12 text-center text-slate-400">
+              <tr>
+                <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Filter className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-medium">該当する課題が見つかりません</p>
@@ -477,7 +626,7 @@ export default function IssueList({
                 return (
                   <tr
                     key={issue.id}
-                    className={`block md:table-row transition-colors group ${
+                    className={`transition-colors group ${
                       isClosed
                         ? "bg-slate-50/60 text-slate-400 hover:bg-slate-100/60"
                         : isParent && !issueAlert
@@ -489,8 +638,8 @@ export default function IssueList({
                         : ""
                     } ${borderClass}`}
                   >
-                    {/* 種別（PC・タブレットのみ表示） */}
-                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
+                    {/* 種別 */}
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <select
                         value={issue.issue_type}
                         onChange={(e) => {
@@ -525,8 +674,8 @@ export default function IssueList({
                       </select>
                     </td>
 
-                    {/* キー（PC・タブレットのみ独立列として表示） */}
-                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
+                    {/* キー */}
+                    <td className="py-3 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         {depth > 0 && (
                           <CornerDownRight className="w-3.5 h-3.5 text-indigo-500 shrink-0 ml-1" />
@@ -546,41 +695,12 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 件名（メイン列：スマホではblock表示で枠幅いっぱいに収まり、件名全体が美しく折り返される） */}
-                    <td className="block md:table-cell py-2.5 md:py-3 px-3 w-full md:w-auto md:min-w-[240px]">
-                      {/* スマホ専用の極小メタ行（課題キー・期限のみ控えめに表示） */}
-                      <div className="flex md:hidden items-center gap-1.5 mb-1 text-[11px] text-slate-500 flex-wrap">
-                        {depth > 0 && (
-                          <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
-                        )}
-                        <span className="font-mono font-bold text-indigo-600">
-                          {issue.issue_key}
-                        </span>
-                        {issue.due_date && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
-                              dueInfo.isOverdue && !isClosed
-                                ? "bg-rose-100 text-rose-700"
-                                : dueInfo.isToday && !isClosed
-                                ? "bg-amber-100 text-amber-800"
-                                : "text-slate-400"
-                            }`}
-                          >
-                            {dueInfo.isOverdue && !isClosed
-                              ? `期限超過 (${issue.due_date.slice(5)})`
-                              : dueInfo.isToday && !isClosed
-                              ? "本日締切"
-                              : `期限: ${issue.due_date.slice(5)}`}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-start sm:items-center gap-x-2 gap-y-1 min-w-0 w-full">
+                    {/* 件名 */}
+                    <td className="py-2.5 md:py-3 px-3 min-w-[240px]">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         {/* 問題アラートバッジ（遅延・停滞・未着手警告等） */}
                         {issueAlert && (
-                          <div className="shrink-0">
-                            <IssueAlertBadge alert={issueAlert} size="sm" />
-                          </div>
+                          <IssueAlertBadge alert={issueAlert} size="sm" />
                         )}
                         <a
                           href={`/issues/${issue.issue_key}`}
@@ -591,7 +711,7 @@ export default function IssueList({
                             }
                           }}
                           title={issue.title}
-                          className={`text-left hover:text-indigo-700 transition-colors flex-1 min-w-0 cursor-pointer ${
+                          className={`text-left hover:text-indigo-700 transition-colors max-w-full cursor-pointer ${
                             isClosed
                               ? "text-slate-500"
                               : isParent
@@ -600,7 +720,7 @@ export default function IssueList({
                           }`}
                         >
                           <span
-                            className={`block break-words break-all [overflow-wrap:anywhere] md:line-clamp-2 ${
+                            className={`line-clamp-2 break-words ${
                               isClosed ? "line-through" : ""
                             }`}
                           >
@@ -609,27 +729,25 @@ export default function IssueList({
                         </a>
                         {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}
                         {Boolean(issue.comment_count && issue.comment_count > 0) && (
-                          <div className="shrink-0">
-                            <CommentPreviewBadge
-                              issueId={issue.id}
-                              commentCount={issue.comment_count}
-                              latestCommentContent={issue.latest_comment_content}
-                              latestCommentCreatedAt={issue.latest_comment_created_at}
-                              latestCommentUserName={issue.latest_comment_user_name}
-                              latestCommentUserColor={issue.latest_comment_user_color}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onSelectIssue(issue);
-                              }}
-                              placement={index < 2 ? "bottom" : "top"}
-                            />
-                          </div>
+                          <CommentPreviewBadge
+                            issueId={issue.id}
+                            commentCount={issue.comment_count}
+                            latestCommentContent={issue.latest_comment_content}
+                            latestCommentCreatedAt={issue.latest_comment_created_at}
+                            latestCommentUserName={issue.latest_comment_user_name}
+                            latestCommentUserColor={issue.latest_comment_user_color}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onSelectIssue(issue);
+                            }}
+                            placement={index < 2 ? "bottom" : "top"}
+                          />
                         )}
                         {/* 添付ファイル件数バッジ */}
                         {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
                           <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
                             title={`添付ファイル ${issue.attachment_count}件`}
                           >
                             <Paperclip className="w-3 h-3 text-slate-500" />
