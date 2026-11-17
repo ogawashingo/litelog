@@ -150,13 +150,7 @@ export async function POST(request: Request) {
     const newUserId = Number(result.lastInsertRowid);
 
     // 所属プロジェクトの登録
-    if (effectiveRoleType === "admin") {
-      // Adminは全プロジェクトに自動参加
-      db.prepare(`
-        INSERT OR IGNORE INTO project_members (project_id, user_id)
-        SELECT id, ? FROM projects
-      `).run(newUserId);
-    } else if (Array.isArray(projectIds) && projectIds.length > 0) {
+    if (Array.isArray(projectIds) && projectIds.length > 0) {
       const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
       for (const pid of projectIds) {
         if (Number(pid)) pmInsert.run(Number(pid), newUserId);

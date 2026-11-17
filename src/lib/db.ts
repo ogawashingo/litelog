@@ -701,19 +701,9 @@ export function getProjectMemberUsers(db: DatabaseSync, projectId: number) {
     .all(projectId);
 }
 
-// プロジェクトの参加メンバーを更新（Adminは常時自動参加を保証、PMOおよび一般は選択式）
+// プロジェクトの参加メンバーを更新（選択されたメンバーID一覧で正確に同期・脱退）
 export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: number[]) {
   const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
-
-  // Admin（管理者）のIDを取得して常に参加リストに含める
-  const admins = db
-    .prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type = 'admin'")
-    .all() as { id: number }[];
-  for (const adm of admins) {
-    if (!uniqueIds.includes(adm.id)) {
-      uniqueIds.push(adm.id);
-    }
-  }
 
   db.exec("BEGIN IMMEDIATE;");
   try {

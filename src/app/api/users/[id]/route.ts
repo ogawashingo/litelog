@@ -207,24 +207,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       db.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`).run(...values);
     }
 
-    // 所属プロジェクトの更新（Admin/PMOのみ変更可能）
+    // 所属プロジェクトの更新（Admin/PMOのみ変更可能。指定されたprojectIdsで正確に同期し、脱退・参加を反映）
     if (canManageMember && Array.isArray(body.projectIds)) {
-      const finalRoleType = body.roleType ?? targetUser.role_type;
-      const finalIsAdmin = body.isAdmin !== undefined ? (body.isAdmin ? 1 : 0) : targetUser.is_admin;
-      const isAdminUser = finalIsAdmin === 1 || finalRoleType === "admin";
-
-      if (isAdminUser) {
-        // Adminは全プロジェクトに常時参加
-        db.prepare(`
-          INSERT OR IGNORE INTO project_members (project_id, user_id)
-          SELECT id, ? FROM projects
-        `).run(targetId);
-      } else {
-        db.prepare("DELETE FROM project_members WHERE user_id = ?").run(targetId);
-        const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
-        for (const pid of body.projectIds) {
-          if (Number(pid)) pmInsert.run(Number(pid), targetId);
-        }
+      db.prepare("DELETE FROM project_members WHERE user_id = ?").run(targetId);
+      const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
+      for (const pid of body.projectIds) {
+        if (Number(pid)) pmInsert.run(Number(pid), targetId);
       }
     }
 

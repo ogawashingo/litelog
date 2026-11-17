@@ -11,10 +11,8 @@ export async function GET(request: Request) {
     const forceAll = searchParams.get("all") === "1";
 
     const db = getDb();
-    const isSpecialUser = sessionUser?.is_admin === 1 || sessionUser?.role_type === "pmo";
-
-    // 一般メンバーの場合（かつ管理者/PMOの強制全件取得でない場合）は参加中プロジェクトに限定
-    const limitToUser = !isSpecialUser && sessionUser && !forceAll ? sessionUser.id : null;
+    // 強制全件取得（all=1）でない限り、参加しているプロジェクトのみに絞り込み（脱退したプロジェクトは非表示）
+    const limitToUser = sessionUser && !forceAll ? sessionUser.id : null;
 
     let query = `
       SELECT 

@@ -581,22 +581,17 @@ export default function UserManageModal({
                   </div>
                 </div>
 
-                {/* 新規追加時の所属プロジェクト選択（Adminは全件参加、PMOおよび一般は選択可能） */}
-                {newRoleType === "admin" ? (
-                  <div className="w-full pt-2 border-t border-indigo-100 text-xs text-slate-500 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>管理者（Admin）はすべてのプロジェクトに常時参加します。</span>
-                  </div>
-                ) : projectsList.length > 0 ? (
+                {/* 新規追加時の所属プロジェクト選択（全ロールで自由に参加・脱退を選択可能） */}
+                {projectsList.length > 0 && (
                   <div className="w-full pt-2 border-t border-indigo-100">
                     <ProjectSelector
                       projects={projectsList}
                       selectedIds={newProjectIds}
                       onChange={setNewProjectIds}
-                      label={newRoleType === "pmo" ? "進行管理・アクセス対象プロジェクト" : "所属プロジェクト"}
+                      label="所属プロジェクト"
                     />
                   </div>
-                ) : null}
+                )}
               </div>
             </form>
           ) : (
@@ -784,22 +779,17 @@ export default function UserManageModal({
                             </label>
                           </div>
 
-                          {/* 編集時の所属プロジェクト選択（Adminは全件参加、PMOおよび一般は選択可能） */}
-                          {editRoleType === "admin" ? (
-                            <div className="w-full pt-1.5 border-t border-slate-200 text-xs text-slate-500 flex items-center gap-1.5">
-                              <Shield className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                              <span>管理者（Admin）はすべてのプロジェクトに常時参加します。</span>
-                            </div>
-                          ) : projectsList.length > 0 ? (
+                          {/* 編集時の所属プロジェクト選択（全ロールで自由に参加・脱退を選択可能） */}
+                          {projectsList.length > 0 && (
                             <div className="w-full pt-1.5 border-t border-slate-200">
                               <ProjectSelector
                                 projects={projectsList}
                                 selectedIds={editProjectIds}
                                 onChange={setEditProjectIds}
-                                label={editRoleType === "pmo" ? "進行管理・アクセス対象プロジェクト" : "所属プロジェクト"}
+                                label="所属プロジェクト"
                               />
                             </div>
-                          ) : null}
+                          )}
 
                           <div className="flex items-center gap-2">
                             <button
@@ -900,7 +890,7 @@ export default function UserManageModal({
                             {/* 所属プロジェクトタグ表示 */}
                             <div className="flex items-center gap-1.5 flex-wrap mt-1">
                               <span className="text-[10px] font-semibold text-slate-400 shrink-0">参加案件:</span>
-                              {u.is_admin === 1 || u.role_type === "admin" || u.role_type === "pmo" ? (
+                              {projectsList.length > 0 && (u.projects || []).length === projectsList.length ? (
                                 <span className="text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
                                   全プロジェクト参加
                                 </span>

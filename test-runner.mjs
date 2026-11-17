@@ -2294,11 +2294,6 @@ async function runTests() {
 
     function testSetProjectMembers(db, projectId, userIds) {
       const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
-      // Admin（管理者・社長）のみ常時保持、PMOおよび一般は選択式
-      const admins = db.prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type = 'admin'").all();
-      for (const adm of admins) {
-        if (!uniqueIds.includes(adm.id)) uniqueIds.push(adm.id);
-      }
       db.prepare("DELETE FROM project_members WHERE project_id = ?").run(projectId);
       const insertStmt = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
       for (const uid of uniqueIds) {
@@ -2349,20 +2344,21 @@ async function runTests() {
       throw new Error("Adminのアクセス可能プロジェクトは全件（null）である必要があります");
     }
 
-    // 5. メンバー更新時のAdmin自動保持＆PMOの自由な追加/解除検証
-    testSetProjectMembers(db, prjAId, []); // 空配列で更新
-    const prjAMembers = db.prepare("SELECT user_id FROM project_members WHERE project_id = ?").all(prjAId).map(r => r.user_id);
-    if (!prjAMembers.includes(adminUser.id)) {
-      throw new Error("プロジェクトメンバー更新時にAdminが自動保持されていません");
+    // 5. メンバー更新・脱退の検証（Admin/PMO/一般を問わず、プロジェクトからの自由な脱退が正常に反映されること）
+    testSetProjectMembers(db, prjAId, [adminUser.id]);
+    testSetProjectMembers(db, prjBId, [memberB.id]); // AdminやPMOをプロジェクトBから脱退させた場合
+    const prjBMembers = db.prepare("SELECT user_id FROM project_members WHERE project_id = ?").all(prjBId).map(r => r.user_id);
+    if (prjBMembers.includes(adminUser.id) || prjBMembers.includes(pmoUser.id)) {
+      throw new Error("プロジェクトメンバー更新時に脱退させたはずのユーザーが残っています");
     }
-    if (prjAMembers.includes(pmoUser.id)) {
-      throw new Error("PMOが除外したはずの案件Aに自動追加されてしまっています");
+    if (!prjBMembers.includes(memberB.id)) {
+      throw new Error("参加させたmemberBが登録されていません");
     }
 
     // 後始末
     db.prepare("DELETE FROM projects WHERE id IN (?, ?)").run(prjAId, prjBId);
     db.prepare("DELETE FROM users WHERE login_id IN ('test_admin_u', 'test_pmo_u', 'test_mem_a', 'test_mem_b')").run();
-    console.log("✓ プロジェクト参加メンバーシップ＆アクセス権限（Admin全権限・PMO参加制/個人案件遮断・Admin自動保持）検証テスト成功");
+    console.log("✓ プロジェクト参加メンバーシップ＆アクセス権限（Admin/PMO/一般の自由な脱退・参加・個人案件遮断）検証テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");
