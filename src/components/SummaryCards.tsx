@@ -195,75 +195,78 @@ export default function SummaryCards({
           return (
             <div
               key={issue.id}
-              className="p-3 sm:px-4 hover:bg-rose-50/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 group"
+              className="p-3 sm:px-4 hover:bg-rose-50/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-2.5 group"
             >
-              {/* 左側: アラートバッジ、種別、キー、タイトル */}
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                {/* アラートバッジ */}
-                {alert ? (
-                  <IssueAlertBadge alert={alert} size="sm" />
-                ) : (
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border shrink-0 font-bold ${
-                      urgency === "today"
-                        ? "bg-amber-100 text-amber-900 border-amber-300"
-                        : "bg-sky-50 text-sky-800 border-sky-200"
-                    }`}
-                  >
-                    {urgency === "today" && <Calendar className="w-3 h-3 text-amber-600" />}
-                    <span>{badgeText}</span>
-                  </span>
-                )}
+              {/* 左側（メイン部）: スマホ表示時はメタ情報と件名を縦積みにして件名の可読領域を最大化 */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
+                {/* メタ情報行: アラートバッジ、優先度、種別、プロジェクト名、課題キー */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                  {/* アラートバッジ */}
+                  {alert ? (
+                    <IssueAlertBadge alert={alert} size="sm" />
+                  ) : (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border shrink-0 font-bold ${
+                        urgency === "today"
+                          ? "bg-amber-100 text-amber-900 border-amber-300"
+                          : "bg-sky-50 text-sky-800 border-sky-200"
+                      }`}
+                    >
+                      {urgency === "today" && <Calendar className="w-3 h-3 text-amber-600" />}
+                      <span>{badgeText}</span>
+                    </span>
+                  )}
 
-                {/* 優先度高の場合は強調バッジ */}
-                {issue.priority === "high" && (
-                  <span
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
-                    title="優先度: 高"
-                  >
-                    <ArrowUp className="w-3 h-3 text-rose-600" />
-                    <span>高</span>
-                  </span>
-                )}
+                  {/* 優先度高の場合は強調バッジ */}
+                  {issue.priority === "high" && (
+                    <span
+                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
+                      title="優先度: 高"
+                    >
+                      <ArrowUp className="w-3 h-3 text-rose-600" />
+                      <span>高</span>
+                    </span>
+                  )}
 
-                {/* 種別バッジ */}
-                <div className="shrink-0">
-                  <TypeBadge type={issue.issue_type} showLabel={false} />
+                  {/* 種別バッジ */}
+                  <div className="shrink-0">
+                    <TypeBadge type={issue.issue_type} showLabel={false} />
+                  </div>
+
+                  {/* プロジェクト名バッジ（全プロジェクト表示時） */}
+                  {showProjectBadge && issue.project_name && (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100/90 text-slate-700 border border-slate-200/80 shrink-0 max-w-[120px] sm:max-w-[160px] truncate"
+                      title={`プロジェクト: ${issue.project_name}`}
+                    >
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
+                        style={{ backgroundColor: issue.project_color || "#6366f1" }}
+                      />
+                      <span className="truncate">{issue.project_name}</span>
+                    </span>
+                  )}
+
+                  {/* 課題キー */}
+                  <span className="text-xs font-mono font-bold text-slate-500 shrink-0">
+                    {issue.issue_key}
+                  </span>
                 </div>
 
-                {/* プロジェクト名バッジ（全プロジェクト表示時） */}
-                {showProjectBadge && issue.project_name && (
-                  <span
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100/90 text-slate-700 border border-slate-200/80 shrink-0 max-w-[130px] sm:max-w-[160px] truncate"
-                    title={`プロジェクト: ${issue.project_name}`}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
-                      style={{ backgroundColor: issue.project_color || "#6366f1" }}
-                    />
-                    <span className="truncate">{issue.project_name}</span>
-                  </span>
-                )}
-
-                {/* 課題キー */}
-                <span className="text-xs font-mono font-bold text-slate-500 shrink-0">
-                  {issue.issue_key}
-                </span>
-
-                {/* 課題タイトル（クリックでモーダル表示） */}
+                {/* 課題タイトル（スマホでは全幅・最大2行表示で件名全体を判読可能に） */}
                 <button
                   type="button"
                   onClick={() => onSelectIssue(issue)}
-                  className="font-bold text-sm text-slate-900 hover:text-indigo-600 truncate text-left cursor-pointer transition-colors"
+                  className="font-bold text-sm text-slate-900 hover:text-indigo-600 line-clamp-2 sm:line-clamp-1 sm:truncate text-left cursor-pointer transition-colors w-full sm:w-auto flex-1 break-words sm:break-normal"
                   title={issue.title}
                 >
                   {issue.title}
                 </button>
               </div>
 
-              {/* 右側: 担当者情報 */}
-              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                <span className="text-xs text-slate-500">
+              {/* 右側: 担当者情報（スマホではタイトルの下段にすっきりと配置） */}
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto text-xs text-slate-500">
+                <span>
                   担当: <strong className="text-slate-700">{issue.assignee_name || "未割当"}</strong>
                 </span>
               </div>
