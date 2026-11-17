@@ -351,13 +351,13 @@ function initDb(db: DatabaseSync) {
       .get() as { value: string } | undefined;
 
     if (!isMigrated) {
-      // 1. AdminおよびPMOは全プロジェクトに参加
+      // 1. Adminは全プロジェクトに参加（PMOおよび一般メンバーは担当・参加プロジェクトのみ）
       db.exec(`
         INSERT OR IGNORE INTO project_members (project_id, user_id)
         SELECT p.id, u.id
         FROM projects p
         CROSS JOIN users u
-        WHERE u.is_admin = 1 OR u.role_type IN ('admin', 'pmo');
+        WHERE u.is_admin = 1 OR u.role_type = 'admin';
       `);
 
       // 2. 各プロジェクトの課題にアサインされているユーザーを登録

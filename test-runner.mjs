@@ -2344,6 +2344,22 @@ async function runTests() {
       throw new Error("Adminのアクセス可能プロジェクトは全件（null）である必要があります");
     }
 
+    // 4-2. プロジェクト一覧APIにおけるPMO全件取得（all=1）防止ロジックの検証
+    // AdminのみforceAll（all=1）が有効化され、PMOはall=1が渡されても自身のユーザーIDに制限されること
+    function resolveProjectLimitUser(user, forceAll) {
+      const isAdmin = user && (user.is_admin === 1 || user.role_type === "admin");
+      return isAdmin && forceAll ? null : (user ? user.id : null);
+    }
+    if (resolveProjectLimitUser(adminUser, true) !== null) {
+      throw new Error("Adminでall=1指定時に全プロジェクト取得（null）になっていません");
+    }
+    if (resolveProjectLimitUser(pmoUser, true) !== pmoUser.id) {
+      throw new Error("PMOでall=1指定時に自身のユーザーIDへの制限が効いていません（未参加プロジェクト漏洩防止不全）");
+    }
+    if (resolveProjectLimitUser(memberB, true) !== memberB.id) {
+      throw new Error("一般メンバーでall=1指定時に自身のユーザーIDへの制限が効いていません");
+    }
+
     // 5. メンバー更新・脱退の検証（Admin/PMO/一般を問わず、プロジェクトからの自由な脱退が正常に反映されること）
     testSetProjectMembers(db, prjAId, [adminUser.id]);
     testSetProjectMembers(db, prjBId, [memberB.id]); // AdminやPMOをプロジェクトBから脱退させた場合

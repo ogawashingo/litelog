@@ -1,6 +1,6 @@
 // プロジェクト情報（プロジェクト名・テーマカラー）更新・削除API（管理者専用）
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
 interface RouteParams {
@@ -41,6 +41,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (!existing) {
       return NextResponse.json({ error: "対象のプロジェクトが見つかりません" }, { status: 404 });
+    }
+
+    // 参加権限チェック（Adminは全件、PMOは参加しているプロジェクトのみ変更可能）
+    const canAccess = canUserAccessProject(
+      db,
+      sessionUser.id,
+      projectId,
+      sessionUser.role_type,
+      sessionUser.is_admin
+    );
+    if (!canAccess) {
+      return NextResponse.json(
+        { error: "このプロジェクトの設定を変更する権限がありません（参加していません）" },
+        { status: 403 }
+      );
     }
 
     // 更新項目の決定

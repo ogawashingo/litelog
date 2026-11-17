@@ -47,6 +47,7 @@ import {
   AnnouncementType,
   ANNOUNCEMENT_TYPE_OPTIONS,
   getUserRoleType,
+  isAdminUser,
   canManageIssues,
 } from "@/types";
 import {
@@ -1495,11 +1496,13 @@ export default function AdminPage() {
               <div className="flex items-center gap-2">
                 <FolderGit2 className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-bold text-slate-800 text-base">
-                  プロジェクト管理 ({projects.length}件)
+                  {isAdminUser(currentUser) ? "プロジェクト管理" : "参加プロジェクト管理"} ({projects.length}件)
                 </h3>
               </div>
               <p className="text-sm text-slate-500 mt-1">
-                登録プロジェクトの確認・名称変更・アーカイブ・削除（Admin専用）を行えます。
+                {isAdminUser(currentUser)
+                  ? "登録プロジェクトの確認・名称変更・アーカイブ・削除（Admin専用）を行えます。"
+                  : "参加中プロジェクトの確認・名称変更・アーカイブ・メンバー管理を行えます。"}
               </p>
             </div>
 

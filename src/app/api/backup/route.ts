@@ -375,10 +375,10 @@ export async function POST(request: Request) {
           }
         }
       } else {
-        // 旧バックアップ復元時の自動初期メンバーシップ生成
+        // 旧バックアップ復元時の自動初期メンバーシップ生成（Adminのみ全プロジェクト所属）
         db.exec(`
           INSERT OR IGNORE INTO project_members (project_id, user_id)
-          SELECT p.id, u.id FROM projects p CROSS JOIN users u WHERE u.is_admin = 1 OR u.role_type IN ('admin', 'pmo');
+          SELECT p.id, u.id FROM projects p CROSS JOIN users u WHERE u.is_admin = 1 OR u.role_type = 'admin';
           INSERT OR IGNORE INTO project_members (project_id, user_id)
           SELECT DISTINCT i.project_id, i.assignee_id FROM issues i WHERE i.assignee_id IS NOT NULL;
         `);

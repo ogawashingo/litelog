@@ -100,6 +100,21 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "対象のプロジェクトが見つかりません" }, { status: 404 });
     }
 
+    // 参加権限チェック（Adminは全件、PMOは参加しているプロジェクトのみメンバー変更可能）
+    const canAccess = canUserAccessProject(
+      db,
+      sessionUser.id,
+      projectId,
+      sessionUser.role_type,
+      sessionUser.is_admin
+    );
+    if (!canAccess) {
+      return NextResponse.json(
+        { error: "参加していないプロジェクトのメンバーを変更する権限はありません" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { userIds } = body;
 

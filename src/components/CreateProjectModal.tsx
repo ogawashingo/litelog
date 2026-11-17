@@ -240,7 +240,7 @@ export default function CreateProjectModal({
               })}
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              ※管理者（Admin）とPMO、作成者は自動的に参加します。作成後もいつでも変更できます。
+              ※管理者（Admin）と作成者は自動的に参加します。作成後もいつでも変更できます。
             </p>
           </div>
 
