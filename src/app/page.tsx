@@ -1,7 +1,7 @@
 // Personal Backlog ダッシュボードメインページ
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Header from "@/components/Header";
 import SummaryCards from "@/components/SummaryCards";
@@ -33,6 +33,30 @@ function DashboardContent() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [, setIsLoading] = useState(true);
+
+  // プロジェクト一覧要素の高さ監視（「最近の更新」の高さをプロジェクト一覧と同期）
+  const projectListRef = useRef<HTMLDivElement>(null);
+  const [projectListHeight, setProjectListHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = projectListRef.current;
+    if (!el) return;
+
+    const updateHeight = () => {
+      if (el) {
+        setProjectListHeight(el.offsetHeight);
+      }
+    };
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    observer.observe(el);
+    updateHeight();
+
+    return () => observer.disconnect();
+  }, [projects]);
 
   // プロジェクト一覧取得
   const fetchProjects = useCallback(async () => {
@@ -370,13 +394,15 @@ function DashboardContent() {
 
         {/* サブエリア: プロジェクト一覧 ＆ 最近の更新を2カラムで配置 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <ProjectList
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            onSelectProject={handleSelectProject}
-            onOpenCreateProject={() => setIsCreateProjectOpen(true)}
-            onUpdated={refreshAll}
-          />
+          <div ref={projectListRef}>
+            <ProjectList
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onSelectProject={handleSelectProject}
+              onOpenCreateProject={() => setIsCreateProjectOpen(true)}
+              onUpdated={refreshAll}
+            />
+          </div>
 
           <ActivityList
             activities={activities}
@@ -384,6 +410,7 @@ function DashboardContent() {
             projects={projects}
             selectedProjectId={selectedProjectId}
             onSelectIssue={handleSelectIssue}
+            targetHeight={projectListHeight}
           />
         </div>
       </main>

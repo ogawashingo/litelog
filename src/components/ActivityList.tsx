@@ -29,6 +29,7 @@ interface ActivityListProps {
   projects?: Project[];
   selectedProjectId?: number | null;
   onSelectIssue?: (issue: Issue) => void;
+  targetHeight?: number | null;
 }
 
 // アクティビティ文言から課題キー・件名・変更差分バッジ（[ 状態: ... ] 等）を抽出するヘルパー
@@ -98,6 +99,7 @@ export default function ActivityList({
   projects = [],
   selectedProjectId = null,
   onSelectIssue,
+  targetHeight,
 }: ActivityListProps) {
   const { settings, currentUser } = useUser();
 
@@ -241,10 +243,22 @@ export default function ActivityList({
     }
   };
 
+  // PCサイズ（lg以上）かつ展開時にプロジェクト一覧の高さと同期
+  const isSyncHeight = !isCollapsed && typeof targetHeight === "number" && targetHeight > 0;
+
   return (
-    <div className="bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden">
+    <div
+      className={`bg-white rounded-lg shadow-xs border border-gray-200 overflow-hidden transition-all ${
+        isSyncHeight ? "lg:flex lg:flex-col lg:h-[var(--sync-height)]" : ""
+      }`}
+      style={
+        isSyncHeight
+          ? ({ "--sync-height": `${Math.max(targetHeight, 600)}px` } as React.CSSProperties)
+          : undefined
+      }
+    >
       {/* ウィジェットヘッダー（本家Backlog風の折りたたみトグル付き） */}
-      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -268,7 +282,11 @@ export default function ActivityList({
 
       {/* タイムライン本体 */}
       {!isCollapsed && (
-        <div className="max-h-[640px] overflow-y-auto divide-y divide-gray-100">
+        <div
+          className={`overflow-y-auto divide-y divide-gray-100 ${
+            isSyncHeight ? "lg:flex-1 lg:min-h-0 max-lg:max-h-[640px]" : "max-h-[640px]"
+          }`}
+        >
           {groupedTimeline.length === 0 ? (
             <p className="text-xs text-gray-400 text-center py-8">
               該当する更新履歴がありません
