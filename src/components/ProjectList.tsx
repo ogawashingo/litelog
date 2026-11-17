@@ -3,10 +3,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive, Users } from "lucide-react";
+import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive } from "lucide-react";
 import { Project, isArchivedProject, canManageIssues } from "@/types";
 import { useUser } from "./UserContext";
-import ProjectMembersModal from "./ProjectMembersModal";
 import { getUserInitials } from "./UserManageModal";
 
 interface ExtendedProject extends Project {
@@ -42,9 +41,6 @@ export default function ProjectList({
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-
-  // 参加メンバー管理用State
-  const [managingMembersProject, setManagingMembersProject] = useState<ExtendedProject | null>(null);
 
   // アーカイブ済みプロジェクトの表示トグル
   const [showArchived, setShowArchived] = useState(false);
@@ -416,11 +412,11 @@ export default function ProjectList({
                   </Link>
                 </div>
               </div>
-              {/* 参加メンバー一覧 & メンバー管理ボタン */}
+              {/* 参加メンバー一覧（表示のみ） */}
               <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
                 <div className="flex items-center gap-1.5">
                   <div className="flex -space-x-1.5 overflow-hidden">
-                    {(proj.members || []).slice(0, 4).map((m) => (
+                    {(proj.members || []).slice(0, 5).map((m) => (
                       <div
                         key={m.id}
                         className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-1 ring-white"
@@ -435,32 +431,11 @@ export default function ProjectList({
                     {proj.member_count !== undefined ? `${proj.member_count}名` : ""}
                   </span>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setManagingMembersProject(proj);
-                  }}
-                  title={canManageIssues(currentUser) ? "プロジェクト参加メンバーを管理" : "参加メンバーを確認"}
-                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded text-slate-600 hover:text-indigo-700 bg-slate-100 hover:bg-indigo-50 border border-slate-200 transition-colors cursor-pointer"
-                >
-                  <Users className="w-3 h-3 text-slate-500" />
-                  <span>メンバー</span>
-                </button>
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* 参加メンバー管理モーダル */}
-      <ProjectMembersModal
-        isOpen={Boolean(managingMembersProject)}
-        project={managingMembersProject}
-        onClose={() => setManagingMembersProject(null)}
-        onUpdated={onUpdated}
-      />
     </div>
   );
 }
