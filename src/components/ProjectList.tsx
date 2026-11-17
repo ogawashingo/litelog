@@ -223,8 +223,9 @@ export default function ProjectList({
         {visibleProjects.map((proj) => {
           const total = proj.total_issues || 0;
           const active = proj.active_issues || 0;
-          const completed = total - active;
-          const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+          // 負数にならないよう安全ガード
+          const completed = Math.max(0, total - active);
+          const progressPercent = total > 0 ? Math.min(100, Math.max(0, Math.round((completed / total) * 100))) : 0;
           const isSelected = selectedProjectId === proj.id;
           const isEditingThis = editingProjectId === proj.id;
           const isDeletingThis = deletingProjectId === proj.id;

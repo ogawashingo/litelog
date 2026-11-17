@@ -23,7 +23,8 @@ export async function GET(request: Request) {
         COALESCE(p.is_archived, 0) AS is_archived,
         p.created_at,
         COUNT(DISTINCT i.id) AS total_issues,
-        SUM(CASE WHEN i.status != 'closed' THEN 1 ELSE 0 END) AS active_issues,
+        -- project_membersとの結合による重複カウントを防ぐため、DISTINCTでユニーク課題IDを集計
+        COUNT(DISTINCT CASE WHEN i.status != 'closed' THEN i.id END) AS active_issues,
         COUNT(DISTINCT pm.user_id) AS member_count
       FROM projects p
       LEFT JOIN issues i ON p.id = i.project_id

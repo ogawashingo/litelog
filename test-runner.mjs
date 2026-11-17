@@ -2410,6 +2410,64 @@ async function runTests() {
     console.log("✓ メンバー管理モーダル編集モード専用ビュー切り替え＆管理画面直接編集起動連携検証テスト成功");
   }
 
+  // 45. 複数メンバー所属プロジェクトにおける未完了課題数および進捗率集計の重複排除検証（デカルト積防止テスト）
+  {
+    // テスト用プロジェクトの作成
+    const pRes = db.prepare("INSERT INTO projects (key, name, color) VALUES ('MULTI', '複数メンバーPJ', '#4f46e5')").run();
+    const multiPrjId = pRes.lastInsertRowid;
+
+    // メンバー3名作成＆プロジェクトへ追加
+    const u1 = db.prepare("INSERT INTO users (login_id, password, name) VALUES ('multi_u1', 'pass', 'メンバー1')").run().lastInsertRowid;
+    const u2 = db.prepare("INSERT INTO users (login_id, password, name) VALUES ('multi_u2', 'pass', 'メンバー2')").run().lastInsertRowid;
+    const u3 = db.prepare("INSERT INTO users (login_id, password, name) VALUES ('multi_u3', 'pass', 'メンバー3')").run().lastInsertRowid;
+    db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?), (?, ?), (?, ?)").run(multiPrjId, u1, multiPrjId, u2, multiPrjId, u3);
+
+    // 課題を5件登録（未完了3件: open, in_progress, resolved / 完了2件: closed）
+    db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status) VALUES (?, 'MULTI-1', 1, '課題1', 'open')").run(multiPrjId);
+    db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status) VALUES (?, 'MULTI-2', 2, '課題2', 'in_progress')").run(multiPrjId);
+    db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status) VALUES (?, 'MULTI-3', 3, '課題3', 'resolved')").run(multiPrjId);
+    db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status) VALUES (?, 'MULTI-4', 4, '課題4', 'closed')").run(multiPrjId);
+    db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status) VALUES (?, 'MULTI-5', 5, '課題5', 'closed')").run(multiPrjId);
+
+    // プロジェクト一覧取得APIと同等の集計クエリ
+    const row = db.prepare(`
+      SELECT 
+        p.id,
+        COUNT(DISTINCT i.id) AS total_issues,
+        COUNT(DISTINCT CASE WHEN i.status != 'closed' THEN i.id END) AS active_issues,
+        COUNT(DISTINCT pm.user_id) AS member_count
+      FROM projects p
+      LEFT JOIN issues i ON p.id = i.project_id
+      LEFT JOIN project_members pm ON p.id = pm.project_id
+      WHERE p.id = ?
+      GROUP BY p.id
+    `).get(multiPrjId);
+
+    if (row.total_issues !== 5) {
+      throw new Error(`total_issuesの集計が不正です: 期待値=5, 実際=${row.total_issues}`);
+    }
+    if (row.active_issues !== 3) {
+      throw new Error(`active_issuesの集計が不正です（重複排除されていない可能性）: 期待値=3, 実際=${row.active_issues}`);
+    }
+    if (row.member_count !== 3) {
+      throw new Error(`member_countの集計が不正です: 期待値=3, 実際=${row.member_count}`);
+    }
+
+    const completed = Math.max(0, row.total_issues - row.active_issues);
+    const progressPercent = Math.min(100, Math.max(0, Math.round((completed / row.total_issues) * 100)));
+    if (progressPercent !== 40) {
+      throw new Error(`progressPercentの計算が不正です: 期待値=40, 実際=${progressPercent}`);
+    }
+
+    // 後始末
+    db.prepare("DELETE FROM issues WHERE project_id = ?").run(multiPrjId);
+    db.prepare("DELETE FROM project_members WHERE project_id = ?").run(multiPrjId);
+    db.prepare("DELETE FROM projects WHERE id = ?").run(multiPrjId);
+    db.prepare("DELETE FROM users WHERE id IN (?, ?, ?)").run(u1, u2, u3);
+
+    console.log("✓ 複数メンバー所属プロジェクトにおける未完了課題数および進捗率集計の重複排除検証（デカルト積防止テスト）成功");
+  }
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 
