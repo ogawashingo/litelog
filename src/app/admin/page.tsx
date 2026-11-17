@@ -1734,8 +1734,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* 下部2カラム: メンバー・権限管理 ＆ データバックアップ・復元 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 下部: メンバー・権限管理 ＆ データバックアップ・復元（横幅を広く確保するため縦並び配置） */}
+        <div className="space-y-6">
           {/* メンバー・権限管理カード */}
           <div className="bg-white rounded-xl shadow-xs border border-indigo-100/80 p-5 flex flex-col justify-between space-y-4">
             <div className="space-y-3">
@@ -1757,18 +1757,18 @@ export default function AdminPage() {
               <p className="text-sm text-slate-500">
                 メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] および祝日 [祝ON / 祝OFF] 設定を直接変更できます。
               </p>
-              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[340px] overflow-y-auto">
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
                 {users.map((u) => {
                   const userWeekStart = u.week_start || "monday";
                   const userShowHolidays = u.show_holidays !== undefined ? Boolean(u.show_holidays) : true;
                   return (
                     <div
                       key={u.id}
-                      className="px-3.5 py-2.5 space-y-1.5 text-sm bg-white hover:bg-slate-50/60 transition-colors"
+                      className="px-4 py-3 space-y-1.5 text-sm bg-white hover:bg-slate-50/60 transition-colors"
                     >
                       {/* 上段: アバター、名前、ロール、役職、個人設定ボタン */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
                           <div
                             style={{ backgroundColor: u.color || "#4f46e5" }}
                             className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
@@ -1789,18 +1789,18 @@ export default function AdminPage() {
                             </span>
                           )}
                           {u.role && (
-                            <span className="text-slate-500 text-xs truncate max-w-[130px]" title={u.role}>
+                            <span className="text-slate-500 text-xs shrink-0" title={u.role}>
                               {u.role}
                             </span>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           {/* 祝日表示個人設定切替（ON / OFF） */}
                           <button
                             type="button"
                             onClick={() => updateUserShowHolidays(u.id, !userShowHolidays)}
-                            className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors cursor-pointer ${
+                            className={`px-2.5 py-1 rounded text-xs font-bold border transition-colors cursor-pointer ${
                               userShowHolidays
                                 ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
                                 : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
@@ -1814,7 +1814,7 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => updateUserWeekStart(u.id, "monday")}
-                              className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                              className={`px-2.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
                                 userWeekStart === "monday"
                                   ? "bg-indigo-600 text-white shadow-xs"
                                   : "text-slate-500 hover:text-slate-800"
@@ -1826,7 +1826,7 @@ export default function AdminPage() {
                             <button
                               type="button"
                               onClick={() => updateUserWeekStart(u.id, "sunday")}
-                              className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                              className={`px-2.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
                                 userWeekStart === "sunday"
                                   ? "bg-indigo-600 text-white shadow-xs"
                                   : "text-slate-500 hover:text-slate-800"
@@ -1847,11 +1847,11 @@ export default function AdminPage() {
                             全プロジェクト参加
                           </span>
                         ) : (u.projects || []).length > 0 ? (
-                          <div className="flex items-center gap-1 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {(u.projects || []).map((p) => (
                               <span
                                 key={p.id}
-                                className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
+                                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
                                 title={`${p.name} (${p.key})`}
                               >
                                 <span
