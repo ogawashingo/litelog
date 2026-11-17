@@ -455,9 +455,6 @@ export default function UserManageModal({
               <h4 className="text-xs font-bold text-slate-700">
                 登録メンバー一覧 ({users.length}名)
               </h4>
-              <span className="text-[11px] text-slate-500">
-                ※別アカウントで操作する場合はマイアカウント内の「ログアウト」から別IDでログインしてください
-              </span>
             </div>
 
             <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
