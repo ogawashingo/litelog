@@ -392,9 +392,9 @@ function DashboardContent() {
           />
         </div>
 
-        {/* サブエリア: プロジェクト一覧 ＆ 最近の更新を2カラムで配置 */}
+        {/* サブエリア: プロジェクト一覧 ＆ 最近の更新を2カラムで配置（スマホ・iPhone画面ではプロジェクト一覧を非表示にして縦長化を抑制） */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <div ref={projectListRef}>
+          <div ref={projectListRef} className="hidden md:block">
             <ProjectList
               projects={projects}
               selectedProjectId={selectedProjectId}
