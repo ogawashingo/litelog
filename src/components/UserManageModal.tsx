@@ -188,6 +188,7 @@ export default function UserManageModal({
 
   // 編集中のメンバーState
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [editLoginId, setEditLoginId] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editName, setEditName] = useState("");
@@ -199,6 +200,23 @@ export default function UserManageModal({
   const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
 
   const editingUser = editingId !== null ? users.find((u) => u.id === editingId) : null;
+
+  // メンバー一覧の検索・インクリメンタル絞り込み
+  const filteredUsers = React.useMemo(() => {
+    if (!memberSearchQuery.trim()) return users;
+    const q = memberSearchQuery.toLowerCase().trim();
+    return users.filter((u) => {
+      const matchName = u.name.toLowerCase().includes(q);
+      const matchLogin = u.login_id ? u.login_id.toLowerCase().includes(q) : false;
+      const matchRole = u.role ? u.role.toLowerCase().includes(q) : false;
+      const roleType = getUserRoleType(u);
+      const matchRoleType =
+        (roleType === "admin" && (q.includes("admin") || q.includes("管理者"))) ||
+        (roleType === "pmo" && q.includes("pmo")) ||
+        (roleType === "member" && (q.includes("一般") || q.includes("メンバー")));
+      return matchName || matchLogin || matchRole || matchRoleType;
+    });
+  }, [users, memberSearchQuery]);
 
   // 編集開始（Hookなので早期リターン if (!isOpen) より前に配置）
   const startEdit = React.useCallback((user: User) => {
@@ -633,7 +651,6 @@ export default function UserManageModal({
                         ※ 最後の管理者のため権限解除不可
                       </span>
                     )}
-                    </div>
                   </div>
 
                   {/* 週開始曜日 & 祝日表示 */}
@@ -689,18 +706,35 @@ export default function UserManageModal({
 
                 <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-200">
                   <div>
-                    {isCurrentUserAdmin && users.length > 1 && editingUser.id !== currentUser?.id && (
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => handleDeleteUser(editingUser)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-md transition-colors cursor-pointer font-medium disabled:opacity-50"
-                        title="このメンバーを削除（Admin専用）"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>このメンバーを削除</span>
-                      </button>
-                    )}
+                    {isCurrentUserAdmin && users.length > 1 && editingUser.id !== currentUser?.id && (() => {
+                      const isLastAdmin = isAdminUser(editingUser) && adminCount <= 1;
+                      return (
+                        <button
+                          type="button"
+                          disabled={isSubmitting || isLastAdmin}
+                          onClick={() => {
+                            if (isLastAdmin) {
+                              setErrorMsg("最後のシステム管理者（Admin）は削除できません");
+                              return;
+                            }
+                            handleDeleteUser(editingUser);
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border rounded-md transition-colors font-medium ${
+                            isLastAdmin
+                              ? "text-slate-300 border-slate-200 cursor-not-allowed bg-slate-50"
+                              : "text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 cursor-pointer"
+                          }`}
+                          title={
+                            isLastAdmin
+                              ? "最後の管理者（Admin）は削除できません"
+                              : "このメンバーを削除（Admin専用）"
+                          }
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>このメンバーを削除</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -833,14 +867,53 @@ export default function UserManageModal({
 
           {/* 登録済みメンバー一覧 */}
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-xs font-bold text-slate-700">
                 登録メンバー一覧 ({users.length}名)
+                {memberSearchQuery.trim() && (
+                  <span className="ml-1.5 text-indigo-600 font-semibold">
+                    (絞り込み: {filteredUsers.length}件)
+                  </span>
+                )}
               </h4>
+
+              {/* メンバー検索入力バー */}
+              <div className="relative flex items-center min-w-[200px] max-w-xs">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+                <input
+                  type="text"
+                  value={memberSearchQuery}
+                  onChange={(e) => setMemberSearchQuery(e.target.value)}
+                  placeholder="メンバー名・ID・役割で検索..."
+                  className="w-full pl-8 pr-6 py-1 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+                {memberSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setMemberSearchQuery("")}
+                    className="absolute right-2 p-0.5 text-slate-400 hover:text-slate-600 rounded-sm cursor-pointer"
+                    title="絞り込みをクリア"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
-              {users.map((u) => {
+              {filteredUsers.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-500">
+                  「{memberSearchQuery}」に一致するメンバーは見つかりませんでした。
+                  <button
+                    type="button"
+                    onClick={() => setMemberSearchQuery("")}
+                    className="ml-2 text-indigo-600 font-semibold hover:underline cursor-pointer"
+                  >
+                    検索条件をクリア
+                  </button>
+                </div>
+              ) : (
+                filteredUsers.map((u) => {
                 const isCurrent = currentUser?.id === u.id;
                 return (
                   <div
@@ -1027,7 +1100,8 @@ export default function UserManageModal({
                       </div>
                   </div>
                 );
-              })}
+              })
+            )}
             </div>
           </div>
             </>
