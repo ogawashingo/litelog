@@ -1442,18 +1442,18 @@ export default function AdminPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <FolderGit2 className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 text-sm">
+                <h3 className="font-bold text-slate-800 text-base">
                   プロジェクト管理 ({projects.length}件)
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-sm text-slate-500 mt-1">
                 登録プロジェクトの確認・名称変更・アーカイブ・削除（Admin専用）を行えます。
               </p>
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
               {/* プロジェクトフィルター切り替えタブ */}
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs shrink-0">
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-sm shrink-0">
                 <button
                   type="button"
                   onClick={() => setProjectFilterTab("all")}
@@ -1498,16 +1498,16 @@ export default function AdminPage() {
                   }
                   setIsCreateProjectOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
                 <span>新規作成</span>
               </button>
             </div>
           </div>
 
           {projectErrorMsg && (
-            <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-xs font-medium">
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg text-sm font-medium">
               {projectErrorMsg}
             </div>
           )}
@@ -1527,7 +1527,7 @@ export default function AdminPage() {
                 return (
                   <div
                     key={p.id}
-                    className={`px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs transition-colors ${
+                    className={`px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-sm transition-colors ${
                       isArchived ? "bg-slate-50/70" : "bg-white hover:bg-slate-50/40"
                     }`}
                   >
@@ -1540,7 +1540,7 @@ export default function AdminPage() {
                           style={{ backgroundColor: p.color || "#4f46e5" }}
                           className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
                         />
-                        <span className="font-mono font-bold text-slate-600 shrink-0">
+                        <span className="font-mono font-bold text-slate-600 shrink-0 text-sm">
                           [{p.key}]
                         </span>
                         <input
@@ -1549,14 +1549,14 @@ export default function AdminPage() {
                           onChange={(e) => setEditProjectName(e.target.value)}
                           placeholder="新しいプロジェクト名"
                           autoFocus
-                          className="flex-1 min-w-0 bg-white border border-indigo-300 rounded px-2.5 py-1.5 text-xs font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                          className="flex-1 min-w-0 bg-white border border-indigo-300 rounded px-3 py-1.5 text-sm font-semibold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                         />
                         <button
                           type="submit"
                           disabled={isUpdatingProject}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                          className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer shrink-0"
                         >
-                          <Check className="w-3.5 h-3.5" />
+                          <Check className="w-4 h-4" />
                           <span>保存</span>
                         </button>
                         <button
@@ -1579,11 +1579,11 @@ export default function AdminPage() {
                             style={{ backgroundColor: p.color || "#4f46e5" }}
                             className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
                           />
-                          <span className="font-mono font-bold text-xs text-slate-600 shrink-0">
+                          <span className="font-mono font-bold text-sm text-slate-600 shrink-0">
                             [{p.key}]
                           </span>
                           <span
-                            className={`font-bold text-sm ${
+                            className={`font-bold text-sm sm:text-base ${
                               isArchived ? "text-slate-500 line-through decoration-slate-400" : "text-slate-900"
                             }`}
                             title={p.name}
@@ -1592,8 +1592,8 @@ export default function AdminPage() {
                           </span>
                           {/* アーカイブ済みの場合のみバッジを表示 */}
                           {isArchived && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
-                              <Archive className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
+                              <Archive className="w-3.5 h-3.5" />
                               <span>アーカイブ</span>
                             </span>
                           )}
@@ -1611,7 +1611,7 @@ export default function AdminPage() {
                                   ? "プロジェクトのアーカイブを解除して日常一覧に復帰（編集可能化）"
                                   : "プロジェクトをアーカイブ（読み取り専用化・日常一覧から非表示）"
                               }
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold text-xs transition-colors cursor-pointer ${
+                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs sm:text-sm transition-colors cursor-pointer ${
                                 isArchived
                                   ? "border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 shadow-2xs"
                                   : "border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700"
@@ -1619,12 +1619,12 @@ export default function AdminPage() {
                             >
                               {isArchived ? (
                                 <>
-                                  <RotateCcw className="w-3.5 h-3.5" />
+                                  <RotateCcw className="w-4 h-4" />
                                   <span>アーカイブ解除</span>
                                 </>
                               ) : (
                                 <>
-                                  <Archive className="w-3.5 h-3.5" />
+                                  <Archive className="w-4 h-4" />
                                   <span>アーカイブ</span>
                                 </>
                               )}
@@ -1633,9 +1633,9 @@ export default function AdminPage() {
                               type="button"
                               onClick={() => handleStartEditProject(p)}
                               title="プロジェクト名を変更 (Admin / PMO)"
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Edit2 className="w-4 h-4" />
                               <span>名称変更</span>
                             </button>
                             {Boolean(currentUser?.is_admin) && (
@@ -1647,13 +1647,13 @@ export default function AdminPage() {
                                     ? "プロジェクトを削除 (Admin専用)"
                                     : "最低1件のプロジェクトが必要なため削除できません"
                                 }
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border font-semibold text-xs transition-colors ${
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs sm:text-sm transition-colors ${
                                   projects.length > 1
                                     ? "border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 cursor-pointer"
                                     : "border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed"
                                 }`}
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-4 h-4" />
                                 <span>削除</span>
                               </button>
                             )}
@@ -1664,14 +1664,14 @@ export default function AdminPage() {
 
                     {/* プロジェクト削除確認ボックス（Admin専用） */}
                     {isDeletingThis && (
-                      <div className="w-full mt-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs space-y-2.5">
-                        <div className="flex items-start gap-2 text-rose-800 font-semibold leading-snug">
-                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <div className="w-full mt-2 p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-sm space-y-3">
+                        <div className="flex items-start gap-2 text-rose-800 font-semibold leading-relaxed">
+                          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                           <span>
                             プロジェクト <strong>[{p.key}] {p.name}</strong> と紐づく全課題を完全に削除しますか？（※課題やコメントもすべて消去されます）
                           </span>
                         </div>
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2.5">
                           <button
                             type="button"
                             onClick={() => {
@@ -1679,7 +1679,7 @@ export default function AdminPage() {
                               setProjectErrorMsg("");
                             }}
                             disabled={isDeletingProject}
-                            className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+                            className="px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-sm font-medium transition-colors cursor-pointer"
                           >
                             キャンセル
                           </button>
@@ -1687,9 +1687,9 @@ export default function AdminPage() {
                             type="button"
                             onClick={() => handleDeleteProject(p)}
                             disabled={isDeletingProject}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                             <span>{isDeletingProject ? "削除中..." : "削除する"}</span>
                           </button>
                         </div>
@@ -1709,19 +1709,19 @@ export default function AdminPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-indigo-600" />
-                  <h3 className="font-bold text-slate-800 text-sm">
+                  <h3 className="font-bold text-slate-800 text-base">
                     チームメンバー・権限管理 ({users.length}名)
                   </h3>
                 </div>
                 <button
                   type="button"
                   onClick={openUserManageModal}
-                  className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
+                  className="text-sm font-bold text-indigo-600 hover:underline cursor-pointer"
                 >
                   追加・編集を開く
                 </button>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm text-slate-500">
                 メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] および祝日 [祝ON / 祝OFF] 設定を直接変更できます。
               </p>
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[340px] overflow-y-auto">
@@ -1731,37 +1731,37 @@ export default function AdminPage() {
                   return (
                     <div
                       key={u.id}
-                      className="px-3 py-2 flex items-center justify-between gap-2 text-xs bg-white hover:bg-slate-50/60 transition-colors"
+                      className="px-3.5 py-2.5 flex items-center justify-between gap-2 text-sm bg-white hover:bg-slate-50/60 transition-colors"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         <div
                           style={{ backgroundColor: u.color || "#4f46e5" }}
-                          className="w-6 h-6 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs"
+                          className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
                           title={`${u.name}さんのテーマカラー: ${getAvatarColorLabel(u.color)}`}
                         >
                           {getUserInitials(u.name)}
                         </div>
                         <span className="font-bold text-slate-800 truncate">{u.name}</span>
                         {getUserRoleType(u) === "admin" && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full font-bold shrink-0">
-                            <Crown className="w-2.5 h-2.5 text-amber-600" />
+                          <span className="inline-flex items-center gap-0.5 text-xs bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                            <Crown className="w-3 h-3 text-amber-600" />
                             Admin
                           </span>
                         )}
                         {getUserRoleType(u) === "pmo" && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold shrink-0">
+                          <span className="inline-flex items-center gap-0.5 text-xs bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
                             PMO
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-slate-500 text-[11px] hidden sm:inline mr-1">{u.role}</span>
+                        <span className="text-slate-500 text-xs hidden sm:inline mr-1">{u.role}</span>
                         {/* 祝日表示個人設定切替（ON / OFF） */}
                         <button
                           type="button"
                           onClick={() => updateUserShowHolidays(u.id, !userShowHolidays)}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors cursor-pointer ${
+                          className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors cursor-pointer ${
                             userShowHolidays
                               ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
                               : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
@@ -1771,11 +1771,11 @@ export default function AdminPage() {
                           祝{userShowHolidays ? "ON" : "OFF"}
                         </button>
                         {/* カレンダー個人設定切替（月曜始まり / 日曜始まり） */}
-                        <div className="inline-flex rounded border border-slate-200 bg-slate-50 p-0.5 text-[10px]">
+                        <div className="inline-flex rounded border border-slate-200 bg-slate-50 p-0.5 text-xs">
                           <button
                             type="button"
                             onClick={() => updateUserWeekStart(u.id, "monday")}
-                            className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                            className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
                               userWeekStart === "monday"
                                 ? "bg-indigo-600 text-white shadow-xs"
                                 : "text-slate-500 hover:text-slate-800"
@@ -1787,7 +1787,7 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => updateUserWeekStart(u.id, "sunday")}
-                            className={`px-1.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
+                            className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
                               userWeekStart === "sunday"
                                 ? "bg-indigo-600 text-white shadow-xs"
                                 : "text-slate-500 hover:text-slate-800"
@@ -1807,7 +1807,7 @@ export default function AdminPage() {
             <button
               type="button"
               onClick={openUserManageModal}
-              className="w-full py-2 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Users className="w-4 h-4" />
               <span>メンバー管理モーダルを開く</span>
@@ -1819,24 +1819,24 @@ export default function AdminPage() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Database className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 text-sm">
+                <h3 className="font-bold text-slate-800 text-base">
                   データバックアップ ＆ 復元
                 </h3>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm text-slate-500">
                 プロジェクト、課題、コメント、添付ファイル履歴、メンバー情報などシステム全体のデータをJSONファイルとして一括保存（エクスポート）および復元（インポート）できます。
               </p>
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-2">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-sm text-slate-600 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-700">登録プロジェクト総数</span>
+                  <span className="font-medium text-slate-700">登録プロジェクト総数</span>
                   <span className="font-mono font-bold text-slate-900">{projects.length} 件</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-700">登録メンバー総数</span>
+                  <span className="font-medium text-slate-700">登録メンバー総数</span>
                   <span className="font-mono font-bold text-slate-900">{users.length} 名</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-700">システムバージョン</span>
+                  <span className="font-medium text-slate-700">システムバージョン</span>
                   <span className="font-mono font-bold text-indigo-600">{versionData.version}</span>
                 </div>
               </div>
@@ -1851,7 +1851,7 @@ export default function AdminPage() {
                 }
                 setIsBackupOpen(true);
               }}
-              className="w-full py-2.5 px-4 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+              className="w-full py-2.5 px-4 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-200 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
             >
               <Database className="w-4 h-4 text-indigo-700" />
               <span>バックアップ・復元モーダルを開く</span>
@@ -1861,7 +1861,7 @@ export default function AdminPage() {
 
         {/* ページ下部 バージョン表記 */}
         <div className="text-center pt-2 pb-4">
-          <span className="text-[11px] text-slate-400 font-mono select-all">
+          <span className="text-xs text-slate-400 font-mono select-all">
             Personal Backlog • {versionData.version}
           </span>
         </div>
