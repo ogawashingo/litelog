@@ -46,6 +46,7 @@ export async function GET() {
     const commentReactions = db.prepare("SELECT * FROM comment_reactions").all();
     const activities = db.prepare("SELECT * FROM activities").all();
     const attachments = db.prepare("SELECT * FROM attachments").all();
+    const projectMembers = db.prepare("SELECT * FROM project_members").all();
     const settings = db
       .prepare("SELECT key, value, updated_at FROM settings WHERE key NOT IN ('session_secret', 'schema_migration_version')")
       .all();
@@ -62,6 +63,7 @@ export async function GET() {
       commentReactions,
       activities,
       attachments,
+      projectMembers,
       settings,
     };
 
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
 
     const db = getDb();
     const body = await request.json();
-    const { users, projects, issues, issueHistories, comments, commentHistories, commentReactions, activities, attachments, settings } = body;
+    const { users, projects, issues, issueHistories, comments, commentHistories, commentReactions, activities, attachments, projectMembers, settings } = body;
 
     if (!Array.isArray(projects) || !Array.isArray(issues)) {
       return NextResponse.json({ error: "有効なバックアップデータ形式ではありません" }, { status: 400 });
@@ -359,6 +361,27 @@ export async function POST(request: Request) {
             att.created_at || new Date().toISOString()
           );
         }
+      }
+
+      // プロジェクト参加メンバーの復元
+      if (Array.isArray(projectMembers) && projectMembers.length > 0) {
+        const insertPm = db.prepare(`
+          INSERT OR IGNORE INTO project_members (project_id, user_id, created_at)
+          VALUES (?, ?, ?)
+        `);
+        for (const pm of projectMembers) {
+          if (validUserIds.has(pm.user_id)) {
+            insertPm.run(pm.project_id, pm.user_id, pm.created_at || new Date().toISOString());
+          }
+        }
+      } else {
+        // 旧バックアップ復元時の自動初期メンバーシップ生成
+        db.exec(`
+          INSERT OR IGNORE INTO project_members (project_id, user_id)
+          SELECT p.id, u.id FROM projects p CROSS JOIN users u WHERE u.is_admin = 1 OR u.role_type IN ('admin', 'pmo');
+          INSERT OR IGNORE INTO project_members (project_id, user_id)
+          SELECT DISTINCT i.project_id, i.assignee_id FROM issues i WHERE i.assignee_id IS NOT NULL;
+        `);
       }
 
       if (Array.isArray(settings)) {

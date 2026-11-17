@@ -79,6 +79,22 @@ export default function CreateIssueModal({
     }
   }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, defaultTitle, projects, currentUser]);
 
+  // 選択中プロジェクトの参加メンバー候補（プロジェクトメンバー＋Admin/PMO）
+  const currentProject = projects.find((p) => p.id === projectId);
+  const candidateUsers = React.useMemo(() => {
+    if (currentProject?.members && currentProject.members.length > 0) {
+      const memberIds = new Set(currentProject.members.map((m) => m.id));
+      return users.filter(
+        (u) =>
+          memberIds.has(u.id) ||
+          u.is_admin === 1 ||
+          u.role_type === "admin" ||
+          u.role_type === "pmo"
+      );
+    }
+    return users;
+  }, [currentProject, users]);
+
   // プロジェクトが変わったら親課題候補一覧を取得
   useEffect(() => {
     if (!isOpen || !projectId) return;
@@ -233,7 +249,7 @@ export default function CreateIssueModal({
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="">未割当</option>
-                {users.map((u) => (
+                {candidateUsers.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name} {currentUser?.id === u.id ? "(自分)" : `(${u.role})`}
                   </option>
@@ -419,7 +435,7 @@ export default function CreateIssueModal({
 
           {/* 通知先（参加者）チェックボックス選択 */}
           <NotifyUserSelector
-            users={users}
+            users={candidateUsers}
             currentUserId={currentUser?.id || null}
             selectedUserIds={notifyUserIds}
             onChange={setNotifyUserIds}

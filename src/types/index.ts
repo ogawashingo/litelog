@@ -85,6 +85,8 @@ export interface Project {
   color: string;     // テーマカラー（16進数カラーコード）
   is_archived?: number; // アーカイブ状態（1: アーカイブ済み・読み取り専用, 0: アクティブ）
   created_at: string;
+  members?: User[];  // 参加メンバー一覧
+  member_count?: number; // 参加メンバー総数
 }
 
 /**

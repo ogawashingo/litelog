@@ -1,9 +1,11 @@
 // 最近のアクティビティ取得API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
+import { getSessionUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
+    const sessionUser = await getSessionUser();
     const db = getDb();
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
@@ -41,6 +43,21 @@ export async function GET(request: Request) {
     if (projectId) {
       sql += " AND i.project_id = ?";
       params.push(Number(projectId));
+    } else if (sessionUser) {
+      const accessibleIds = getUserAccessibleProjectIds(
+        db,
+        sessionUser.id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (accessibleIds !== null) {
+        if (accessibleIds.length === 0) {
+          return NextResponse.json([]);
+        }
+        const placeholders = accessibleIds.map(() => "?").join(",");
+        sql += ` AND i.project_id IN (${placeholders})`;
+        params.push(...accessibleIds);
+      }
     }
 
     sql += " ORDER BY a.created_at DESC, a.id DESC LIMIT 50";

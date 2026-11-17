@@ -323,6 +323,57 @@ function initDb(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_attachments_comment_id ON attachments(comment_id);
   `);
 
+  // プロジェクト参加メンバー（メンバーシップ）テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS project_members (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (project_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
+  `);
+
+  // project_members の初期データ移行（AdminおよびPMO、既存課題・コメントに関わるユーザーを自動登録）
+  try {
+    // 1. AdminおよびPMOは全プロジェクトに参加
+    db.exec(`
+      INSERT OR IGNORE INTO project_members (project_id, user_id)
+      SELECT p.id, u.id
+      FROM projects p
+      CROSS JOIN users u
+      WHERE u.is_admin = 1 OR u.role_type IN ('admin', 'pmo');
+    `);
+
+    // 2. 各プロジェクトの課題にアサインされているユーザーを登録
+    db.exec(`
+      INSERT OR IGNORE INTO project_members (project_id, user_id)
+      SELECT DISTINCT i.project_id, i.assignee_id
+      FROM issues i
+      WHERE i.assignee_id IS NOT NULL;
+    `);
+
+    // 3. 各プロジェクトの課題を作成したユーザーを登録
+    db.exec(`
+      INSERT OR IGNORE INTO project_members (project_id, user_id)
+      SELECT DISTINCT i.project_id, i.created_by
+      FROM issues i
+      WHERE i.created_by IS NOT NULL;
+    `);
+
+    // 4. 各プロジェクトの課題にコメントしたユーザーを登録
+    db.exec(`
+      INSERT OR IGNORE INTO project_members (project_id, user_id)
+      SELECT DISTINCT i.project_id, c.user_id
+      FROM comments c
+      JOIN issues i ON c.issue_id = i.id
+      WHERE c.user_id IS NOT NULL;
+    `);
+  } catch (pmErr) {
+    console.error("project_members 初期データ登録エラー:", pmErr);
+  }
+
   // システム設定（時刻・タイムゾーン・マイグレーションバージョン管理等）テーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -595,3 +646,86 @@ export function attachReactionsToComments<T extends { id: number }>(
     reactions: mapByCommentId.get(Number(c.id)) || [],
   }));
 }
+
+// ユーザーが特定プロジェクトにアクセス可能か判定（Admin/PMOは全プロジェクトアクセス可）
+export function canUserAccessProject(
+  db: DatabaseSync,
+  userId: number,
+  projectId: number,
+  userRoleType?: string,
+  isAdmin?: number
+): boolean {
+  if (isAdmin === 1 || userRoleType === "admin" || userRoleType === "pmo") {
+    return true;
+  }
+  const row = db
+    .prepare("SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?")
+    .get(projectId, userId);
+  return Boolean(row);
+}
+
+// ユーザーがアクセス可能なプロジェクトID一覧を取得（Admin/PMOの場合は null を返し、全件対象を示す）
+export function getUserAccessibleProjectIds(
+  db: DatabaseSync,
+  userId: number,
+  userRoleType?: string,
+  isAdmin?: number
+): number[] | null {
+  if (isAdmin === 1 || userRoleType === "admin" || userRoleType === "pmo") {
+    return null; // 全プロジェクト対象
+  }
+  const rows = db
+    .prepare("SELECT project_id FROM project_members WHERE user_id = ?")
+    .all(userId) as { project_id: number }[];
+  return rows.map((r) => r.project_id);
+}
+
+// プロジェクトに参加しているユーザー一覧を取得
+export function getProjectMemberUsers(db: DatabaseSync, projectId: number) {
+  return db
+    .prepare(`
+      SELECT 
+        u.id,
+        u.login_id,
+        u.name,
+        u.role,
+        u.role_type,
+        u.color,
+        u.is_admin,
+        pm.created_at AS joined_at
+      FROM project_members pm
+      JOIN users u ON pm.user_id = u.id
+      WHERE pm.project_id = ?
+      ORDER BY u.is_admin DESC, u.role_type = 'pmo' DESC, u.id ASC
+    `)
+    .all(projectId);
+}
+
+// プロジェクトの参加メンバーを更新（Admin/PMOは常時自動参加を保証）
+export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: number[]) {
+  const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
+
+  // AdminとPMOのIDを取得して常に参加リストに含める
+  const adminAndPmo = db
+    .prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type IN ('admin', 'pmo')")
+    .all() as { id: number }[];
+  for (const ap of adminAndPmo) {
+    if (!uniqueIds.includes(ap.id)) {
+      uniqueIds.push(ap.id);
+    }
+  }
+
+  db.exec("BEGIN IMMEDIATE;");
+  try {
+    db.prepare("DELETE FROM project_members WHERE project_id = ?").run(projectId);
+    const insertStmt = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
+    for (const uid of uniqueIds) {
+      insertStmt.run(projectId, uid);
+    }
+    db.exec("COMMIT;");
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
+  }
+}
+

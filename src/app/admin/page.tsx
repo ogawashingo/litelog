@@ -482,8 +482,8 @@ export default function AdminPage() {
             </div>
             <div>
               <div className="flex flex-wrap items-baseline gap-2">
-                <h1 className="text-lg font-bold text-slate-900">管理ページ・システム設定</h1>
-                <span className="text-[11px] text-slate-400 font-mono select-all">
+                <h1 className="text-xl font-bold text-slate-900">管理ページ・システム設定</h1>
+                <span className="text-xs text-slate-400 font-mono select-all">
                   {versionData.version}
                 </span>
               </div>
@@ -491,28 +491,28 @@ export default function AdminPage() {
           </div>
 
           {currentUser && (
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg text-xs shrink-0">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg text-sm shrink-0">
               <div
                 style={{ backgroundColor: currentUser.color || "#4f46e5" }}
-                className="w-6 h-6 rounded-full text-white flex items-center justify-center font-bold text-[10px]"
+                className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs"
               >
                 {getUserInitials(currentUser.name)}
               </div>
               <div>
-                <div className="font-bold text-slate-800 flex items-center gap-1">
+                <div className="font-bold text-slate-800 flex items-center gap-1.5">
                   <span>{currentUser.name}</span>
                   {getUserRoleType(currentUser) === "admin" ? (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.2 rounded-full font-bold">
-                      <Crown className="w-2.5 h-2.5 text-amber-600" />
+                    <span className="inline-flex items-center gap-0.5 text-xs bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold">
+                      <Crown className="w-3 h-3 text-amber-600" />
                       Admin
                     </span>
                   ) : getUserRoleType(currentUser) === "pmo" ? (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.2 rounded-full font-bold">
+                    <span className="inline-flex items-center gap-0.5 text-xs bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 rounded-full font-bold">
                       PMO
                     </span>
                   ) : null}
                 </div>
-                <span className="text-[10px] text-slate-500">{currentUser.role}</span>
+                <span className="text-xs text-slate-500">{currentUser.role}</span>
               </div>
             </div>
           )}
@@ -520,7 +520,7 @@ export default function AdminPage() {
 
         {/* 保存完了メッセージ */}
         {saveMessage && (
-          <div className="bg-indigo-50 border border-indigo-300 text-indigo-900 px-4 py-3 rounded-xl shadow-xs flex items-center gap-2.5 text-xs font-bold animate-in fade-in duration-150">
+          <div className="bg-indigo-50 border border-indigo-300 text-indigo-900 px-4 py-3 rounded-xl shadow-xs flex items-center gap-2.5 text-sm font-bold animate-in fade-in duration-150">
             <CheckCircle2 className="w-5 h-5 text-indigo-600 shrink-0" />
             <span>{saveMessage}</span>
           </div>
@@ -534,9 +534,9 @@ export default function AdminPage() {
           <div className="bg-slate-50/80 border-b border-indigo-100/60 px-6 py-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Megaphone className="w-5 h-5 text-indigo-600" />
-              <h2 className="font-bold text-slate-800 text-base">ヘッダー一言通知（アナウンスメント）設定</h2>
+              <h2 className="font-bold text-slate-800 text-base sm:text-lg">ヘッダー一言通知（アナウンスメント）設定</h2>
             </div>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs sm:text-sm text-slate-500">
               全画面のヘッダー直下に表示する全体連絡・作業告知を設定できます
             </span>
           </div>
@@ -545,19 +545,19 @@ export default function AdminPage() {
             {/* 有効/無効 トグルスイッチ */}
             <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200/80 rounded-xl">
               <div>
-                <div className="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                <div className="font-semibold text-slate-800 text-sm sm:text-base flex items-center gap-2">
                   <span>一言通知を表示する</span>
                   {announcementEnabled ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">
                       有効
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-600">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-600">
                       無効
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
                   スイッチをONにすると、ログイン中の全メンバーのヘッダー直下にメッセージが表示されます
                 </p>
               </div>
@@ -574,7 +574,7 @@ export default function AdminPage() {
 
             {/* 通知種別（タイプ）選択 */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700">
+              <label className="block text-sm font-bold text-slate-700">
                 通知タイプ（スタイル）
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -592,10 +592,10 @@ export default function AdminPage() {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-slate-800">{opt.badge}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                        <span className="font-bold text-sm text-slate-800">{opt.badge}</span>
+                        {isSelected && <Check className="w-4 h-4 text-indigo-600" />}
                       </div>
-                      <span className="text-[11px] text-slate-500 leading-tight">
+                      <span className="text-xs text-slate-500 leading-normal">
                         {opt.description}
                       </span>
                     </button>
@@ -607,10 +607,10 @@ export default function AdminPage() {
             {/* メッセージ入力エリア */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-700">
+                <label className="block text-sm font-bold text-slate-700">
                   通知メッセージ本文
                 </label>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-xs text-slate-400">
                   Markdown、URLリンク、課題キーに対応
                 </span>
               </div>
@@ -619,26 +619,26 @@ export default function AdminPage() {
                 onChange={(e) => setAnnouncementMessage(e.target.value)}
                 rows={2}
                 placeholder="例: 【メンテ告知】本日 18:00〜18:30 にバックアップおよびサーバー更新作業を実施します。"
-                className="w-full text-xs rounded-xl border border-slate-300 px-3.5 py-2.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-colors"
+                className="w-full text-sm rounded-xl border border-slate-300 px-3.5 py-2.5 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-colors"
               />
             </div>
 
             {/* リアルタイム表示プレビュー */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-700">
+              <label className="block text-sm font-bold text-slate-700">
                 ヘッダー直下での表示プレビュー
               </label>
               <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-900 shadow-inner">
                 {/* ヘッダー風のモックバー */}
-                <div className="h-8 bg-slate-950 px-3 flex items-center justify-between border-b border-white/10 text-[11px] text-white/60">
+                <div className="h-9 bg-slate-950 px-3.5 flex items-center justify-between border-b border-white/10 text-xs text-white/70">
                   <span>Personal Backlog ヘッダー</span>
-                  <span className="text-[10px]">プレビュー</span>
+                  <span className="text-xs">プレビュー</span>
                 </div>
                 {/* アナウンスメントバーのプレビュー */}
                 {announcementEnabled && announcementMessage.trim() ? (
                   <div className="p-0">
                     <div
-                      className={`px-3 py-2 text-xs flex items-center justify-between gap-3 ${
+                      className={`px-3.5 py-2.5 text-sm flex items-center justify-between gap-3 ${
                         announcementType === "warning"
                           ? "bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white"
                           : announcementType === "alert"
@@ -649,18 +649,18 @@ export default function AdminPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border bg-white/20 text-white border-white/35">
+                        <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border bg-white/20 text-white border-white/35">
                           {ANNOUNCEMENT_TYPE_OPTIONS.find((o) => o.value === announcementType)?.badge || "お知らせ"}
                         </span>
-                        <span className="truncate text-[12px] font-medium text-white">
+                        <span className="truncate text-sm font-medium text-white">
                           {announcementMessage}
                         </span>
                       </div>
-                      <div className="text-white/70 text-[10px]">× (閉じる)</div>
+                      <div className="text-white/80 text-xs">× (閉じる)</div>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-4 text-center text-xs text-slate-400">
+                  <div className="p-4 text-center text-sm text-slate-400">
                     通知が無効、またはメッセージが空のため、ヘッダー直下には何も表示されません。
                   </div>
                 )}
@@ -669,12 +669,12 @@ export default function AdminPage() {
 
             {/* 保存・更新ボタン ＆ 保存完了メッセージ */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-              <div className="text-xs text-slate-500">
+              <div className="text-xs sm:text-sm text-slate-500">
                 保存すると、一度通知を閉じたメンバーにも新しい更新として再表示されます。
               </div>
               <div className="flex items-center gap-3">
                 {announcementSaveMessage && (
-                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
+                  <span className="text-sm font-bold text-emerald-600 flex items-center gap-1.5 animate-in fade-in">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     {announcementSaveMessage}
                   </span>
@@ -682,7 +682,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={isSavingAnnouncement}
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-sm font-semibold shadow-xs transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isSavingAnnouncement ? "保存中..." : "一言通知を保存・更新"}
                 </button>
@@ -696,9 +696,9 @@ export default function AdminPage() {
           <div className="bg-slate-50/80 border-b border-indigo-100/60 px-6 py-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Palette className="w-5 h-5 text-indigo-600" />
-              <h2 className="font-bold text-slate-800 text-base">デザイン・カラーテーマ設定</h2>
+              <h2 className="font-bold text-slate-800 text-base sm:text-lg">デザイン・カラーテーマ設定</h2>
             </div>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs sm:text-sm text-slate-500">
               カードをクリックすると画面全体がリアルタイムで試着プレビューされます
             </span>
           </div>
@@ -726,31 +726,31 @@ export default function AdminPage() {
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-slate-900 text-sm">{theme.name}</span>
+                            <span className="font-bold text-slate-900 text-base">{theme.name}</span>
                             {isSelected && (
                               <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
                             )}
                           </div>
-                          <span className="text-[11px] text-slate-400 font-mono">
+                          <span className="text-xs text-slate-400 font-mono">
                             {theme.englishName}
                           </span>
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           {theme.badge && (
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                              className={`text-xs font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${
                                 theme.id === "monochrome"
-                                  ? "bg-orange-50 text-orange-700 border-orange-200"
-                                  : theme.hasGradient
-                                  ? "bg-violet-50 text-violet-700 border-violet-200"
-                                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    ? "bg-orange-50 text-orange-700 border-orange-200"
+                                    : theme.hasGradient
+                                    ? "bg-violet-50 text-violet-700 border-violet-200"
+                                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
                               }`}
                             >
                               {theme.badge}
                             </span>
                           )}
                           {isCurrentSaved && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
                               現在保存中
                             </span>
                           )}
@@ -773,17 +773,17 @@ export default function AdminPage() {
                           <div className="flex items-center gap-1.5">
                             <div
                               style={{ background: theme.palette.primaryBtn }}
-                              className="w-4 h-4 rounded flex items-center justify-center text-[8px]"
+                              className="w-4 h-4 rounded flex items-center justify-center text-[10px]"
                             >
                               ★
                             </div>
-                            <span className="text-[10px] font-extrabold tracking-tight">
+                            <span className="text-xs font-extrabold tracking-tight">
                               Backlog
                             </span>
                           </div>
                           <div
                             style={{ background: theme.palette.primaryBtn }}
-                            className="px-1.5 py-0.5 rounded text-[9px] font-bold shadow-2xs"
+                            className="px-1.5 py-0.5 rounded text-[10px] font-bold shadow-2xs"
                           >
                             + 追加
                           </div>
@@ -809,7 +809,7 @@ export default function AdminPage() {
                             />
                           </div>
                           <span
-                            className="text-[10px] text-slate-500 font-medium"
+                            className="text-xs text-slate-500 font-medium"
                             style={{ color: theme.id === "dark" ? "#94a3b8" : undefined }}
                           >
                             {theme.hasGradient ? "多層グラデーション" : "ソリッド（グラデなし）"}
@@ -817,14 +817,14 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      <p className="text-xs text-slate-600 leading-relaxed">
+                      <p className="text-sm text-slate-600 leading-relaxed">
                         {theme.description}
                       </p>
                     </div>
 
                     {/* カード下部: 選択ボタン */}
                     <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[11px] text-indigo-600 font-semibold flex items-center gap-1">
+                      <span className="text-xs text-indigo-600 font-semibold flex items-center gap-1">
                         <Eye className="w-3.5 h-3.5" />
                         {isPreviewing ? "リアルタイム試着中" : "クリックで試着"}
                       </span>
@@ -847,18 +847,18 @@ export default function AdminPage() {
             {/* テーマ保存・プレビュー操作フッター */}
             <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-0.5">
-                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <div className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <span>選択中のテーマ:</span>
                   <span className="text-indigo-600 font-extrabold">
                     {getThemeConfig(selectedTheme).name}
                   </span>
                   {previewTheme && previewTheme !== settings.theme && (
-                    <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                    <span className="bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold px-1.5 py-0.5 rounded-full">
                       試着プレビュー中
                     </span>
                   )}
                 </div>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-xs text-slate-500">
                   「このデザインを保存する」をクリックすると、ワークスペース全体の標準デザインとして反映されます。
                 </p>
               </div>
@@ -868,7 +868,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={handleResetThemePreview}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-medium text-slate-700 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-sm font-medium text-slate-700 transition-colors cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>試着を解除</span>
@@ -878,7 +878,7 @@ export default function AdminPage() {
                   type="button"
                   onClick={handleSaveTheme}
                   disabled={isSavingTheme}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer"
                 >
                   <Check className="w-4 h-4 stroke-[2.5]" />
                   <span>{isSavingTheme ? "保存中..." : "このデザインを保存する"}</span>
@@ -896,9 +896,9 @@ export default function AdminPage() {
           <div className="bg-slate-50/80 border-b border-indigo-100/60 px-6 py-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-indigo-600" />
-              <h2 className="font-bold text-slate-800 text-base">時刻・タイムゾーン設定</h2>
+              <h2 className="font-bold text-slate-800 text-base sm:text-lg">時刻・タイムゾーン設定</h2>
             </div>
-            <span className="text-xs text-slate-500">
+            <span className="text-xs sm:text-sm text-slate-500">
               SQLiteのUTC記録時刻を指定タイムゾーンへ自動変換して表示します
             </span>
           </div>
@@ -909,17 +909,17 @@ export default function AdminPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                 {/* 現在の表示時刻 */}
                 <div className="space-y-1">
-                  <span className="text-[11px] text-indigo-200 font-semibold flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-amber-300" />
+                  <span className="text-xs text-indigo-200 font-semibold flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-300" />
                     現在の表示時刻（リアルタイムプレビュー）
                   </span>
-                  <div className="text-xl sm:text-2xl font-mono font-bold tracking-tight text-white">
+                  <div className="text-2xl sm:text-3xl font-mono font-bold tracking-tight text-white">
                     {formattedNow}
                   </div>
-                  <div className="text-[11px] text-indigo-200">
+                  <div className="text-xs text-indigo-200">
                     タイムゾーン: <strong>{selectedTzInfo.label}</strong>{" "}
                     {draftSettings.timeOffsetMinutes !== 0 && (
-                      <span className="ml-1 bg-amber-400/20 text-amber-200 px-1.5 py-0.5 rounded">
+                      <span className="ml-1 bg-amber-400/20 text-amber-200 px-1.5 py-0.5 rounded text-xs">
                         手動補正:{" "}
                         {draftSettings.timeOffsetMinutes > 0
                           ? `+${draftSettings.timeOffsetMinutes}分`
@@ -930,35 +930,35 @@ export default function AdminPage() {
                 </div>
 
                 {/* UTCからの変換比較 */}
-                <div className="bg-black/25 rounded-lg p-3 space-y-1.5 border border-white/10 text-xs">
-                  <div className="text-[11px] text-indigo-200 font-semibold">
+                <div className="bg-black/25 rounded-lg p-3.5 space-y-1.5 border border-white/10 text-xs">
+                  <div className="text-xs text-indigo-200 font-semibold">
                     DB内部タイムスタンプ (UTC) からの変換例
                   </div>
-                  <div className="flex items-center gap-1.5 font-mono text-[11px] text-indigo-100/80">
+                  <div className="flex items-center gap-1.5 font-mono text-xs text-indigo-100/90">
                     <span>UTC: 2026-11-12 03:53:22</span>
                   </div>
-                  <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-amber-300">
-                    <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                  <div className="flex items-center gap-1.5 font-mono text-sm font-bold text-amber-300">
+                    <ArrowRight className="w-4 h-4 shrink-0" />
                     <span>表示: {formattedSampleFixed}</span>
                   </div>
-                  <div className="text-[10px] text-indigo-200/80 pt-0.5">
+                  <div className="text-xs text-indigo-200/90 pt-0.5">
                     現在UTC時刻: <span className="font-mono">{utcSampleString}</span>
                   </div>
                 </div>
 
                 {/* アクティビティ表示プレビュー */}
-                <div className="bg-black/25 rounded-lg p-3 space-y-1.5 border border-white/10 text-xs">
-                  <div className="text-[11px] text-indigo-200 font-semibold">
+                <div className="bg-black/25 rounded-lg p-3.5 space-y-1.5 border border-white/10 text-xs">
+                  <div className="text-xs text-indigo-200 font-semibold">
                     「最近の更新」での表示プレビュー
                   </div>
-                  <div className="bg-white/95 text-slate-800 rounded p-2 text-[11px] space-y-0.5 shadow-2xs">
+                  <div className="bg-white/95 text-slate-800 rounded p-2.5 text-xs space-y-1 shadow-2xs">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-slate-900">山田 太郎</span>
-                      <span className="text-[10px] text-slate-500">
+                      <span className="font-bold text-slate-900 text-xs">山田 太郎</span>
+                      <span className="text-xs text-slate-500">
                         {formattedActivityPreview}
                       </span>
                     </div>
-                    <div className="text-slate-600 text-[10px] truncate">
+                    <div className="text-slate-600 text-xs truncate">
                       <span className="font-bold text-indigo-700">[MYPRJ-1]</span> ガントチャートは実装済
                     </div>
                   </div>
@@ -968,7 +968,7 @@ export default function AdminPage() {
 
             {/* 1. タイムゾーン選択 */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <label className="block text-sm font-bold text-slate-800 flex items-center gap-1.5">
                 <Globe className="w-4 h-4 text-indigo-600" />
                 <span>1. 表示タイムゾーン</span>
               </label>
@@ -994,7 +994,7 @@ export default function AdminPage() {
                     onClick={() =>
                       setDraftSettings((prev) => ({ ...prev, timezone: "Asia/Tokyo" }))
                     }
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors cursor-pointer ${
                       draftSettings.timezone === "Asia/Tokyo"
                         ? "bg-indigo-600 text-white border-indigo-600"
                         : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
@@ -1007,7 +1007,7 @@ export default function AdminPage() {
                     onClick={() =>
                       setDraftSettings((prev) => ({ ...prev, timezone: "UTC" }))
                     }
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors cursor-pointer ${
                       draftSettings.timezone === "UTC"
                         ? "bg-indigo-600 text-white border-indigo-600"
                         : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
@@ -1020,7 +1020,7 @@ export default function AdminPage() {
                     onClick={() =>
                       setDraftSettings((prev) => ({ ...prev, timezone: "local" }))
                     }
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-semibold border transition-colors ${
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors cursor-pointer ${
                       draftSettings.timezone === "local"
                         ? "bg-indigo-600 text-white border-indigo-600"
                         : "bg-slate-50 text-slate-700 border-slate-300 hover:bg-slate-100"
@@ -1036,7 +1036,7 @@ export default function AdminPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-100">
               {/* 日時フォーマット */}
               <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <label className="block text-sm font-bold text-slate-800 flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-indigo-600" />
                   <span>2. 日時フォーマット</span>
                 </label>
@@ -1051,7 +1051,7 @@ export default function AdminPage() {
                     return (
                       <label
                         key={opt.value}
-                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all text-xs ${
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all text-sm ${
                           isSelected
                             ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                             : "border-slate-200 hover:bg-slate-50"
@@ -1073,12 +1073,12 @@ export default function AdminPage() {
                           />
                           <div>
                             <div className="font-bold text-slate-800">{opt.desc}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">
+                            <div className="text-xs text-slate-500 font-mono">
                               {opt.label}
                             </div>
                           </div>
                         </div>
-                        <span className="font-mono text-[11px] bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-800 font-semibold">
+                        <span className="font-mono text-xs bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-800 font-semibold">
                           {sampleOut}
                         </span>
                       </label>
@@ -1091,7 +1091,7 @@ export default function AdminPage() {
               <div className="space-y-5">
                 {/* 24時間 / 12時間表記 */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-800">
+                  <label className="block text-sm font-bold text-slate-800">
                     3. 時刻の24時間 / 12時間表記
                   </label>
                   <div className="grid grid-cols-2 gap-2.5">
@@ -1100,14 +1100,14 @@ export default function AdminPage() {
                       onClick={() =>
                         setDraftSettings((prev) => ({ ...prev, hour12: false }))
                       }
-                      className={`p-3 rounded-lg border text-left transition-all ${
+                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
                         !draftSettings.hour12
                           ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                           : "border-slate-200 hover:bg-slate-50"
                       }`}
                     >
-                      <div className="text-xs font-bold text-slate-800">24時間表記</div>
-                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                      <div className="text-sm font-bold text-slate-800">24時間表記</div>
+                      <div className="text-xs text-slate-500 font-mono mt-0.5">
                         例: 12:53:22 / 18:30:00
                       </div>
                     </button>
@@ -1117,16 +1117,16 @@ export default function AdminPage() {
                       onClick={() =>
                         setDraftSettings((prev) => ({ ...prev, hour12: true }))
                       }
-                      className={`p-3 rounded-lg border text-left transition-all ${
+                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
                         draftSettings.hour12
                           ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                           : "border-slate-200 hover:bg-slate-50"
                       }`}
                     >
-                      <div className="text-xs font-bold text-slate-800">
+                      <div className="text-sm font-bold text-slate-800">
                         12時間表記 (午前/午後)
                       </div>
-                      <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                      <div className="text-xs text-slate-500 font-mono mt-0.5">
                         例: 午後 00:53:22
                       </div>
                     </button>
@@ -1135,7 +1135,7 @@ export default function AdminPage() {
 
                 {/* 最近の更新（アクティビティ）の時刻表示方式 */}
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-800">
+                  <label className="block text-sm font-bold text-slate-800">
                     4. 「最近の更新」ウィジェットの時刻表示スタイル
                   </label>
                   <div className="space-y-2">
@@ -1144,7 +1144,7 @@ export default function AdminPage() {
                       return (
                         <label
                           key={opt.value}
-                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all text-xs ${
+                          className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all text-sm ${
                             isSelected
                               ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                               : "border-slate-200 hover:bg-slate-50"
@@ -1165,7 +1165,7 @@ export default function AdminPage() {
                           />
                           <div>
                             <div className="font-bold text-slate-800">{opt.label}</div>
-                            <div className="text-[11px] text-slate-500">{opt.desc}</div>
+                            <div className="text-xs text-slate-500">{opt.desc}</div>
                           </div>
                         </label>
                       );
@@ -1177,11 +1177,11 @@ export default function AdminPage() {
 
             {/* 5. カレンダーの週開始曜日（期日・日付ピッカー表示） */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
-              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <label className="block text-sm font-bold text-slate-800 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-indigo-600" />
                 <span>5. カレンダーの週開始曜日（システム共通デフォルト設定）</span>
               </label>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs sm:text-sm text-slate-500">
                 期日・開始日選択カレンダーのシステム共通デフォルトです。各個人ごとの設定は、下部の「チームメンバー・権限管理」一覧の [月始 / 日始] または各個人のマイアカウント画面で個別に選べます。
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -1190,28 +1190,28 @@ export default function AdminPage() {
                   onClick={() =>
                     setDraftSettings((prev) => ({ ...prev, weekStart: "monday" }))
                   }
-                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                     draftSettings.weekStart === "monday"
                       ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                       : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">月曜始まり（推奨）</span>
+                    <span className="text-sm font-bold text-slate-800">月曜始まり（推奨）</span>
                     {draftSettings.weekStart === "monday" && (
-                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                      <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded font-semibold">
                         選択中
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     平日（月〜金）が連続し、週末（土・日）が末尾にまとまるビジネス標準の配置です。
                   </div>
-                  <div className="mt-2.5 flex items-center gap-1 font-mono text-[11px]">
+                  <div className="mt-2.5 flex items-center gap-1 font-mono text-xs">
                     {["月", "火", "水", "木", "金"].map((d) => (
                       <span
                         key={d}
-                        className="w-6 h-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-700"
+                        className="w-6 h-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-700 font-medium"
                       >
                         {d}
                       </span>
@@ -1230,31 +1230,31 @@ export default function AdminPage() {
                   onClick={() =>
                     setDraftSettings((prev) => ({ ...prev, weekStart: "sunday" }))
                   }
-                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                     draftSettings.weekStart === "sunday"
                       ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                       : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">日曜始まり</span>
+                    <span className="text-sm font-bold text-slate-800">日曜始まり</span>
                     {draftSettings.weekStart === "sunday" && (
-                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                      <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded font-semibold">
                         選択中
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     一般的な日本の紙のカレンダー等で馴染みのある配置です。
                   </div>
-                  <div className="mt-2.5 flex items-center gap-1 font-mono text-[11px]">
+                  <div className="mt-2.5 flex items-center gap-1 font-mono text-xs">
                     <span className="w-6 h-6 flex items-center justify-center rounded bg-rose-50 border border-rose-200 text-rose-600 font-semibold">
                       日
                     </span>
                     {["月", "火", "水", "木", "金"].map((d) => (
                       <span
                         key={d}
-                        className="w-6 h-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-700"
+                        className="w-6 h-6 flex items-center justify-center rounded bg-white border border-slate-200 text-slate-700 font-medium"
                       >
                         {d}
                       </span>
@@ -1269,11 +1269,11 @@ export default function AdminPage() {
 
             {/* 6. 日本の祝日表示（システム共通デフォルト設定） */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
-              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <label className="block text-sm font-bold text-slate-800 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-indigo-600" />
                 <span>6. 日本の祝日表示（システム共通デフォルト設定）</span>
               </label>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs sm:text-sm text-slate-500">
                 期日や開始日を選択するカレンダーおよびガントチャートで、日本の国民の祝日を赤字・祝日名ツールチップ付きで表示するかどうかのシステム共通デフォルトです。
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -1282,21 +1282,21 @@ export default function AdminPage() {
                   onClick={() =>
                     setDraftSettings((prev) => ({ ...prev, showHolidays: true }))
                   }
-                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                     draftSettings.showHolidays !== false
                       ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                       : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">祝日を表示する（推奨）</span>
+                    <span className="text-sm font-bold text-slate-800">祝日を表示する（推奨）</span>
                     {draftSettings.showHolidays !== false && (
-                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                      <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded font-semibold">
                         選択中
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     元日、成人の日、ゴールデンウィーク、振替休日などを赤文字およびツールチップで表示します。
                   </div>
                 </button>
@@ -1306,21 +1306,21 @@ export default function AdminPage() {
                   onClick={() =>
                     setDraftSettings((prev) => ({ ...prev, showHolidays: false }))
                   }
-                  className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer ${
                     draftSettings.showHolidays === false
                       ? "border-indigo-500 bg-indigo-50/60 ring-1 ring-indigo-500"
                       : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">祝日を表示しない</span>
+                    <span className="text-sm font-bold text-slate-800">祝日を表示しない</span>
                     {draftSettings.showHolidays === false && (
-                      <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">
+                      <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded font-semibold">
                         選択中
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">
+                  <div className="text-xs text-slate-500 mt-1">
                     祝日の赤字判定を行わず、土日のみを休日の配色として扱います。
                   </div>
                 </button>
@@ -1329,32 +1329,32 @@ export default function AdminPage() {
 
             {/* 7. 手動時刻オフセット補正 */}
             <div className="pt-4 border-t border-slate-100 space-y-2">
-              <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <label className="block text-sm font-bold text-slate-800 flex items-center gap-1.5">
                 <Sliders className="w-4 h-4 text-indigo-600" />
                 <span>7. 時刻の手動オフセット補正（分単位の微調整）</span>
               </label>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs sm:text-sm text-slate-500">
                 サーバー時計のズレを補正したい場合や、任意の時刻オフセットを加算・減算したい場合に設定します（通常は 0分 のままで問題ありません）。
               </p>
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => adjustOffset(-60)}
-                  className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                  className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   -1時間 (-60分)
                 </button>
                 <button
                   type="button"
                   onClick={() => adjustOffset(-10)}
-                  className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                  className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   -10分
                 </button>
                 <button
                   type="button"
                   onClick={() => adjustOffset(-1)}
-                  className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                  className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   -1分
                 </button>
@@ -1371,29 +1371,29 @@ export default function AdminPage() {
                         timeOffsetMinutes: Number(e.target.value) || 0,
                       }))
                     }
-                    className="w-24 bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-center font-mono text-xs font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                    className="w-24 bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-center font-mono text-sm font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                   />
-                  <span className="text-xs font-semibold text-slate-600">分</span>
+                  <span className="text-sm font-medium text-slate-600">分</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => adjustOffset(1)}
-                  className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                  className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   +1分
                 </button>
                 <button
                   type="button"
                   onClick={() => adjustOffset(10)}
-                  className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                  className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   +10分
                 </button>
                 <button
                   type="button"
                   onClick={() => adjustOffset(60)}
-                  className="px-2.5 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700"
+                  className="px-3 py-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   +1時間 (+60分)
                 </button>
@@ -1404,7 +1404,7 @@ export default function AdminPage() {
                     onClick={() =>
                       setDraftSettings((prev) => ({ ...prev, timeOffsetMinutes: 0 }))
                     }
-                    className="px-2.5 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-600"
+                    className="px-3 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-sm font-medium text-slate-600 cursor-pointer"
                   >
                     0分にリセット
                   </button>
@@ -1418,16 +1418,16 @@ export default function AdminPage() {
                 type="button"
                 onClick={handleResetDefault}
                 disabled={isSaving}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-sm font-medium text-slate-700 transition-colors cursor-pointer"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-4 h-4" />
                 <span>日本標準時 (JST) の初期設定に戻す</span>
               </button>
 
               <button
                 type="submit"
                 disabled={isSaving}
-                className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50"
+                className="flex items-center gap-1.5 px-6 py-2.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
               >
                 <Check className="w-4 h-4 stroke-[2.5]" />
                 <span>{isSaving ? "保存中..." : "時刻設定を保存する"}</span>

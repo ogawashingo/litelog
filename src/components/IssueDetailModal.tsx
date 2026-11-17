@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Send, Calendar, Clock, Edit2, Check, MessageSquare, Trash2, GitBranch, Link as LinkIcon, ArrowLeft, Plus, Paperclip, Download, FileText, Image as ImageIcon, Archive } from "lucide-react";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject, canManageIssues, canDeleteIssue } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject, canManageIssues, canDeleteIssue, User } from "@/types";
 import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -63,6 +63,9 @@ export default function IssueDetailModal({
   const [childAssigneeId, setChildAssigneeId] = useState<string>("");
   const [isSubmittingChild, setIsSubmittingChild] = useState(false);
   const [childError, setChildError] = useState("");
+
+  // プロジェクト参加メンバー一覧State
+  const [projectMembers, setProjectMembers] = useState<User[]>([]);
 
   // モーダルコンテンツ領域のスクロールRef（課題切り替え時に先頭へスクロール）
   const contentScrollRef = React.useRef<HTMLDivElement>(null);
@@ -288,7 +291,31 @@ export default function IssueDetailModal({
         }
       })
       .catch((err) => console.error("親課題候補取得失敗:", err));
+    // プロジェクト参加メンバー一覧を取得
+    fetch(`/api/projects/${issue.project_id}/members`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data.members)) {
+          setProjectMembers(data.members);
+        }
+      })
+      .catch((err) => console.error("プロジェクトメンバー取得エラー:", err));
   }, [issue, isOpen]);
+
+  // プロジェクト参加メンバー候補（参加者＋Admin/PMO）
+  const candidateUsers = useMemo(() => {
+    if (projectMembers.length > 0) {
+      const memberIds = new Set(projectMembers.map((m) => m.id));
+      return users.filter(
+        (u) =>
+          memberIds.has(u.id) ||
+          u.is_admin === 1 ||
+          u.role_type === "admin" ||
+          u.role_type === "pmo"
+      );
+    }
+    return users;
+  }, [projectMembers, users]);
 
   // 未完了の子課題件数および存在判定（親課題の完了制御用：早期リターンより前で宣言してRules of Hooksを遵守）
   const unclosedChildrenCount = useMemo(
@@ -1198,7 +1225,7 @@ export default function IssueDetailModal({
                   }`}
                 >
                   <option value="">未割当</option>
-                  {users.map((u) => (
+                  {candidateUsers.map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}
                     </option>
@@ -1392,7 +1419,7 @@ export default function IssueDetailModal({
                     className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800"
                   >
                     <option value="">未割当</option>
-                    {users.map((u) => (
+                    {candidateUsers.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.name}
                       </option>
@@ -1785,7 +1812,7 @@ export default function IssueDetailModal({
                         className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 shrink-0"
                       >
                         <option value="">担当者なし</option>
-                        {users.map((u) => (
+                        {candidateUsers.map((u) => (
                           <option key={u.id} value={String(u.id)}>
                             {u.name}
                           </option>
@@ -2061,7 +2088,7 @@ export default function IssueDetailModal({
           issueTitle={activeIssue.title}
           reporterId={activeIssue.created_by}
           currentAssigneeId={activeIssue.assignee_id}
-          users={users}
+          users={candidateUsers}
           currentUserId={currentUser?.id}
           onClose={() => setIsReviewModalOpen(false)}
           onSubmit={handleReviewRequestSubmit}

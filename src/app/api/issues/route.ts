@@ -1,6 +1,6 @@
 // 課題一覧取得および新規課題作成API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, canUserAccessProject, getUserAccessibleProjectIds } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createIssueCreatedNotifications } from "@/lib/notificationUtils";
 
@@ -12,6 +12,7 @@ const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated",
 // 課題一覧取得
 export async function GET(request: Request) {
   try {
+    const sessionUser = await getSessionUser();
     const db = getDb();
     const { searchParams } = new URL(request.url);
 
@@ -22,6 +23,20 @@ export async function GET(request: Request) {
     const assigneeId = searchParams.get("assigneeId");
     const resolution = searchParams.get("resolution");
     const querySearch = searchParams.get("q");
+
+    // プロジェクトアクセス権のチェック
+    if (projectId && sessionUser) {
+      const canAccess = canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(projectId),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (!canAccess) {
+        return NextResponse.json([]); // 権限がないプロジェクトの場合は空配列を返却
+      }
+    }
 
     let sql = `
       SELECT 
@@ -66,6 +81,21 @@ export async function GET(request: Request) {
     if (projectId) {
       sql += " AND i.project_id = ?";
       params.push(Number(projectId));
+    } else if (sessionUser) {
+      const accessibleIds = getUserAccessibleProjectIds(
+        db,
+        sessionUser.id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (accessibleIds !== null) {
+        if (accessibleIds.length === 0) {
+          return NextResponse.json([]);
+        }
+        const placeholders = accessibleIds.map(() => "?").join(",");
+        sql += ` AND i.project_id IN (${placeholders})`;
+        params.push(...accessibleIds);
+      }
     }
 
     if (status && status !== "all") {
@@ -151,6 +181,21 @@ export async function POST(request: Request) {
 
     if (!projectId || !title || !String(title).trim()) {
       return NextResponse.json({ error: "プロジェクトと課題名は必須です" }, { status: 400 });
+    }
+
+    // プロジェクト参加権限の検証（Admin/PMOまたは参加メンバー）
+    const canAccess = canUserAccessProject(
+      db,
+      sessionUser.id,
+      Number(projectId),
+      sessionUser.role_type,
+      sessionUser.is_admin
+    );
+    if (!canAccess) {
+      return NextResponse.json(
+        { error: "このプロジェクトに課題を作成する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
     }
     if (!VALID_ISSUE_TYPES.has(String(issueType))) {
       return NextResponse.json({ error: "無効な課題種別です" }, { status: 400 });

@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
 import fs from "node:fs";
-import { getDb, ATTACHMENTS_DIR, attachReactionsToComments } from "@/lib/db";
+import { getDb, ATTACHMENTS_DIR, attachReactionsToComments, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createIssueUpdatedNotifications } from "@/lib/notificationUtils";
 
@@ -60,6 +60,24 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     if (!issue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
+    }
+
+    // プロジェクトアクセス権チェック
+    const sessionUser = await getSessionUser();
+    if (
+      sessionUser &&
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(issue.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この課題を閲覧する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
     }
 
     const targetIssueId = Number(issue.id);
@@ -134,6 +152,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
     `).get(isNumeric ? Number(id) : id) as {
       id: number;
+      project_id: number;
       issue_key: string;
       title: string;
       description: string | null;
@@ -152,6 +171,22 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     if (!currentIssue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
+    }
+
+    // プロジェクトアクセス権チェック
+    if (
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(currentIssue.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この課題を編集する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
     }
 
     // アーカイブされたプロジェクトの課題は読み取り専用のため、更新を禁止（is_archivedまたは名前にアーカイブ含む）
@@ -565,6 +600,7 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
     `).get(isNumeric ? Number(id) : id) as {
       id: number;
+      project_id: number;
       issue_key: string;
       title: string;
       created_by: number | null;
@@ -574,6 +610,22 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     if (!currentIssue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
+    }
+
+    // プロジェクトアクセス権チェック
+    if (
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(currentIssue.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この課題を編集する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
     }
 
     // アーカイブされたプロジェクトの課題は読み取り専用のため、削除を禁止（is_archivedまたは名前にアーカイブ含む）

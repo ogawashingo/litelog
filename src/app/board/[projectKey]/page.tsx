@@ -3,6 +3,8 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { ShieldAlert } from "lucide-react";
 import Header from "@/components/Header";
 import BoardView from "@/components/BoardView";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -180,6 +182,24 @@ export default function ProjectBoardPage() {
             <div className="text-gray-500 text-sm animate-pulse">
               かんばんボードを読み込み中...
             </div>
+          </div>
+        ) : !currentProject ? (
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center max-w-md mx-auto my-12 space-y-4 shadow-sm">
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-base">アクセス権限がありません</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                プロジェクト [{projectKey}] のメンバーではないか、プロジェクトが存在しません。
+              </p>
+            </div>
+            <Link
+              href="/"
+              className="inline-block px-4 py-2 app-primary-btn text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+            >
+              ダッシュボードへ戻る
+            </Link>
           </div>
         ) : (
           <BoardView

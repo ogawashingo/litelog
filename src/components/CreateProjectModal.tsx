@@ -1,8 +1,10 @@
 // プロジェクト新規作成モーダルコンポーネント
 "use client";
 
-import React, { useState } from "react";
-import { X, FolderPlus } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, FolderPlus, Users } from "lucide-react";
+import { useUser } from "./UserContext";
+import { getUserInitials } from "./UserManageModal";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -26,11 +28,20 @@ export default function CreateProjectModal({
   onClose,
   onCreated,
 }: CreateProjectModalProps) {
+  const { users, currentUser } = useUser();
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLOR_PALETTE[0]);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // モーダルオープン時に全ユーザーをデフォルト選択
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedUserIds(users.map((u) => u.id));
+    }
+  }, [isOpen, users]);
 
   if (!isOpen) return null;
 
@@ -52,6 +63,7 @@ export default function CreateProjectModal({
           key: key.trim().toUpperCase(),
           name: name.trim(),
           color,
+          memberIds: selectedUserIds,
         }),
       });
 
@@ -148,6 +160,90 @@ export default function CreateProjectModal({
                 />
               ))}
             </div>
+          </div>
+
+          {/* 初期参加メンバー選択 */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                初期参加メンバー ({selectedUserIds.length}名)
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUserIds(users.map((u) => u.id))}
+                  className="text-[10px] text-indigo-600 hover:underline cursor-pointer"
+                >
+                  全員選択
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedUserIds(
+                      users
+                        .filter(
+                          (u) =>
+                            u.is_admin === 1 ||
+                            u.role_type === "admin" ||
+                            u.role_type === "pmo" ||
+                            u.id === currentUser?.id
+                        )
+                        .map((u) => u.id)
+                    )
+                  }
+                  className="text-[10px] text-slate-500 hover:underline cursor-pointer"
+                >
+                  必須のみ
+                </button>
+              </div>
+            </div>
+            <div className="border border-slate-200 rounded-lg p-2 max-h-36 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+              {users.map((u) => {
+                const isSelected = selectedUserIds.includes(u.id);
+                const isPermanent =
+                  u.is_admin === 1 ||
+                  u.role_type === "admin" ||
+                  u.role_type === "pmo" ||
+                  u.id === currentUser?.id;
+
+                return (
+                  <label
+                    key={u.id}
+                    className="flex items-center justify-between py-1.5 px-1 cursor-pointer hover:bg-white rounded transition-colors"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                        style={{ backgroundColor: u.color || "#4f46e5" }}
+                      >
+                        {getUserInitials(u.name)}
+                      </div>
+                      <span className="text-xs text-slate-800 font-medium truncate">
+                        {u.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        @{u.login_id}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={isPermanent}
+                      onChange={() => {
+                        if (isPermanent) return;
+                        setSelectedUserIds((prev) =>
+                          prev.includes(u.id) ? prev.filter((id) => id !== u.id) : [...prev, u.id]
+                        );
+                      }}
+                      className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              ※管理者（Admin）とPMO、作成者は自動的に参加します。作成後もいつでも変更できます。
+            </p>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

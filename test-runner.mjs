@@ -285,6 +285,17 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     CREATE INDEX IF NOT EXISTS idx_attachments_issue_id ON attachments(issue_id);
     CREATE INDEX IF NOT EXISTS idx_attachments_comment_id ON attachments(comment_id);
   `);
+  // プロジェクト参加メンバーテーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS project_members (
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (project_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
+  `);
   // 既存の「〜にコメントを追加しました」を実際のコメント内容へマイグレーション
   db.exec(`
     UPDATE activities
@@ -2244,6 +2255,108 @@ async function runTests() {
       throw new Error("課題詳細ページに起票者（creatorName）の表示実装が含まれていません");
     }
     console.log("✓ 課題詳細モーダルおよび詳細ページの起票者表示検証テスト成功");
+  }
+
+  // 43. プロジェクト参加メンバーシップ（アクセス制御・非参加プロジェクト遮断・メンバー更新・Admin/PMO特権）検証テスト
+  {
+    // テスト用プロジェクト2件を作成（PRJ_A, PRJ_B）
+    const prjARes = db.prepare("INSERT INTO projects (key, name, color) VALUES ('TEST_PRJ_A', '案件A（機密）', '#4f46e5')").run();
+    const prjBRes = db.prepare("INSERT INTO projects (key, name, color) VALUES ('TEST_PRJ_B', '案件B（公開）', '#10b981')").run();
+    const prjAId = Number(prjARes.lastInsertRowid);
+    const prjBId = Number(prjBRes.lastInsertRowid);
+
+    // テストユーザーを用意（Admin: adminUser, PMO: pmoUser, 一般: memberA, memberB）
+    let adminUser = db.prepare("SELECT * FROM users WHERE is_admin = 1").get();
+    let pmoUser = db.prepare("SELECT * FROM users WHERE role_type = 'pmo'").get();
+    let memberA = db.prepare("SELECT * FROM users WHERE is_admin = 0 AND role_type = 'member'").get();
+
+    if (!adminUser) {
+      const aRes = db.prepare("INSERT INTO users (login_id, name, is_admin, role_type) VALUES ('test_admin_u', 'テスト管理者', 1, 'admin')").run();
+      adminUser = db.prepare("SELECT * FROM users WHERE id = ?").get(aRes.lastInsertRowid);
+    }
+    if (!pmoUser) {
+      const pRes = db.prepare("INSERT INTO users (login_id, name, is_admin, role_type) VALUES ('test_pmo_u', 'テストPMO', 0, 'pmo')").run();
+      pmoUser = db.prepare("SELECT * FROM users WHERE id = ?").get(pRes.lastInsertRowid);
+    }
+    if (!memberA) {
+      const mA = db.prepare("INSERT INTO users (login_id, name, is_admin, role_type) VALUES ('test_mem_a', 'テストメンバーA', 0, 'member')").run();
+      memberA = db.prepare("SELECT * FROM users WHERE id = ?").get(mA.lastInsertRowid);
+    }
+    const mB = db.prepare("INSERT INTO users (login_id, name, is_admin, role_type) VALUES ('test_mem_b', 'テストメンバーB', 0, 'member')").run();
+    const memberB = db.prepare("SELECT * FROM users WHERE id = ?").get(mB.lastInsertRowid);
+
+    // ロジック関数
+    function testCanUserAccessProject(db, userId, projectId, roleType, isAdmin) {
+      if (isAdmin === 1 || roleType === "admin" || roleType === "pmo") return true;
+      const row = db.prepare("SELECT 1 FROM project_members WHERE project_id = ? AND user_id = ?").get(projectId, userId);
+      return Boolean(row);
+    }
+
+    function testSetProjectMembers(db, projectId, userIds) {
+      const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
+      const adminAndPmo = db.prepare("SELECT id FROM users WHERE is_admin = 1 OR role_type IN ('admin', 'pmo')").all();
+      for (const ap of adminAndPmo) {
+        if (!uniqueIds.includes(ap.id)) uniqueIds.push(ap.id);
+      }
+      db.prepare("DELETE FROM project_members WHERE project_id = ?").run(projectId);
+      const insertStmt = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
+      for (const uid of uniqueIds) {
+        insertStmt.run(projectId, uid);
+      }
+    }
+
+    function testGetUserAccessibleProjectIds(db, userId, roleType, isAdmin) {
+      if (isAdmin === 1 || roleType === "admin" || roleType === "pmo") return null;
+      return db.prepare("SELECT project_id FROM project_members WHERE user_id = ?").all(userId).map((r) => r.project_id);
+    }
+
+    // 1. 初期状態: プロジェクトAに memberA のみを参加させ、memberB は不参加にする
+    testSetProjectMembers(db, prjAId, [memberA.id]);
+    testSetProjectMembers(db, prjBId, [memberA.id, memberB.id]);
+
+    // 2. アクセス判定の検証
+    // memberA は案件Aにアクセス可能
+    if (!testCanUserAccessProject(db, memberA.id, prjAId, memberA.role_type, memberA.is_admin)) {
+      throw new Error("参加している memberA が案件Aにアクセスできません");
+    }
+    // memberB は案件Aにアクセス不可（遮断）
+    if (testCanUserAccessProject(db, memberB.id, prjAId, memberB.role_type, memberB.is_admin)) {
+      throw new Error("参加していない memberB が案件Aにアクセスできてしまっています（重大なセキュリティ欠陥）");
+    }
+    // memberB は案件Bにはアクセス可能
+    if (!testCanUserAccessProject(db, memberB.id, prjBId, memberB.role_type, memberB.is_admin)) {
+      throw new Error("参加している memberB が案件Bにアクセスできません");
+    }
+
+    // 3. 特権判定の検証（AdminとPMOは全プロジェクトに常時アクセス可能）
+    if (!testCanUserAccessProject(db, adminUser.id, prjAId, adminUser.role_type, adminUser.is_admin)) {
+      throw new Error("Adminユーザーがプロジェクトにアクセスできません");
+    }
+    if (!testCanUserAccessProject(db, pmoUser.id, prjAId, pmoUser.role_type, pmoUser.is_admin)) {
+      throw new Error("PMOユーザーがプロジェクトにアクセスできません");
+    }
+
+    // 4. アクセス可能プロジェクト一覧の取得検証
+    const memberBAccessible = testGetUserAccessibleProjectIds(db, memberB.id, memberB.role_type, memberB.is_admin);
+    if (!memberBAccessible.includes(prjBId) || memberBAccessible.includes(prjAId)) {
+      throw new Error("memberB のアクセス可能プロジェクト一覧に不整合があります");
+    }
+    const adminAccessible = testGetUserAccessibleProjectIds(db, adminUser.id, adminUser.role_type, adminUser.is_admin);
+    if (adminAccessible !== null) {
+      throw new Error("Adminのアクセス可能プロジェクトは全件（null）である必要があります");
+    }
+
+    // 5. メンバー更新時のAdmin/PMO自動保持検証
+    testSetProjectMembers(db, prjAId, []); // 空配列で更新しようとした場合
+    const prjAMembers = db.prepare("SELECT user_id FROM project_members WHERE project_id = ?").all(prjAId).map(r => r.user_id);
+    if (!prjAMembers.includes(adminUser.id) || !prjAMembers.includes(pmoUser.id)) {
+      throw new Error("プロジェクトメンバー更新時にAdminおよびPMOが自動保持されていません");
+    }
+
+    // 後始末
+    db.prepare("DELETE FROM projects WHERE id IN (?, ?)").run(prjAId, prjBId);
+    db.prepare("DELETE FROM users WHERE login_id IN ('test_admin_u', 'test_pmo_u', 'test_mem_a', 'test_mem_b')").run();
+    console.log("✓ プロジェクト参加メンバーシップ＆アクセス権限（Admin/PMO全権限・一般遮断・自動保持）検証テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

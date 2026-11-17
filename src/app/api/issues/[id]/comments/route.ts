@@ -1,6 +1,6 @@
 // 課題コメントAPI
 import { NextResponse } from "next/server";
-import { getDb, attachReactionsToComments } from "@/lib/db";
+import { getDb, attachReactionsToComments, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createCommentNotifications, createIssueUpdatedNotifications } from "@/lib/notificationUtils";
 
@@ -14,16 +14,50 @@ interface RouteParams {
 // コメント一覧取得（数値IDまたは課題キーに対応）
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
+    const sessionUser = await getSessionUser();
     const { id } = await params;
     const db = getDb();
     const isNumeric = /^\d+$/.test(id);
 
     const issue = db.prepare(
-      `SELECT id FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
-    ).get(isNumeric ? Number(id) : id) as { id: number } | undefined;
+      `SELECT id, project_id FROM issues WHERE ${isNumeric ? "id = ?" : "issue_key = ?"}`
+    ).get(isNumeric ? Number(id) : id) as { id: number; project_id: number } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
+    }
+
+    // プロジェクトアクセス権チェック
+    if (sessionUser) {
+      const canAccess = canUserAccessProject(
+        db,
+        sessionUser.id,
+        issue.project_id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (!canAccess) {
+        return NextResponse.json(
+          { error: "この課題のコメントを閲覧する権限がありません（プロジェクトメンバーではありません）" },
+          { status: 403 }
+        );
+      }
+    }
+
+    if (
+      sessionUser &&
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        issue.project_id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この課題のコメントを閲覧する権限がありません" },
+        { status: 403 }
+      );
     }
 
     const rawComments = db.prepare(`
@@ -83,6 +117,23 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
+    }
+
+    // プロジェクトアクセス権チェック
+    if (sessionUser) {
+      const canAccess = canUserAccessProject(
+        db,
+        sessionUser.id,
+        issue.project_id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (!canAccess) {
+        return NextResponse.json(
+          { error: "この課題のコメントを閲覧する権限がありません（プロジェクトメンバーではありません）" },
+          { status: 403 }
+        );
+      }
     }
 
     // アーカイブされたプロジェクトの課題は読み取り専用のため、コメント投稿を禁止（is_archivedまたは名前にアーカイブ含む）
