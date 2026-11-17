@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck, Search } from "lucide-react";
-import { User, WeekStartDay, UserRoleType, getUserRoleType, canManageIssues } from "@/types";
+import { User, WeekStartDay, UserRoleType, getUserRoleType, isAdminUser, canManageIssues } from "@/types";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
 import AvatarColorPicker from "./AvatarColorPicker";
 
@@ -248,6 +248,13 @@ export default function UserManageModal({
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin);
   const canCurrentUserManageMembers = canManageIssues(currentUser);
 
+  // システム管理者（Admin）の人数を算出（最後の1名の保護判定に使用）
+  const adminCount = users.filter((u) => isAdminUser(u)).length;
+  // 編集中ユーザーが最後の管理者かどうか
+  const isEditingLastAdmin = Boolean(
+    editingUser && isAdminUser(editingUser) && adminCount <= 1
+  );
+
   if (!isOpen) return null;
 
   // 新規メンバー追加（基本情報のみで発行し、詳細設定は一覧の「編集」ボタンから行う）
@@ -306,6 +313,12 @@ export default function UserManageModal({
   const handleSaveEdit = async (userId: number) => {
     if (!editName.trim() || !editLoginId.trim()) {
       setErrorMsg("ログインIDとメンバー名は必須です");
+      return;
+    }
+
+    // 最後のシステム管理者（Admin）の権限解除を防止
+    if (isEditingLastAdmin && editRoleType !== "admin") {
+      setErrorMsg("最低1名のシステム管理者（Admin）が必要なため、管理者権限を解除できません");
       return;
     }
 
@@ -385,6 +398,11 @@ export default function UserManageModal({
       setErrorMsg("最低1名のメンバーが必要なため削除できません");
       return;
     }
+    // 最後のシステム管理者（Admin）の削除を防止
+    if (isAdminUser(user) && adminCount <= 1) {
+      setErrorMsg("最後のシステム管理者（Admin）は削除できません");
+      return;
+    }
     if (
       !confirm(
         `メンバー「${user.name} (ID: ${user.login_id})」を削除しますか？\n（担当している課題は「未割当」になります）`
@@ -400,6 +418,7 @@ export default function UserManageModal({
         const data = await res.json();
         throw new Error(data.error || "削除に失敗しました");
       }
+      setEditingId(null);
       await onUpdated();
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : "削除エラーが発生しました");
@@ -552,30 +571,39 @@ export default function UserManageModal({
                       <div className="inline-flex rounded border border-slate-300 bg-white p-0.5 text-[10px]">
                         <button
                           type="button"
+                          disabled={isEditingLastAdmin}
                           onClick={() => {
+                            if (isEditingLastAdmin) return;
                             setEditRoleType("member");
                             if (editRole === "管理者" || editRole === "PMO") setEditRole("メンバー");
                           }}
-                          className={`px-2 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                            editRoleType === "member"
-                              ? "bg-slate-700 text-white"
-                              : "text-slate-600 hover:text-slate-900"
+                          className={`px-2 py-0.5 rounded font-semibold transition-colors ${
+                            isEditingLastAdmin
+                              ? "text-slate-300 cursor-not-allowed"
+                              : editRoleType === "member"
+                              ? "bg-slate-700 text-white cursor-pointer"
+                              : "text-slate-600 hover:text-slate-900 cursor-pointer"
                           }`}
+                          title={isEditingLastAdmin ? "最低1名の管理者が残る必要があるため変更できません" : undefined}
                         >
                           一般
                         </button>
                         <button
                           type="button"
+                          disabled={isEditingLastAdmin}
                           onClick={() => {
+                            if (isEditingLastAdmin) return;
                             setEditRoleType("pmo");
                             if (editRole === "メンバー" || editRole === "管理者") setEditRole("PMO");
                           }}
-                          className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 cursor-pointer ${
-                            editRoleType === "pmo"
-                              ? "bg-emerald-600 text-white"
-                              : "text-slate-600 hover:text-slate-900"
+                          className={`px-2 py-0.5 rounded font-semibold transition-colors flex items-center gap-0.5 ${
+                            isEditingLastAdmin
+                              ? "text-slate-300 cursor-not-allowed"
+                              : editRoleType === "pmo"
+                              ? "bg-emerald-600 text-white cursor-pointer"
+                              : "text-slate-600 hover:text-slate-900 cursor-pointer"
                           }`}
-                          title="PMO: 全課題の検収・完了が可能"
+                          title={isEditingLastAdmin ? "最低1名の管理者が残る必要があるため変更できません" : "PMO: 全課題の検収・完了が可能"}
                         >
                           <ClipboardCheck className="w-2.5 h-2.5" />
                           PMO
@@ -599,6 +627,12 @@ export default function UserManageModal({
                           </button>
                         )}
                       </div>
+                    </div>
+                    {isEditingLastAdmin && (
+                      <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium">
+                        ※ 最後の管理者のため権限解除不可
+                      </span>
+                    )}
                     </div>
                   </div>
 
@@ -653,24 +687,40 @@ export default function UserManageModal({
                   </div>
                 )}
 
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setEditingId(null)}
-                    disabled={isSubmitting}
-                    className="px-4 py-1.5 text-xs border border-slate-300 rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer font-medium disabled:opacity-50"
-                  >
-                    キャンセル
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => handleSaveEdit(editingUser.id)}
-                    className="flex items-center gap-1.5 px-4 py-1.5 text-xs app-primary-btn text-white font-bold rounded-md cursor-pointer disabled:opacity-50 shadow-xs"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{isSubmitting ? "保存中..." : "保存"}</span>
-                  </button>
+                <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-200">
+                  <div>
+                    {isCurrentUserAdmin && users.length > 1 && editingUser.id !== currentUser?.id && (
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => handleDeleteUser(editingUser)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-md transition-colors cursor-pointer font-medium disabled:opacity-50"
+                        title="このメンバーを削除（Admin専用）"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>このメンバーを削除</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      disabled={isSubmitting}
+                      className="px-4 py-1.5 text-xs border border-slate-300 rounded-md text-slate-600 hover:bg-slate-100 cursor-pointer font-medium disabled:opacity-50"
+                    >
+                      キャンセル
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => handleSaveEdit(editingUser.id)}
+                      className="flex items-center gap-1.5 px-4 py-1.5 text-xs app-primary-btn text-white font-bold rounded-md cursor-pointer disabled:opacity-50 shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{isSubmitting ? "保存中..." : "保存"}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -944,16 +994,35 @@ export default function UserManageModal({
                               <span>編集</span>
                             </button>
                           )}
-                          {isCurrentUserAdmin && users.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteUser(u)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                              title="メンバーを削除（Admin専用）"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
+                          {isCurrentUserAdmin && users.length > 1 && !isCurrent && (() => {
+                            const isLastAdmin = isAdminUser(u) && adminCount <= 1;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isLastAdmin) {
+                                    setErrorMsg("最後のシステム管理者（Admin）は削除できません");
+                                    return;
+                                  }
+                                  handleDeleteUser(u);
+                                }}
+                                disabled={isLastAdmin}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs border rounded-md transition-colors font-medium ${
+                                  isLastAdmin
+                                    ? "text-slate-300 border-slate-200 cursor-not-allowed bg-slate-50"
+                                    : "text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 cursor-pointer"
+                                }`}
+                                title={
+                                  isLastAdmin
+                                    ? "最後の管理者（Admin）は削除できません"
+                                    : "メンバーを削除（Admin専用）"
+                                }
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>削除</span>
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                   </div>
