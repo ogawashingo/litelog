@@ -73,7 +73,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     // 初回2FAセットアップ用のシークレットとQRコードSVGも準備
     const totpSecret = generateTotpSecret();
     const totpUri = getTotpUri(totpSecret, row.login_id, "PersonalBacklog");
-    const qrSvg = generateQrCodeSvg(totpUri);
+    const qrSvg = await generateQrCodeSvg(totpUri);
 
     return NextResponse.json({
       valid: true,

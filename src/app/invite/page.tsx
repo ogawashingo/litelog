@@ -315,12 +315,12 @@ function InviteContent() {
 
                   <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-xl border border-slate-200">
                     <div
-                      className="w-36 h-36 flex items-center justify-center p-1 bg-white rounded-xl shadow-sm border border-slate-100 shrink-0"
+                      className="w-44 h-44 flex items-center justify-center p-2 bg-white rounded-xl shadow-xs border border-slate-200 shrink-0"
                       dangerouslySetInnerHTML={{ __html: totpSetup.qrSvg }}
                     />
                     <div className="space-y-2 text-xs text-slate-600 flex-1">
                       <p className="leading-relaxed">
-                        スマホのカメラまたは「Google Authenticator」アプリのカメラで左のQRコードを読み取ってください。
+                        認証アプリ（Microsoft Authenticator, Google Authenticator 等）またはスマホのカメラで左のQRコードを読み取ってください。
                       </p>
                       <div className="pt-1">
                         <div className="text-[11px] text-slate-500 font-medium mb-1">

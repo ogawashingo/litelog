@@ -598,14 +598,14 @@ export default function PasswordChangeModal({
 
                 {showTotpSetup && totpSetupData && (
                   <div className="pt-2 border-t border-slate-200 space-y-3 animate-in fade-in duration-150">
-                    <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-lg border border-slate-200">
+                    <div className="flex flex-col sm:flex-row items-center gap-4 bg-white p-4 rounded-xl border border-slate-200">
                       <div
-                        className="w-28 h-28 flex items-center justify-center p-1 bg-white rounded-lg border border-slate-100 shrink-0"
+                        className="w-44 h-44 flex items-center justify-center p-2 bg-white rounded-xl border border-slate-200 shrink-0 shadow-xs"
                         dangerouslySetInnerHTML={{ __html: totpSetupData.qrSvg }}
                       />
-                      <div className="text-[11px] text-slate-600 space-y-1.5 flex-1">
-                        <p className="font-semibold text-slate-800">
-                          ① スマホの認証アプリで左のQRを読み取ってください
+                      <div className="text-[11px] text-slate-600 space-y-2 flex-1">
+                        <p className="font-semibold text-slate-800 text-xs">
+                          ① 認証アプリ（Microsoft Authenticator, Google Authenticator等）でQRコードを読み取ってください
                         </p>
                         <div>
                           <span className="text-slate-400">または手動入力用コード:</span>

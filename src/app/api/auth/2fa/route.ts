@@ -116,7 +116,7 @@ export async function GET() {
 
     const secret = generateTotpSecret();
     const uri = getTotpUri(secret, sessionUser.login_id, "PersonalBacklog");
-    const qrSvg = generateQrCodeSvg(uri);
+    const qrSvg = await generateQrCodeSvg(uri);
 
     return NextResponse.json({
       secret,

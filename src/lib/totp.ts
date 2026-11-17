@@ -127,7 +127,9 @@ export function verifyTotpCode(
 }
 
 /**
- * 認証アプリ（Google Authenticator等）登録用の URI を生成します
+ * 認証アプリ（Google Authenticator, Microsoft Authenticator等）登録用の URI を生成します
+ * ※ Microsoft Authenticator 等での互換性を最大化するため、デフォルトパラメータはクエリから省略し
+ *    label と issuer パラメータを標準仕様に厳密に準拠させます。
  */
 export function getTotpUri(
   secret: string,
@@ -136,5 +138,6 @@ export function getTotpUri(
 ): string {
   const cleanAccount = encodeURIComponent(accountName.trim());
   const cleanIssuer = encodeURIComponent(issuer.trim());
-  return `otpauth://totp/${cleanIssuer}:${cleanAccount}?secret=${secret}&issuer=${cleanIssuer}&algorithm=SHA1&digits=6&period=30`;
+  const cleanSecret = secret.toUpperCase().replace(/[\s=-]/g, "");
+  return `otpauth://totp/${cleanIssuer}:${cleanAccount}?secret=${cleanSecret}&issuer=${cleanIssuer}`;
 }

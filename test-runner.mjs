@@ -2622,7 +2622,7 @@ async function runTests() {
   // 42. TOTP 2要素認証・QRコード生成・招待リンク発行＆受諾フロー検証テスト
   {
     const { generateTotpSecret, generateTotpCode, verifyTotpCode, getTotpUri, base32Encode, base32Decode } = await import("./src/lib/totp.ts");
-    const { generateQrCodeSvg, generateQrMatrix } = await import("./src/lib/qrcode.ts");
+    const { generateQrCodeSvg } = await import("./src/lib/qrcode.ts");
 
     // 2FA一時署名トークンの検証用ヘルパー（src/lib/auth.ts と同一ロジック）
     const testSecret = "test_session_secret_key_1234567890";
@@ -2689,11 +2689,7 @@ async function runTests() {
 
     // C. QRコードSVG生成テスト
     const uri = getTotpUri(secret, "invitee_user", "PersonalBacklog");
-    const matrix = generateQrMatrix(uri);
-    if (!matrix || matrix.length < 21 || matrix.length > 100) {
-      throw new Error(`QRマトリクスサイズ異常: ${matrix?.length}`);
-    }
-    const svg = generateQrCodeSvg(uri);
+    const svg = await generateQrCodeSvg(uri);
     if (!svg.includes("<svg") || !svg.includes("</svg>") || !svg.includes("path")) {
       throw new Error("QRコードSVG生成テスト失敗");
     }
