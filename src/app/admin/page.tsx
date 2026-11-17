@@ -36,6 +36,7 @@ import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { getAvatarColorLabel } from "@/lib/avatarColors";
 import {
+  User,
   Project,
   SystemSettings,
   DateTimeFormatType,
@@ -188,6 +189,33 @@ export default function AdminPage() {
     setPreviewTheme(null);
   };
 
+  // メンバーをプロジェクトから即時脱退
+  const handleQuickLeaveProject = async (user: User, projectId: number, projectName: string) => {
+    if (!currentUser?.is_admin && currentUser?.role_type !== "pmo") {
+      alert("プロジェクトからの脱退操作は管理者（Admin）またはPMOのみ実行できます。");
+      return;
+    }
+    if (!confirm(`${user.name}さんをプロジェクト「${projectName}」から脱退させますか？`)) {
+      return;
+    }
+    try {
+      const currentIds = (user.projects || []).map((p: any) => p.id);
+      const nextIds = currentIds.filter((id) => id !== projectId);
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectIds: nextIds }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "脱退処理に失敗しました");
+      }
+      await refreshUsers();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "脱退エラーが発生しました");
+    }
+  };
+
   // 1秒ごとにプレビュー時計を更新
   useEffect(() => {
     const timer = setInterval(() => {
@@ -196,10 +224,10 @@ export default function AdminPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // プロジェクト一覧取得
+  // プロジェクト一覧取得（管理ページは全件対象 all=1）
   const fetchProjects = useCallback(async () => {
     try {
-      const res = await fetch("/api/projects");
+      const res = await fetch("/api/projects?all=1");
       if (res.ok) {
         setProjects(await res.json());
       }
@@ -1851,7 +1879,7 @@ export default function AdminPage() {
                             {(u.projects || []).map((p) => (
                               <span
                                 key={p.id}
-                                className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
+                                className="inline-flex items-center gap-1 text-[11px] font-mono pl-2 pr-1 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
                                 title={`${p.name} (${p.key})`}
                               >
                                 <span
@@ -1859,6 +1887,16 @@ export default function AdminPage() {
                                   style={{ backgroundColor: p.color || "#4f46e5" }}
                                 />
                                 <span>{p.key}</span>
+                                {canManageIssues(currentUser) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickLeaveProject(u, p.id, p.name)}
+                                    title={`【脱退】${u.name}さんをプロジェクト「${p.name}」から脱退させます`}
+                                    className="text-slate-400 hover:text-rose-600 hover:bg-rose-100 p-0.5 rounded transition-colors cursor-pointer ml-0.5"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                )}
                               </span>
                             ))}
                           </div>
