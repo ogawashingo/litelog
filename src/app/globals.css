@@ -759,6 +759,13 @@ body {
 [data-theme="dark"] .border-t-transparent {
   border-top-color: transparent !important;
 }
+/* Tailwind v4 (:not(:last-child)) および v3 (:not([hidden]) ~ :not([hidden])) の divide ダークモード対応 */
+[data-theme="dark"] .divide-slate-50 > :not(:last-child),
+[data-theme="dark"] .divide-slate-100 > :not(:last-child),
+[data-theme="dark"] .divide-slate-200 > :not(:last-child),
+[data-theme="dark"] .divide-gray-100 > :not(:last-child),
+[data-theme="dark"] .divide-gray-200 > :not(:last-child),
+[data-theme="dark"] .divide-slate-50 > :not([hidden]) ~ :not([hidden]),
 [data-theme="dark"] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
 [data-theme="dark"] .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
 [data-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
