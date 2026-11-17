@@ -86,9 +86,11 @@ export default function AdminPage() {
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // マウント後にローカルストレージから選択中プロジェクトを同期（Hydration Error防止）
+  // マウント後にローカルストレージから選択中プロジェクトを同期＆クライアントマウント完了フラグをセット（Hydration Error防止）
   useEffect(() => {
+    setMounted(true);
     setSelectedProjectId(getStoredProjectId());
   }, []);
 
@@ -953,8 +955,11 @@ export default function AdminPage() {
                     <Clock className="w-4 h-4 text-amber-300" />
                     現在の表示時刻（リアルタイムプレビュー）
                   </span>
-                  <div className="text-2xl sm:text-3xl font-mono font-bold tracking-tight text-white">
-                    {formattedNow}
+                  <div
+                    className="text-2xl sm:text-3xl font-mono font-bold tracking-tight text-white"
+                    suppressHydrationWarning
+                  >
+                    {mounted ? formattedNow : "--:--:--"}
                   </div>
                   <div className="text-xs text-indigo-200">
                     タイムゾーン: <strong>{selectedTzInfo.label}</strong>{" "}
@@ -982,7 +987,7 @@ export default function AdminPage() {
                     <span>表示: {formattedSampleFixed}</span>
                   </div>
                   <div className="text-xs text-indigo-200/90 pt-0.5">
-                    現在UTC時刻: <span className="font-mono">{utcSampleString}</span>
+                    現在UTC時刻: <span className="font-mono" suppressHydrationWarning>{mounted ? utcSampleString : "--"}</span>
                   </div>
                 </div>
 
@@ -994,8 +999,8 @@ export default function AdminPage() {
                   <div className="bg-white/95 text-slate-800 rounded p-2.5 text-xs space-y-1 shadow-2xs">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-slate-900 text-xs">山田 太郎</span>
-                      <span className="text-xs text-slate-500">
-                        {formattedActivityPreview}
+                      <span className="text-xs text-slate-500" suppressHydrationWarning>
+                        {mounted ? formattedActivityPreview : "--"}
                       </span>
                     </div>
                     <div className="text-slate-600 text-xs truncate">
