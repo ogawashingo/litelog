@@ -31,6 +31,7 @@ import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
+import ProjectMembersModal from "@/components/ProjectMembersModal";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { getAvatarColorLabel } from "@/lib/avatarColors";
@@ -86,6 +87,9 @@ export default function AdminPage() {
   // デザイン・カラーテーマ選択用State
   const [selectedTheme, setSelectedTheme] = useState<ThemeId>(settings.theme || "cosmic");
   const [isSavingTheme, setIsSavingTheme] = useState(false);
+
+  // プロジェクトメンバー管理用State
+  const [managingMembersProject, setManagingMembersProject] = useState<Project | null>(null);
 
   // プロジェクト名変更・削除・クローズ（アーカイブ）用State（Admin専用）
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
@@ -1574,7 +1578,7 @@ export default function AdminPage() {
                       </form>
                     ) : (
                       <>
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap">
                           <span
                             style={{ backgroundColor: p.color || "#4f46e5" }}
                             className="w-3.5 h-3.5 rounded-xs shrink-0 shadow-2xs"
@@ -1597,10 +1601,39 @@ export default function AdminPage() {
                               <span>アーカイブ</span>
                             </span>
                           )}
+
+                          {/* 参加メンバーアバタープレビュー */}
+                          <div className="flex items-center gap-1 ml-1 shrink-0">
+                            <div className="flex -space-x-1.5 overflow-hidden">
+                              {(p.members || []).slice(0, 4).map((m) => (
+                                <div
+                                  key={m.id}
+                                  className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white ring-1 ring-white"
+                                  style={{ backgroundColor: m.color || "#4f46e5" }}
+                                  title={`${m.name} (@${m.login_id})`}
+                                >
+                                  {getUserInitials(m.name)}
+                                </div>
+                              ))}
+                            </div>
+                            <span className="text-[11px] text-slate-500 font-medium ml-0.5">
+                              {p.member_count !== undefined ? `${p.member_count}名` : ""}
+                            </span>
+                          </div>
                         </div>
 
                         {canManageIssues(currentUser) && (
-                          <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                          <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap">
+                            {/* 参加メンバー管理ボタン */}
+                            <button
+                              type="button"
+                              onClick={() => setManagingMembersProject(p)}
+                              title="プロジェクト参加メンバーを追加・削除 (Admin / PMO)"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer shadow-2xs"
+                            >
+                              <Users className="w-4 h-4 text-indigo-600" />
+                              <span>メンバー管理</span>
+                            </button>
                             {/* アーカイブ／アーカイブ解除トグルボタン */}
                             <button
                               type="button"
@@ -1749,10 +1782,47 @@ export default function AdminPage() {
                           </span>
                         )}
                         {getUserRoleType(u) === "pmo" && (
-                          <span className="inline-flex items-center gap-0.5 text-xs bg-emerald-100 text-emerald-900 border border-emerald-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                          <span className="inline-flex items-center gap-0.5 text-xs bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
                             PMO
                           </span>
                         )}
+
+                        {/* 所属プロジェクトタグ表示 */}
+                        <div className="hidden lg:flex items-center gap-1 shrink-0 ml-1">
+                          {u.is_admin === 1 || u.role_type === "admin" || u.role_type === "pmo" ? (
+                            <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
+                              全プロジェクト参加
+                            </span>
+                          ) : (u.projects || []).length > 0 ? (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {(u.projects || []).slice(0, 3).map((p) => (
+                                <span
+                                  key={p.id}
+                                  className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200"
+                                  title={`${p.name} (${p.key})`}
+                                >
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full"
+                                    style={{ backgroundColor: p.color || "#4f46e5" }}
+                                  />
+                                  <span>{p.key}</span>
+                                </span>
+                              ))}
+                              {(u.projects || []).length > 3 && (
+                                <span
+                                  className="text-[10px] text-slate-500 font-medium"
+                                  title={(u.projects || []).map((p) => p.name).join("\n")}
+                                >
+                                  +{(u.projects || []).length - 3}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                              未配属
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -1888,6 +1958,17 @@ export default function AdminPage() {
         isOpen={isBackupOpen}
         onClose={() => setIsBackupOpen(false)}
         onRestored={async () => {
+          await fetchProjects();
+          await refreshUsers();
+        }}
+      />
+
+      {/* プロジェクト参加メンバー管理モーダル */}
+      <ProjectMembersModal
+        isOpen={Boolean(managingMembersProject)}
+        project={managingMembersProject}
+        onClose={() => setManagingMembersProject(null)}
+        onUpdated={async () => {
           await fetchProjects();
           await refreshUsers();
         }}

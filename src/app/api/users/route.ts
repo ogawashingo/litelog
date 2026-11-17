@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { getSessionUser, hashPassword } from "@/lib/auth";
 
-// メンバー一覧の取得（担当課題数の集計付き・パスワードは除外）
+// メンバー一覧の取得（担当課題数の集計および所属プロジェクト情報付き・パスワードは除外）
 export async function GET() {
   try {
     const db = getDb();
-    const users = db.prepare(`
+    const rawUsers = db.prepare(`
       SELECT 
         u.id,
         u.login_id,
@@ -25,7 +25,25 @@ export async function GET() {
       LEFT JOIN issues i ON u.id = i.assignee_id
       GROUP BY u.id
       ORDER BY u.id ASC
-    `).all();
+    `).all() as any[];
+
+    // 各ユーザーの所属プロジェクト一覧を取得してマッピング
+    const userProjectsStmt = db.prepare(`
+      SELECT p.id, p.key, p.name, p.color, COALESCE(p.is_archived, 0) AS is_archived
+      FROM project_members pm
+      JOIN projects p ON pm.project_id = p.id
+      WHERE pm.user_id = ?
+      ORDER BY p.is_archived ASC, p.id ASC
+    `);
+
+    const users = rawUsers.map((u) => {
+      const userProjects = userProjectsStmt.all(u.id);
+      return {
+        ...u,
+        projects: userProjects,
+        project_count: userProjects.length,
+      };
+    });
 
     return NextResponse.json(users);
   } catch (error) {
@@ -62,6 +80,7 @@ export async function POST(request: Request) {
       color = "#4f46e5",
       weekStart = "monday",
       showHolidays = true,
+      projectIds,
     } = body;
 
     // PMOによるシステム管理者（Admin）権限付与は禁止
@@ -127,6 +146,22 @@ export async function POST(request: Request) {
       cleanWeekStart,
       cleanShowHolidays
     );
+
+    const newUserId = Number(result.lastInsertRowid);
+
+    // 所属プロジェクトの登録
+    if (effectiveRoleType === "admin" || effectiveRoleType === "pmo") {
+      // Admin/PMOは全プロジェクトに自動参加
+      db.prepare(`
+        INSERT OR IGNORE INTO project_members (project_id, user_id)
+        SELECT id, ? FROM projects
+      `).run(newUserId);
+    } else if (Array.isArray(projectIds) && projectIds.length > 0) {
+      const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
+      for (const pid of projectIds) {
+        if (Number(pid)) pmInsert.run(Number(pid), newUserId);
+      }
+    }
 
     const created = db.prepare(`
       SELECT 

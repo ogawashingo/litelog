@@ -207,6 +207,32 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       db.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`).run(...values);
     }
 
+    // 所属プロジェクトの更新（Admin/PMOのみ変更可能）
+    if (canManageMember && Array.isArray(body.projectIds)) {
+      const targetIsSpecial =
+        targetUser.is_admin === 1 ||
+        targetUser.role_type === "admin" ||
+        targetUser.role_type === "pmo" ||
+        body.isAdmin === true ||
+        body.isAdmin === 1 ||
+        body.roleType === "admin" ||
+        body.roleType === "pmo";
+
+      if (targetIsSpecial) {
+        // Admin/PMOは全プロジェクトに常時参加
+        db.prepare(`
+          INSERT OR IGNORE INTO project_members (project_id, user_id)
+          SELECT id, ? FROM projects
+        `).run(targetId);
+      } else {
+        db.prepare("DELETE FROM project_members WHERE user_id = ?").run(targetId);
+        const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
+        for (const pid of body.projectIds) {
+          if (Number(pid)) pmInsert.run(Number(pid), targetId);
+        }
+      }
+    }
+
     const updated = db.prepare(`
       SELECT 
         u.id,
@@ -225,7 +251,18 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       LEFT JOIN issues i ON u.id = i.assignee_id
       WHERE u.id = ?
       GROUP BY u.id
-    `).get(targetId);
+    `).get(targetId) as any;
+
+    if (updated) {
+      updated.projects = db.prepare(`
+        SELECT p.id, p.key, p.name, p.color, COALESCE(p.is_archived, 0) AS is_archived
+        FROM project_members pm
+        JOIN projects p ON pm.project_id = p.id
+        WHERE pm.user_id = ?
+        ORDER BY p.is_archived ASC, p.id ASC
+      `).all(targetId);
+      updated.project_count = updated.projects.length;
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

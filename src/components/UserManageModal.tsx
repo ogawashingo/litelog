@@ -1,7 +1,7 @@
 // チームメンバー管理モーダルコンポーネント（メンバーの追加・編集・削除・ログインID管理）
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck } from "lucide-react";
 import { User, WeekStartDay, UserRoleType, getUserRoleType, canManageIssues } from "@/types";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
@@ -47,6 +47,9 @@ export default function UserManageModal({
   const [newColor, setNewColor] = useState(AVATAR_COLOR_VALUES[0]);
   const [newWeekStart, setNewWeekStart] = useState<WeekStartDay>("monday");
   const [newShowHolidays, setNewShowHolidays] = useState(true);
+  const [newProjectIds, setNewProjectIds] = useState<number[]>([]);
+  const [projectsList, setProjectsList] = useState<any[]>([]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -60,6 +63,22 @@ export default function UserManageModal({
   const [editColor, setEditColor] = useState("");
   const [editWeekStart, setEditWeekStart] = useState<WeekStartDay>("monday");
   const [editShowHolidays, setEditShowHolidays] = useState(true);
+  const [editProjectIds, setEditProjectIds] = useState<number[]>([]);
+
+  // プロジェクト一覧ロード
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/projects?all=1")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setProjectsList(data);
+            setNewProjectIds(data.map((p: any) => p.id));
+          }
+        })
+        .catch((err) => console.error("プロジェクト一覧取得失敗:", err));
+    }
+  }, [isOpen]);
 
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin);
   const canCurrentUserManageMembers = canManageIssues(currentUser);
@@ -96,6 +115,7 @@ export default function UserManageModal({
           color: newColor,
           weekStart: newWeekStart,
           showHolidays: newShowHolidays,
+          projectIds: newProjectIds,
         }),
       });
 
@@ -134,6 +154,7 @@ export default function UserManageModal({
     setEditShowHolidays(
       user.show_holidays !== undefined ? Boolean(user.show_holidays) : true
     );
+    setEditProjectIds((user.projects || []).map((p: any) => p.id));
     setErrorMsg("");
   };
 
@@ -157,6 +178,7 @@ export default function UserManageModal({
         color: editColor,
         weekStart: editWeekStart,
         showHolidays: editShowHolidays,
+        projectIds: editProjectIds,
       };
       if (editPassword.trim()) {
         payload.password = editPassword.trim();
@@ -436,6 +458,66 @@ export default function UserManageModal({
                     </div>
                   </div>
                 </div>
+
+                {/* 新規追加時の所属プロジェクト選択（一般ロール時のみ選択、Admin/PMOは全件参加） */}
+                {newRoleType === "member" && projectsList.length > 0 && (
+                  <div className="w-full pt-2 border-t border-indigo-100">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-semibold text-slate-700">
+                        所属プロジェクト ({newProjectIds.length}/{projectsList.length} 件):
+                      </span>
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setNewProjectIds(projectsList.map((p) => p.id))}
+                          className="text-indigo-600 hover:underline cursor-pointer"
+                        >
+                          全選択
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewProjectIds([])}
+                          className="text-slate-500 hover:underline cursor-pointer"
+                        >
+                          全解除
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-white rounded border border-slate-200">
+                      {projectsList.map((p) => {
+                        const isChecked = newProjectIds.includes(p.id);
+                        return (
+                          <label
+                            key={p.id}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono border cursor-pointer select-none transition-colors ${
+                              isChecked
+                                ? "bg-indigo-50 border-indigo-300 text-indigo-900 font-bold"
+                                : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-white"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewProjectIds((prev) => [...prev, p.id]);
+                                } else {
+                                  setNewProjectIds((prev) => prev.filter((id) => id !== p.id));
+                                }
+                              }}
+                              className="sr-only"
+                            />
+                            <span
+                              className="w-1.5 h-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: p.color || "#4f46e5" }}
+                            />
+                            <span>[{p.key}] {p.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </form>
           ) : (
@@ -622,6 +704,67 @@ export default function UserManageModal({
                               <span>祝日表示</span>
                             </label>
                           </div>
+
+                          {/* 編集時の所属プロジェクト選択（一般ロール時のみ選択可能） */}
+                          {editRoleType === "member" && projectsList.length > 0 && (
+                            <div className="w-full pt-1.5 border-t border-slate-200">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] font-semibold text-slate-600">
+                                  所属プロジェクト ({editProjectIds.length}/{projectsList.length} 件):
+                                </span>
+                                <div className="flex items-center gap-2 text-[10px]">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditProjectIds(projectsList.map((p) => p.id))}
+                                    className="text-indigo-600 hover:underline cursor-pointer"
+                                  >
+                                    全選択
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditProjectIds([])}
+                                    className="text-slate-500 hover:underline cursor-pointer"
+                                  >
+                                    全解除
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-slate-50 rounded border border-slate-200">
+                                {projectsList.map((p) => {
+                                  const isChecked = editProjectIds.includes(p.id);
+                                  return (
+                                    <label
+                                      key={p.id}
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono border cursor-pointer select-none transition-colors ${
+                                        isChecked
+                                          ? "bg-indigo-50 border-indigo-300 text-indigo-900 font-bold"
+                                          : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setEditProjectIds((prev) => [...prev, p.id]);
+                                          } else {
+                                            setEditProjectIds((prev) => prev.filter((id) => id !== p.id));
+                                          }
+                                        }}
+                                        className="sr-only"
+                                      />
+                                      <span
+                                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                                        style={{ backgroundColor: p.color || "#4f46e5" }}
+                                      />
+                                      <span>[{p.key}] {p.name}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -716,6 +859,36 @@ export default function UserManageModal({
                               <span>
                                 担当課題: <strong className="text-slate-700">{u.open_issue_count ?? 0}</strong> 件（全 {u.issue_count ?? 0} 件）
                               </span>
+                            </div>
+
+                            {/* 所属プロジェクトタグ表示 */}
+                            <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                              <span className="text-[10px] font-semibold text-slate-400 shrink-0">参加案件:</span>
+                              {u.is_admin === 1 || u.role_type === "admin" || u.role_type === "pmo" ? (
+                                <span className="text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
+                                  全プロジェクト参加
+                                </span>
+                              ) : (u.projects || []).length > 0 ? (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {(u.projects || []).map((p) => (
+                                    <span
+                                      key={p.id}
+                                      className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200"
+                                      title={`${p.name} (${p.key})`}
+                                    >
+                                      <span
+                                        className="w-1.5 h-1.5 rounded-full"
+                                        style={{ backgroundColor: p.color || "#4f46e5" }}
+                                      />
+                                      <span>{p.key}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
+                                  未配属
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>

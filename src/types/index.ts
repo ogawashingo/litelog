@@ -20,6 +20,8 @@ export interface User {
   created_at: string;
   issue_count?: number;      // 担当課題総数（集計時）
   open_issue_count?: number; // 未完了の担当課題数（集計時）
+  projects?: { id: number; key: string; name: string; color: string; is_archived?: number }[]; // 所属プロジェクト一覧
+  project_count?: number;    // 所属プロジェクト件数
 }
 
 /**
