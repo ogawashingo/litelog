@@ -2468,6 +2468,122 @@ async function runTests() {
     console.log("✓ 複数メンバー所属プロジェクトにおける未完了課題数および進捗率集計の重複排除検証（デカルト積防止テスト）成功");
   }
 
+  // 46. 最後のシステム管理者（Admin）削除防止および権限解除防止検証テスト
+  {
+    // テスト用ユーザー作成: 管理者Aと一般メンバーB
+    const adminA = db.prepare(`
+      INSERT INTO users (login_id, password, name, role, is_admin, role_type)
+      VALUES ('admin_sole', 'pass123', '唯一の管理者', '管理者', 1, 'admin')
+    `).run().lastInsertRowid;
+    const memberB = db.prepare(`
+      INSERT INTO users (login_id, password, name, role, is_admin, role_type)
+      VALUES ('member_normal', 'pass123', '通常メンバー', 'メンバー', 0, 'member')
+    `).run().lastInsertRowid;
+
+    // ヘルパー: APIの削除ガードロジック検証
+    function canDeleteUser(targetId) {
+      const target = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId);
+      if (!target) return { allowed: false, error: "対象のメンバーが見つかりません" };
+      const isTargetAdmin = target.is_admin === 1 || target.role_type === "admin";
+      if (isTargetAdmin) {
+        const adminCountRow = db
+          .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1 OR role_type = 'admin'")
+          .get();
+        if (adminCountRow.count <= 1) {
+          return { allowed: false, error: "最後の管理者（Admin）は削除できません" };
+        }
+      }
+      return { allowed: true };
+    }
+
+    // ヘルパー: APIのロール変更ガードロジック検証
+    function canUpdateRole(targetId, nextRoleType) {
+      const targetUser = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId);
+      if (!targetUser) return { allowed: false, error: "対象のメンバーが見つかりません" };
+      const isTargetAdmin = targetUser.is_admin === 1 || targetUser.role_type === "admin";
+      const nextAdmin = nextRoleType === "admin" ? 1 : 0;
+      if (isTargetAdmin && nextAdmin === 0) {
+        const adminCountRow = db
+          .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1 OR role_type = 'admin'")
+          .get();
+        if (adminCountRow.count <= 1) {
+          return { allowed: false, error: "最低1名のシステム管理者（Admin）が必要なため、管理者権限を解除できません" };
+        }
+      }
+      return { allowed: true };
+    }
+
+    // 1. 他の全管理者がいない状態（adminAのみ管理者）のシミュレーション
+    // 既存の管理者がいる場合は一時的に除外してadminA単独でのテストを行う
+    db.prepare("UPDATE users SET is_admin = 0, role_type = 'member' WHERE id != ? AND (is_admin = 1 OR role_type = 'admin')").run(adminA);
+
+    // 単独管理者の削除試行 -> ブロックされること
+    const delResultSole = canDeleteUser(adminA);
+    if (delResultSole.allowed || !delResultSole.error.includes("最後の管理者")) {
+      throw new Error("最後の管理者が削除可能になってしまっています");
+    }
+
+    // 単独管理者の一般ロールへの変更試行 -> ブロックされること
+    const updateResultSole = canUpdateRole(adminA, "member");
+    if (updateResultSole.allowed || !updateResultSole.error.includes("最低1名")) {
+      throw new Error("最後の管理者の管理者権限解除が可能になってしまっています");
+    }
+
+    // 単独管理者のPMOへの変更試行 -> ブロックされること
+    const updateResultPmo = canUpdateRole(adminA, "pmo");
+    if (updateResultPmo.allowed || !updateResultPmo.error.includes("最低1名")) {
+      throw new Error("最後の管理者のPMOへの降格が可能になってしまっています");
+    }
+
+    // 一般メンバーの削除試行 -> 管理者チェックではブロックされないこと
+    const delResultMember = canDeleteUser(memberB);
+    if (!delResultMember.allowed) {
+      throw new Error("一般メンバーの削除が管理者ガードでブロックされてしまっています");
+    }
+
+    // 2. もう1人管理者（adminC）を追加した場合
+    const adminC = db.prepare(`
+      INSERT INTO users (login_id, password, name, role, is_admin, role_type)
+      VALUES ('admin_second', 'pass123', '二人目の管理者', '管理者', 1, 'admin')
+    `).run().lastInsertRowid;
+
+    // 管理者が2人いるときは削除可能であること
+    const delResultWithTwo = canDeleteUser(adminC);
+    if (!delResultWithTwo.allowed) {
+      throw new Error("管理者が2名以上いる状態でも削除がブロックされてしまっています");
+    }
+
+    // 削除を実行
+    db.prepare("DELETE FROM users WHERE id = ?").run(adminC);
+
+    // 削除後は再び単独管理者になるため、adminAの削除はブロックされること
+    const delResultAfterDelete = canDeleteUser(adminA);
+    if (delResultAfterDelete.allowed) {
+      throw new Error("管理者削除後に残った最後の管理者が削除可能になってしまっています");
+    }
+
+    // 3. フロントエンド（UserManageModal.tsx）に最後の管理者保護コードが存在することの検証
+    const modalSrc = fs.readFileSync(path.join(process.cwd(), "src/components/UserManageModal.tsx"), "utf-8");
+    if (!modalSrc.includes("isLastAdmin") || !modalSrc.includes("isEditingLastAdmin")) {
+      throw new Error("UserManageModal.tsx に最後の管理者を保護するロジックが含まれていません");
+    }
+    if (!modalSrc.includes("最後の管理者（Admin）は削除できません")) {
+      throw new Error("UserManageModal.tsx に最後の管理者削除禁止メッセージが含まれていません");
+    }
+
+    // 4. APIルート（src/app/api/users/[id]/route.ts）のチェック
+    const routeSrc = fs.readFileSync(path.join(process.cwd(), "src/app/api/users/[id]/route.ts"), "utf-8");
+    if (!routeSrc.includes("最後の管理者（Admin）は削除できません")) {
+      throw new Error("APIルートに最後の管理者削除禁止メッセージが含まれていません");
+    }
+
+    // テスト後始末（初期アカウントの管理者権限復元）
+    db.prepare("DELETE FROM users WHERE id IN (?, ?)").run(adminA, memberB);
+    db.prepare("UPDATE users SET is_admin = 1, role_type = 'admin' WHERE login_id = 'yamada'").run();
+
+    console.log("✓ 最後のシステム管理者（Admin）削除防止および権限解除防止検証テスト成功");
+  }
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

@@ -170,9 +170,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         nextRoleType = nextAdmin === 1 ? "admin" : targetUser.role_type === "pmo" ? "pmo" : "member";
       }
 
-      if (targetUser.is_admin === 1 && nextAdmin === 0) {
+      const isTargetAdmin = targetUser.is_admin === 1 || targetUser.role_type === "admin";
+      if (isTargetAdmin && nextAdmin === 0) {
         const adminCountRow = db
-          .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1")
+          .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1 OR role_type = 'admin'")
           .get() as { count: number };
         if (adminCountRow.count <= 1) {
           return NextResponse.json(
@@ -276,14 +277,16 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     const target = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId) as {
       id: number;
       is_admin: number;
+      role_type?: string;
     } | undefined;
     if (!target) {
       return NextResponse.json({ error: "対象のメンバーが見つかりません" }, { status: 404 });
     }
 
-    if (target.is_admin === 1) {
+    const isTargetAdmin = target.is_admin === 1 || target.role_type === "admin";
+    if (isTargetAdmin) {
       const adminCountRow = db
-        .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1")
+        .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1 OR role_type = 'admin'")
         .get() as { count: number };
       if (adminCountRow.count <= 1) {
         return NextResponse.json(

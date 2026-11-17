@@ -9,6 +9,7 @@ import { DatePicker } from "./DatePicker";
 import MentionTextarea from "./MentionTextarea";
 import NotifyUserSelector from "./NotifyUserSelector";
 import ResolutionSelect from "./ResolutionSelect";
+import UserSelect from "./UserSelect";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -243,18 +244,14 @@ export default function CreateIssueModal({
                   担当者
                 </span>
               </label>
-              <select
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="">未割当</option>
-                {candidateUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} {currentUser?.id === u.id ? "(自分)" : `(${u.role})`}
-                  </option>
-                ))}
-              </select>
+              <UserSelect
+                users={candidateUsers}
+                value={assigneeId ? Number(assigneeId) : null}
+                onChange={(val) => setAssigneeId(val ? String(val) : "")}
+                currentUserId={currentUser?.id}
+                placeholder="未割当"
+                className="w-full"
+              />
             </div>
 
             <div>

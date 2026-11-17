@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { Bell, Users, CheckSquare, Square } from "lucide-react";
+import { Bell, Users, CheckSquare, Square, Search, X } from "lucide-react";
 import { User } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 
@@ -44,6 +44,21 @@ export default function NotifyUserSelector({
     () => new Set(participantUserIds.filter((id) => Boolean(id) && id !== currentUserId)),
     [participantUserIds, currentUserId]
   );
+
+  // メンバー絞り込み用クエリ
+  const [searchQuery, setSearchQuery] = React.useState("");
+
+  // 検索クエリによるインクリメンタル絞り込み
+  const filteredUsers = React.useMemo(() => {
+    if (!searchQuery.trim()) return targetUsers;
+    const q = searchQuery.toLowerCase().trim();
+    return targetUsers.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        (u.login_id && u.login_id.toLowerCase().includes(q)) ||
+        (u.role && u.role.toLowerCase().includes(q))
+    );
+  }, [targetUsers, searchQuery]);
 
   // 個別ユーザーのチェック切り替え
   const handleToggleUser = (userId: number) => {
@@ -134,56 +149,93 @@ export default function NotifyUserSelector({
         )}
       </div>
 
+      {/* メンバー検索バー（メンバーが4人以上、または検索ワード入力時に表示） */}
+      {(targetUsers.length >= 4 || searchQuery) && (
+        <div className="relative flex items-center">
+          <Search className="w-3 h-3 text-slate-400 absolute left-2 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="メンバー名やログインIDで絞り込み..."
+            className="w-full pl-6 pr-6 py-1 bg-white border border-slate-200 rounded-md text-[11px] text-slate-700 placeholder-slate-400 focus:outline-hidden focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-1.5 p-0.5 text-slate-400 hover:text-slate-600 rounded-sm cursor-pointer"
+              title="絞り込みをクリア"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* メンバーチェックボックス一覧 */}
       <div className="flex flex-wrap gap-1.5">
-        {targetUsers.map((user) => {
-          const isSelf = user.id === currentUserId;
-          const isChecked = selectedUserIds.includes(user.id);
-          const isAuto = autoSet.has(user.id);
-
-          return (
-            <label
-              key={user.id}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-all select-none ${
-                isSelf
-                  ? "bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
-                  : isChecked
-                  ? "bg-indigo-50 border-indigo-400 text-indigo-900 font-semibold shadow-2xs cursor-pointer"
-                  : isAuto
-                  ? "bg-emerald-50/60 border-emerald-200 text-slate-700 hover:border-indigo-300 cursor-pointer"
-                  : "bg-white border-slate-200/90 text-slate-700 hover:border-indigo-300 hover:bg-slate-50 cursor-pointer"
-              }`}
-              title={
-                isSelf
-                  ? "自分自身には通知されません"
-                  : isAuto
-                  ? `${user.name}（担当者または作成者のため自動通知対象）`
-                  : `${user.name} に通知する`
-              }
+        {filteredUsers.length === 0 ? (
+          <div className="w-full py-2 text-center text-slate-400 text-xs">
+            「{searchQuery}」に一致するメンバーはいません
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="ml-2 text-indigo-600 hover:underline cursor-pointer"
             >
-              <input
-                type="checkbox"
-                checked={isChecked}
-                disabled={isSelf}
-                onChange={() => !isSelf && handleToggleUser(user.id)}
-                className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed"
-              />
-              <span
-                style={{ backgroundColor: user.color || "#4f46e5" }}
-                className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0"
+              条件をクリア
+            </button>
+          </div>
+        ) : (
+          filteredUsers.map((user) => {
+            const isSelf = user.id === currentUserId;
+            const isChecked = selectedUserIds.includes(user.id);
+            const isAuto = autoSet.has(user.id);
+
+            return (
+              <label
+                key={user.id}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition-all select-none ${
+                  isSelf
+                    ? "bg-slate-100 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed"
+                    : isChecked
+                    ? "bg-indigo-50 border-indigo-400 text-indigo-900 font-semibold shadow-2xs cursor-pointer"
+                    : isAuto
+                    ? "bg-emerald-50/60 border-emerald-200 text-slate-700 hover:border-indigo-300 cursor-pointer"
+                    : "bg-white border-slate-200/90 text-slate-700 hover:border-indigo-300 hover:bg-slate-50 cursor-pointer"
+                }`}
+                title={
+                  isSelf
+                    ? "自分自身には通知されません"
+                    : isAuto
+                    ? `${user.name}（担当者または作成者のため自動通知対象）`
+                    : `${user.name} に通知する`
+                }
               >
-                {getUserInitials(user.name)}
-              </span>
-              <span className="truncate max-w-[120px]">{user.name}</span>
-              {isSelf && <span className="text-[10px] text-slate-400">(自分)</span>}
-              {!isSelf && isAuto && (
-                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 font-bold">
-                  自動
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={isSelf}
+                  onChange={() => !isSelf && handleToggleUser(user.id)}
+                  className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:cursor-not-allowed"
+                />
+                <span
+                  style={{ backgroundColor: user.color || "#4f46e5" }}
+                  className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[9px] font-bold shrink-0"
+                >
+                  {getUserInitials(user.name)}
                 </span>
-              )}
-            </label>
-          );
-        })}
+                <span className="truncate max-w-[120px]">{user.name}</span>
+                {isSelf && <span className="text-[10px] text-slate-400">(自分)</span>}
+                {!isSelf && isAuto && (
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-700 font-bold">
+                    自動
+                  </span>
+                )}
+              </label>
+            );
+          })
+        )}
       </div>
     </div>
   );

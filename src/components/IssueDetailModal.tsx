@@ -17,6 +17,7 @@ import NotifyUserSelector from "./NotifyUserSelector";
 import CommentReactionBar from "./CommentReactionBar";
 import ResolutionSelect from "./ResolutionSelect";
 import ReviewRequestModal from "./ReviewRequestModal";
+import UserSelect from "./UserSelect";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -1209,28 +1210,17 @@ export default function IssueDetailModal({
               </div>
 
               {/* 担当者セレクター */}
-              <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-2 py-1 shadow-2xs max-w-[130px] sm:max-w-[160px]">
-                <div
-                  style={{ backgroundColor: currentAssignee?.color || "#9ca3af" }}
-                  className="w-4 h-4 rounded-full text-white flex items-center justify-center text-[8px] font-bold shrink-0"
-                >
-                  {getUserInitials(currentAssignee?.name)}
-                </div>
-                <select
-                  value={activeIssue.assignee_id ? String(activeIssue.assignee_id) : ""}
+              <div className="w-[140px] sm:w-[170px]">
+                <UserSelect
+                  users={candidateUsers}
+                  value={activeIssue.assignee_id}
                   disabled={isProjectArchived}
-                  onChange={(e) => handleQuickAssigneeChange(e.target.value)}
-                  className={`bg-transparent text-xs font-medium text-slate-800 focus:outline-hidden truncate w-full ${
-                    isProjectArchived ? "cursor-not-allowed opacity-70" : "cursor-pointer"
-                  }`}
-                >
-                  <option value="">未割当</option>
-                  {candidateUsers.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleQuickAssigneeChange(val ? String(val) : "")}
+                  currentUserId={currentUser?.id}
+                  placeholder="未割当"
+                  size="sm"
+                  className="w-full"
+                />
               </div>
 
               {/* 優先度セレクター */}
@@ -1413,18 +1403,14 @@ export default function IssueDetailModal({
 
                 <div className="min-w-0">
                   <label className="block font-bold text-gray-700 mb-1">担当者</label>
-                  <select
-                    value={editAssigneeId}
-                    onChange={(e) => setEditAssigneeId(e.target.value)}
-                    className="w-full bg-white border border-gray-300 rounded px-2 py-1.5 text-gray-800"
-                  >
-                    <option value="">未割当</option>
-                    {candidateUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                  </select>
+                  <UserSelect
+                    users={candidateUsers}
+                    value={editAssigneeId ? Number(editAssigneeId) : null}
+                    onChange={(val) => setEditAssigneeId(val ? String(val) : "")}
+                    currentUserId={currentUser?.id}
+                    placeholder="未割当"
+                    className="w-full"
+                  />
                 </div>
 
                 <div className="min-w-0">

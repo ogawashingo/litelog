@@ -27,6 +27,7 @@ import {
   Eye,
   Megaphone,
   Archive,
+  Search,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -131,6 +132,9 @@ export default function AdminPage() {
   );
   const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
   const [announcementSaveMessage, setAnnouncementSaveMessage] = useState<string | null>(null);
+
+  // メンバー一覧の絞り込み用State
+  const [memberFilterText, setMemberFilterText] = useState("");
 
   // コンテキストの設定が読み込まれたらドラフトに同期
   useEffect(() => {
@@ -1800,8 +1804,61 @@ export default function AdminPage() {
               <p className="text-sm text-slate-500">
                 メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] および祝日 [祝ON / 祝OFF] 設定を直接変更できます。
               </p>
+
+              {/* メンバー検索入力バー */}
+              <div className="relative flex items-center">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+                <input
+                  type="text"
+                  value={memberFilterText}
+                  onChange={(e) => setMemberFilterText(e.target.value)}
+                  placeholder="メンバー名、ログインID、役割、権限で検索..."
+                  className="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+                {memberFilterText && (
+                  <button
+                    type="button"
+                    onClick={() => setMemberFilterText("")}
+                    className="absolute right-2 p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                    title="絞り込みをクリア"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
               <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden max-h-[420px] overflow-y-auto">
-                {users.map((u) => {
+                {(() => {
+                  const q = memberFilterText.toLowerCase().trim();
+                  const filtered = users.filter((u) => {
+                    if (!q) return true;
+                    const matchName = u.name.toLowerCase().includes(q);
+                    const matchLogin = u.login_id ? u.login_id.toLowerCase().includes(q) : false;
+                    const matchRole = u.role ? u.role.toLowerCase().includes(q) : false;
+                    const roleType = getUserRoleType(u);
+                    const matchRoleType =
+                      (roleType === "admin" && (q.includes("admin") || q.includes("管理者"))) ||
+                      (roleType === "pmo" && q.includes("pmo")) ||
+                      (roleType === "member" && (q.includes("一般") || q.includes("メンバー")));
+                    return matchName || matchLogin || matchRole || matchRoleType;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="p-8 text-center text-xs text-slate-400">
+                        「{memberFilterText}」に一致するメンバーはいません
+                        <button
+                          type="button"
+                          onClick={() => setMemberFilterText("")}
+                          className="ml-2 text-indigo-600 font-semibold hover:underline cursor-pointer"
+                        >
+                          条件をクリア
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return filtered.map((u) => {
                   const userWeekStart = u.week_start || "monday";
                   const userShowHolidays = u.show_holidays !== undefined ? Boolean(u.show_holidays) : true;
                   return (
@@ -1934,8 +1991,9 @@ export default function AdminPage() {
                       </div>
                     </div>
                   );
-                })}
-              </div>
+                });
+              })()}
+            </div>
             </div>
 
             <button
