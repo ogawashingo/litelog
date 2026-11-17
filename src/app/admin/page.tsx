@@ -988,7 +988,7 @@ export default function AdminPage() {
                   </div>
                   <div className="flex items-center gap-1.5 font-mono text-sm font-bold text-amber-300">
                     <ArrowRight className="w-4 h-4 shrink-0" />
-                    <span>表示: {formattedSampleFixed}</span>
+                    <span suppressHydrationWarning>{mounted ? formattedSampleFixed : "--"}</span>
                   </div>
                   <div className="text-xs text-indigo-200/90 pt-0.5">
                     現在UTC時刻: <span className="font-mono" suppressHydrationWarning>{mounted ? utcSampleString : "--"}</span>
@@ -1127,8 +1127,11 @@ export default function AdminPage() {
                             </div>
                           </div>
                         </div>
-                        <span className="font-mono text-xs bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-800 font-semibold">
-                          {sampleOut}
+                        <span
+                          className="font-mono text-xs bg-white border border-slate-200 px-2 py-0.5 rounded text-indigo-800 font-semibold"
+                          suppressHydrationWarning
+                        >
+                          {mounted ? sampleOut : "--"}
                         </span>
                       </label>
                     );
