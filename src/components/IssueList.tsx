@@ -415,28 +415,28 @@ export default function IssueList({
         </div>
       </div>
 
-      {/* 課題一覧テーブル（スマホ・iPhone画面ではtable-fixedで幅を枠内に固定し、枠内での折り返しを保証） */}
+      {/* 課題一覧テーブル（スマホではblock表示に切り替えて枠幅100%に完全一致させ、件名の折り返しを保証。PCではtable表示） */}
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm border-collapse table-fixed md:table-auto">
-          <thead>
+        <table className="w-full text-left text-sm border-collapse block md:table">
+          <thead className="hidden md:table-header-group">
             <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
-              <th className="hidden md:table-cell py-2.5 px-3 w-24 whitespace-nowrap">種別</th>
-              <th className="hidden md:table-cell py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
-              <th className="py-2 md:py-2.5 px-3 md:min-w-[240px]">件名</th>
-              <th className="hidden md:table-cell py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
-              <th className="hidden md:table-cell py-2.5 px-3 w-28 whitespace-nowrap">状態</th>
+              <th className="py-2.5 px-3 w-24 whitespace-nowrap">種別</th>
+              <th className="py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
+              <th className="py-2.5 px-3 min-w-[240px]">件名</th>
+              <th className="py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
+              <th className="py-2.5 px-3 w-28 whitespace-nowrap">状態</th>
               {isShowingClosed && (
-                <th className="hidden md:table-cell py-2.5 px-3 w-28 whitespace-nowrap">完了理由</th>
+                <th className="py-2.5 px-3 w-28 whitespace-nowrap">完了理由</th>
               )}
-              <th className="hidden md:table-cell py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
-              <th className="hidden md:table-cell py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
-              <th className="hidden md:table-cell py-2.5 px-2 w-10 text-center"></th>
+              <th className="py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
+              <th className="py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
+              <th className="py-2.5 px-2 w-10 text-center"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="block md:table-row-group divide-y divide-slate-100">
             {displayedIssues.length === 0 ? (
-              <tr>
-                <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
+              <tr className="block md:table-row">
+                <td colSpan={isShowingClosed ? 9 : 8} className="block md:table-cell py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Filter className="w-8 h-8 text-slate-300" />
                     <p className="text-sm font-medium">該当する課題が見つかりません</p>
@@ -477,7 +477,7 @@ export default function IssueList({
                 return (
                   <tr
                     key={issue.id}
-                    className={`transition-colors group ${
+                    className={`block md:table-row transition-colors group ${
                       isClosed
                         ? "bg-slate-50/60 text-slate-400 hover:bg-slate-100/60"
                         : isParent && !issueAlert
@@ -546,10 +546,10 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 件名（メイン列：スマホでは画面幅の大半を使って枠内で綺麗に折り返し表示） */}
-                    <td className="py-2.5 md:py-3 px-3 w-full max-w-0 md:max-w-none md:min-w-[240px]">
+                    {/* 件名（メイン列：スマホではblock表示で枠幅いっぱいに収まり、件名全体が美しく折り返される） */}
+                    <td className="block md:table-cell py-2.5 md:py-3 px-3 w-full md:w-auto md:min-w-[240px]">
                       {/* スマホ専用の極小メタ行（課題キー・期限のみ控えめに表示） */}
-                      <div className="flex md:hidden items-center gap-1.5 mb-0.5 text-[11px] text-slate-500">
+                      <div className="flex md:hidden items-center gap-1.5 mb-1 text-[11px] text-slate-500 flex-wrap">
                         {depth > 0 && (
                           <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
                         )}
@@ -575,10 +575,12 @@ export default function IssueList({
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <div className="flex flex-wrap items-start sm:items-center gap-x-2 gap-y-1 min-w-0 w-full">
                         {/* 問題アラートバッジ（遅延・停滞・未着手警告等） */}
                         {issueAlert && (
-                          <IssueAlertBadge alert={issueAlert} size="sm" />
+                          <div className="shrink-0">
+                            <IssueAlertBadge alert={issueAlert} size="sm" />
+                          </div>
                         )}
                         <a
                           href={`/issues/${issue.issue_key}`}
@@ -589,7 +591,7 @@ export default function IssueList({
                             }
                           }}
                           title={issue.title}
-                          className={`text-left hover:text-indigo-700 transition-colors min-w-0 max-w-full cursor-pointer ${
+                          className={`text-left hover:text-indigo-700 transition-colors flex-1 min-w-0 cursor-pointer ${
                             isClosed
                               ? "text-slate-500"
                               : isParent
@@ -598,7 +600,7 @@ export default function IssueList({
                           }`}
                         >
                           <span
-                            className={`break-words break-all [overflow-wrap:anywhere] md:line-clamp-2 ${
+                            className={`block break-words break-all [overflow-wrap:anywhere] md:line-clamp-2 ${
                               isClosed ? "line-through" : ""
                             }`}
                           >
@@ -607,25 +609,27 @@ export default function IssueList({
                         </a>
                         {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}
                         {Boolean(issue.comment_count && issue.comment_count > 0) && (
-                          <CommentPreviewBadge
-                            issueId={issue.id}
-                            commentCount={issue.comment_count}
-                            latestCommentContent={issue.latest_comment_content}
-                            latestCommentCreatedAt={issue.latest_comment_created_at}
-                            latestCommentUserName={issue.latest_comment_user_name}
-                            latestCommentUserColor={issue.latest_comment_user_color}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onSelectIssue(issue);
-                            }}
-                            placement={index < 2 ? "bottom" : "top"}
-                          />
+                          <div className="shrink-0">
+                            <CommentPreviewBadge
+                              issueId={issue.id}
+                              commentCount={issue.comment_count}
+                              latestCommentContent={issue.latest_comment_content}
+                              latestCommentCreatedAt={issue.latest_comment_created_at}
+                              latestCommentUserName={issue.latest_comment_user_name}
+                              latestCommentUserColor={issue.latest_comment_user_color}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onSelectIssue(issue);
+                              }}
+                              placement={index < 2 ? "bottom" : "top"}
+                            />
+                          </div>
                         )}
                         {/* 添付ファイル件数バッジ */}
                         {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
                           <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0"
                             title={`添付ファイル ${issue.attachment_count}件`}
                           >
                             <Paperclip className="w-3 h-3 text-slate-500" />
