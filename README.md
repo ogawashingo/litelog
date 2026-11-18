@@ -3,6 +3,16 @@
 Backlogにインスパイアされた親しみやすく使いやすいUIを備え、**個人からチーム運用まで軽快・セキュアに使える**タスク・プロジェクト管理Webアプリケーションです。  
 Node.js組み込みのSQLite（`node:sqlite`）を使用しているため、外部DBサーバー不要で高速・手軽に動作します。
 
+![litelog ダッシュボード](docs/images/dashboard.png)
+
+---
+
+## 📸 画面プレビュー
+
+| かんばんボード（Board） | ガントチャート（Gantt） |
+| :---: | :---: |
+| [![かんばんボード](docs/images/board.png)](docs/images/board.png) | [![ガントチャート](docs/images/gantt.png)](docs/images/gantt.png) |
+
 ---
 
 ## 🌟 主な機能
