@@ -61,7 +61,7 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       const a = document.createElement("a");
       const dateStr = new Date().toISOString().split("T")[0];
       a.href = url;
-      a.download = `personal-backlog-backup-${dateStr}.json`;
+      a.download = `litelog-backup-${dateStr}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -1,14 +1,14 @@
 # Proxmox LXC 自動起動セットアップガイド
 
-Proxmox VE の LXC コンテナ起動時に、本アプリケーション（Personal Backlog）をポート 3000 で自動リッスン・起動させるための手順です。
+Proxmox VE の LXC コンテナ起動時に、本アプリケーション（litelog）をポート 3000 で自動リッスン・起動させるための手順です。
 
 ---
 
 ## 構成ファイル
 
 - **`setup.sh`**: 自動で systemd サービスを登録・有効化するスクリプト
-- **`personal-backlog.service`**: Node.js 直接実行用の systemd サービス定義ファイル
-- **`personal-backlog-docker.service`**: Docker Compose を利用する場合の systemd サービス定義ファイル
+- **`litelog.service`**: Node.js 直接実行用の systemd サービス定義ファイル
+- **`litelog-docker.service`**: Docker Compose を利用する場合の systemd サービス定義ファイル
 
 ---
 
@@ -18,7 +18,7 @@ Proxmox VE の LXC コンテナ起動時に、本アプリケーション（Pers
 
 ```bash
 # プロジェクトディレクトリへ移動
-cd /path/to/personal-backlog
+cd /path/to/litelog
 
 # セットアップスクリプトを root 権限で実行
 sudo bash deploy/setup.sh
@@ -26,21 +26,21 @@ sudo bash deploy/setup.sh
 
 このスクリプトにより以下が自動実行されます：
 1. Next.js アプリケーションのビルド（未ビルドの場合）
-2. 現在のディレクトリパスに応じた `/etc/systemd/system/personal-backlog.service` の配置
+2. 現在のディレクトリパスに応じた `/etc/systemd/system/litelog.service` の配置
 3. `systemctl daemon-reload`
-4. `systemctl enable --now personal-backlog.service`（自動起動の有効化および起動）
+4. `systemctl enable --now litelog.service`（自動起動の有効化および起動）
 
 ### 動作確認コマンド
 
 ```bash
 # サービスの状態確認
-sudo systemctl status personal-backlog.service
+sudo systemctl status litelog.service
 
 # 3000番ポートが LISTEN しているか確認
 ss -tulpn | grep 3000
 
 # リアルタイムログ確認
-sudo journalctl -u personal-backlog.service -f
+sudo journalctl -u litelog.service -f
 ```
 
 ---
@@ -65,11 +65,11 @@ pct set <コンテナID> -onboot 1
 
 ```bash
 # 停止
-sudo systemctl stop personal-backlog.service
+sudo systemctl stop litelog.service
 
 # 再起動（コード更新後など）
-sudo systemctl restart personal-backlog.service
+sudo systemctl restart litelog.service
 
 # 自動起動の解除
-sudo systemctl disable personal-backlog.service
+sudo systemctl disable litelog.service
 ```

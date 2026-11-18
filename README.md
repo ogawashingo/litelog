@@ -1,6 +1,6 @@
-# Personal Backlog
+# litelog
 
-Backlogの使いやすいUIを再現した、**個人からチーム運用まで軽快・セキュアに使える**タスク・プロジェクト管理Webアプリケーションです。  
+Backlogにインスパイアされた親しみやすく使いやすいUIを備え、**個人からチーム運用まで軽快・セキュアに使える**タスク・プロジェクト管理Webアプリケーションです。  
 Node.js組み込みのSQLite（`node:sqlite`）を使用しているため、外部DBサーバー不要で高速・手軽に動作します。
 
 ---
@@ -59,7 +59,7 @@ docker compose up -d --build
 # 停止
 docker compose down
 ```
-※ データはホスト側の `./data/backlog.db` に永続化されます。
+※ データはホスト側の `./data/litelog.db`（または既存の `./data/backlog.db`）に永続化されます。
 
 ### 4. テスト実行
 ```bash

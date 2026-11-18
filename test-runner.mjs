@@ -397,9 +397,9 @@ function setupSchemaAndSeed(db, isProdDb = false) {
   if (issueCount === 0) {
     const today = new Date().toISOString().split("T")[0];
     const sampleIssues = [
-      { num: 1, title: "Backlogダッシュボードの操作感を確認する", type: "task", status: "open", priority: "high", due: today },
+      { num: 1, title: "litelogダッシュボードの操作感を確認する", type: "task", status: "open", priority: "high", due: today },
       { num: 2, title: "個人プロジェクトのタスクを洗い出して登録する", type: "request", status: "in_progress", priority: "medium", due: today },
-      { num: 3, title: "Personal Backlogの環境セットアップ", type: "task", status: "closed", priority: "medium", due: today },
+      { num: 3, title: "litelogの環境セットアップ", type: "task", status: "closed", priority: "medium", due: today },
     ];
     for (const item of sampleIssues) {
       const res = db.prepare(`
@@ -429,13 +429,14 @@ function setupSchemaAndSeed(db, isProdDb = false) {
 }
 
 async function runTests() {
-  console.log("=== Personal Backlog データベース初期化＆動作検証開始（テスト用分離DB） ===");
+  console.log("=== litelog データベース初期化＆動作検証開始（テスト用分離DB） ===");
   // 本番DBのスキーマ・インデックス・パスワードハッシュ化の整合性のみ安全に同期（テストデータの書き込みは行わない）
   const dbDir = path.join(process.cwd(), "data");
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
   }
-  const prodDbPath = path.join(dbDir, "backlog.db");
+  const prodDbFilename = fs.existsSync(path.join(dbDir, "backlog.db")) ? "backlog.db" : "litelog.db";
+  const prodDbPath = path.join(dbDir, prodDbFilename);
   const prodDb = new DatabaseSync(prodDbPath);
   setupSchemaAndSeed(prodDb, true);
   prodDb.close();
@@ -2655,10 +2656,10 @@ async function runTests() {
     }
 
     // A. Base32相互変換
-    const sampleBuffer = Buffer.from("PersonalBacklogSecurityTest123!");
+    const sampleBuffer = Buffer.from("litelogSecurityTest123!");
     const encoded = base32Encode(sampleBuffer);
     const decoded = base32Decode(encoded);
-    if (decoded.toString() !== "PersonalBacklogSecurityTest123!") {
+    if (decoded.toString() !== "litelogSecurityTest123!") {
       throw new Error("Base32相互エンコード・デコードテストに失敗しました");
     }
 
@@ -2688,7 +2689,7 @@ async function runTests() {
     }
 
     // C. QRコードSVG生成テスト
-    const uri = getTotpUri(secret, "invitee_user", "PersonalBacklog");
+    const uri = getTotpUri(secret, "invitee_user", "litelog");
     const svg = await generateQrCodeSvg(uri);
     if (!svg.includes("<svg") || !svg.includes("</svg>") || !svg.includes("path")) {
       throw new Error("QRコードSVG生成テスト失敗");

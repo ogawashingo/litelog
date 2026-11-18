@@ -65,8 +65,8 @@ const UserContext = createContext<UserContextValue>({
   currentTheme: "cosmic",
 });
 
-const STORAGE_KEY = "backlog_current_user_id";
-const THEME_STORAGE_KEY = "backlog_theme";
+const STORAGE_KEY = "litelog_current_user_id";
+const THEME_STORAGE_KEY = "litelog_theme";
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -84,7 +84,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // ローカルストレージにキャッシュされた前回のテーマ（初回0ミリ秒適用用）
   const [storedTheme, setStoredTheme] = useState<ThemeId | null>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(THEME_STORAGE_KEY);
+      const saved = localStorage.getItem(THEME_STORAGE_KEY) || localStorage.getItem("backlog_theme");
       if (saved) return saved as ThemeId;
     }
     return null;
@@ -116,7 +116,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         // localStorage にユーザー個別の週開始曜日設定がある場合は尊重
         let localWeekStart: WeekStartDay | undefined = undefined;
         if (typeof window !== "undefined") {
-          const stored = localStorage.getItem("backlog_week_start");
+          const stored = localStorage.getItem("litelog_week_start") || localStorage.getItem("backlog_week_start");
           if (stored === "monday" || stored === "sunday") {
             localWeekStart = stored;
           }
@@ -142,7 +142,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (typeof window !== "undefined") {
         if (next.weekStart) {
           try {
-            localStorage.setItem("backlog_week_start", next.weekStart);
+            localStorage.setItem("litelog_week_start", next.weekStart);
           } catch {
             // ignore
           }
@@ -387,7 +387,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           );
           if (currentUserId === userId && typeof window !== "undefined") {
             try {
-              localStorage.setItem("backlog_week_start", nextWeekStart);
+              localStorage.setItem("litelog_week_start", nextWeekStart);
             } catch {
               // ignore
             }

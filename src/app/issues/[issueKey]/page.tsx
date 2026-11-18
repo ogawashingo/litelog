@@ -205,7 +205,7 @@ export default function IssueDetailPage() {
         setIsEditing(false);
         setEditNotifyUserIds([]);
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
         await fetchIssueDetail();
@@ -277,7 +277,7 @@ export default function IssueDetailPage() {
     await fetchIssueDetail();
     await refreshUsers();
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("backlog:notifications-updated"));
+      window.dispatchEvent(new Event("litelog:notifications-updated"));
     }
   };
 
@@ -321,7 +321,7 @@ export default function IssueDetailPage() {
       });
       if (res.ok) {
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
       } else {
@@ -423,7 +423,7 @@ export default function IssueDetailPage() {
         setNewComment("");
         setCommentNotifyUserIds([]);
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
       } else {

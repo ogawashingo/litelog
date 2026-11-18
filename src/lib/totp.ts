@@ -134,7 +134,7 @@ export function verifyTotpCode(
 export function getTotpUri(
   secret: string,
   accountName: string,
-  issuer = "PersonalBacklog"
+  issuer = "litelog"
 ): string {
   const cleanAccount = encodeURIComponent(accountName.trim());
   const cleanIssuer = encodeURIComponent(issuer.trim());

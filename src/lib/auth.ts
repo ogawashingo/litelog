@@ -3,7 +3,8 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
 
-export const SESSION_COOKIE_NAME = "backlog_session_uid";
+export const SESSION_COOKIE_NAME = "litelog_session_uid";
+export const LEGACY_SESSION_COOKIE_NAME = "backlog_session_uid";
 const HASH_PREFIX = "scrypt$";
 const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7日間
 
@@ -206,7 +207,9 @@ export function verifyTemp2faToken(token: string | undefined | null): number | n
 export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const cookieStore = await cookies();
-    const rawCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    const rawCookie =
+      cookieStore.get(SESSION_COOKIE_NAME)?.value ||
+      cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value;
     if (!rawCookie) return null;
 
     let userId = verifySessionToken(rawCookie);

@@ -40,7 +40,7 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # データベースファイルの保存先ディレクトリ設定
-ENV BACKLOG_DB_PATH=/app/data/backlog.db
+ENV LITELOG_DB_PATH=/app/data/litelog.db
 
 # セキュリティのため非 root ユーザーを作成（Debian/Ubuntu 形式）
 RUN groupadd --system --gid 1001 nodejs && \

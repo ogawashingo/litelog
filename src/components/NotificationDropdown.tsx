@@ -47,11 +47,13 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
       fetchNotifications();
     };
     window.addEventListener("focus", handleFocus);
+    window.addEventListener("litelog:notifications-updated", handleFocus);
     window.addEventListener("backlog:notifications-updated", handleFocus);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("litelog:notifications-updated", handleFocus);
       window.removeEventListener("backlog:notifications-updated", handleFocus);
     };
   }, [fetchNotifications]);

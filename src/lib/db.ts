@@ -4,13 +4,20 @@ import path from "node:path";
 import fs from "node:fs";
 import { hashPassword, isPasswordHashed } from "@/lib/auth";
 
-// データベースファイルの保存先パス（環境変数 BACKLOG_DB_PATH で切り替え可能）
+// データベースファイルの保存先パス（環境変数 LITELOG_DB_PATH または BACKLOG_DB_PATH で切り替え可能）
 const DB_DIR = path.join(process.cwd(), "data");
-const DB_PATH = process.env.BACKLOG_DB_PATH || path.join(DB_DIR, "backlog.db");
+// 既存の backlog.db がある場合はそれを継続利用、新規時は litelog.db を作成
+const DEFAULT_DB_FILENAME = fs.existsSync(path.join(DB_DIR, "backlog.db")) ? "backlog.db" : "litelog.db";
+const DB_PATH =
+  process.env.LITELOG_DB_PATH ||
+  process.env.BACKLOG_DB_PATH ||
+  path.join(DB_DIR, DEFAULT_DB_FILENAME);
 
 // 添付ファイル（画像等）の実体保存先ディレクトリ
 export const ATTACHMENTS_DIR =
-  process.env.BACKLOG_ATTACHMENTS_DIR || path.join(DB_DIR, "attachments");
+  process.env.LITELOG_ATTACHMENTS_DIR ||
+  process.env.BACKLOG_ATTACHMENTS_DIR ||
+  path.join(DB_DIR, "attachments");
 
 // ディレクトリが存在しない場合は作成（インメモリDB以外）
 if (DB_PATH !== ":memory:" && !fs.existsSync(path.dirname(DB_PATH))) {
@@ -534,7 +541,7 @@ function initDb(db: DatabaseSync) {
     const sampleIssues = [
       {
         num: 1,
-        title: "Backlogダッシュボードの操作感を確認する",
+        title: "litelogダッシュボードの操作感を確認する",
         desc: "課題のステータス変更や新規登録、担当者フィルターなどを試してみましょう。",
         type: "task",
         status: "open",
@@ -567,8 +574,8 @@ function initDb(db: DatabaseSync) {
       },
       {
         num: 4,
-        title: "Backlog環境のセットアップとメンバー招待",
-        desc: "Next.jsとSQLiteを使った複数人対応Backlogの基本構築が完了しました。",
+        title: "litelog環境のセットアップとメンバー招待",
+        desc: "Next.jsとSQLiteを使った複数人対応litelogの基本構築が完了しました。",
         type: "task",
         status: "closed",
         priority: "medium",

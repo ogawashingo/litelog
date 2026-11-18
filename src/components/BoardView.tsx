@@ -218,7 +218,7 @@ export default function BoardView({
     setReviewTargetIssue(null);
     await onRefresh();
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("backlog:notifications-updated"));
+      window.dispatchEvent(new Event("litelog:notifications-updated"));
     }
   };
 

@@ -1,0 +1,27 @@
+[Unit]
+Description=litelog Web Application (Port 3000)
+After=network.target
+
+[Service]
+Type=simple
+# 実行ユーザー（必要に応じて変更してください。例: root, ubuntu, node）
+User=root
+# アプリケーションの配置ディレクトリ
+WorkingDirectory=/opt/litelog
+# 環境変数設定（0.0.0.0 で listen させ、ポート3000で受付）
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+# 起動コマンド（ビルド済み前提で next start を実行）
+ExecStart=/usr/bin/npm run start -- -p 3000 -H 0.0.0.0
+# プロセス異常終了時の自動再起動設定
+Restart=always
+RestartSec=5s
+# 標準出力・エラー出力のログ設定
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=litelog
+
+[Install]
+# コンテナ起動時に自動で立ち上げる
+WantedBy=multi-user.target

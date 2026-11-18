@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: personal-backlog
+    container_name: litelog
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -11,7 +11,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - HOSTNAME=0.0.0.0
-      - BACKLOG_DB_PATH=/app/data/backlog.db
+      - LITELOG_DB_PATH=/app/data/litelog.db
       # HTTPSリバースプロキシ配下で動かす場合は "true" に設定（HTTPアクセスの場合は "false"）
       - SESSION_COOKIE_SECURE=false
     volumes:

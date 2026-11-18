@@ -208,7 +208,9 @@ export default function GanttChart({
   // 初回マウント時に保存された左ペイン幅を復元
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("personal-backlog-gantt-left-pane-width");
+      const saved =
+        localStorage.getItem("litelog-gantt-left-pane-width") ||
+        localStorage.getItem("personal-backlog-gantt-left-pane-width");
       if (saved) {
         const parsed = Number(saved);
         if (parsed >= MIN_LEFT_PANE_WIDTH && parsed <= MAX_LEFT_PANE_WIDTH) {
@@ -229,7 +231,7 @@ export default function GanttChart({
   const handleResetSplitter = () => {
     setLeftPaneWidth(DEFAULT_LEFT_PANE_WIDTH);
     try {
-      localStorage.setItem("personal-backlog-gantt-left-pane-width", String(DEFAULT_LEFT_PANE_WIDTH));
+      localStorage.setItem("litelog-gantt-left-pane-width", String(DEFAULT_LEFT_PANE_WIDTH));
     } catch {
       // ignore
     }
@@ -251,7 +253,7 @@ export default function GanttChart({
     const handleMouseUp = () => {
       setIsResizingLeftPane(false);
       try {
-        localStorage.setItem("personal-backlog-gantt-left-pane-width", String(leftPaneWidth));
+        localStorage.setItem("litelog-gantt-left-pane-width", String(leftPaneWidth));
       } catch {
         // ignore
       }

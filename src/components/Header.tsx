@@ -256,7 +256,7 @@ export default function Header({
                 </div>
               </div>
               <span className="font-extrabold text-sm sm:text-base tracking-tight app-logo-text bg-clip-text text-transparent truncate">
-                Personal Backlog
+                litelog
               </span>
             </Link>
 

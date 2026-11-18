@@ -398,7 +398,7 @@ export default function IssueDetailModal({
         setIsEditing(false);
         setEditNotifyUserIds([]);
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         // DB最新レコードで再同期
         const detailRes = await fetch(`/api/issues/${issue.id}`);
@@ -472,7 +472,7 @@ export default function IssueDetailModal({
       });
       if (res.ok) {
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
         onUpdated();
@@ -543,7 +543,7 @@ export default function IssueDetailModal({
     await refreshUsers();
     onUpdated();
     if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("backlog:notifications-updated"));
+      window.dispatchEvent(new Event("litelog:notifications-updated"));
     }
   };
 
@@ -563,7 +563,7 @@ export default function IssueDetailModal({
       });
       if (res.ok) {
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
         onUpdated();
@@ -656,7 +656,7 @@ export default function IssueDetailModal({
       });
       if (res.ok) {
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
         onUpdated();
@@ -717,7 +717,7 @@ export default function IssueDetailModal({
           if (detailData.issue) setCurrentIssue(detailData.issue);
         }
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
         onUpdated();
@@ -757,7 +757,7 @@ export default function IssueDetailModal({
         setNewComment("");
         setCommentNotifyUserIds([]);
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("backlog:notifications-updated"));
+          window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
         await refreshUsers();
         onUpdated(); // アクティビティや親一覧の反映

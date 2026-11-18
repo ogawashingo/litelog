@@ -155,7 +155,7 @@ export default function CreateIssueModal({
       setDueDate("");
       setNotifyUserIds([]);
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("backlog:notifications-updated"));
+        window.dispatchEvent(new Event("litelog:notifications-updated"));
       }
       await refreshUsers();
       onCreated();

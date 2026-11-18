@@ -1,16 +1,16 @@
 #!/bin/bash
 # ==============================================================================
-# Personal Backlog - Proxmox LXC コンテナ自動起動セットアップスクリプト
+# litelog - Proxmox LXC コンテナ自動起動セットアップスクリプト
 # ==============================================================================
 set -e
 
 # スクリプト自身のディレクトリを取得
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-SERVICE_NAME="personal-backlog.service"
+SERVICE_NAME="litelog.service"
 TARGET_SERVICE_PATH="/etc/systemd/system/${SERVICE_NAME}"
 
-echo "=== Personal Backlog 自動起動セットアップ開始 ==="
+echo "=== litelog 自動起動セットアップ開始 ==="
 
 # root権限チェック
 if [ "$(id -u)" -ne 0 ]; then
@@ -29,7 +29,7 @@ fi
 
 # 2. サービス定義ファイルの生成（パスを現在の配置場所に自動調整）
 echo "systemd サービスファイルを生成・配置中: ${TARGET_SERVICE_PATH}"
-sed -e "s|/opt/personal-backlog|${PROJECT_DIR}|g" \
+sed -e "s|/opt/litelog|${PROJECT_DIR}|g" \
     "${SCRIPT_DIR}/${SERVICE_NAME}" > "${TARGET_SERVICE_PATH}"
 
 # 3. systemd設定の再読み込み
