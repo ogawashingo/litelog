@@ -1,7 +1,7 @@
 # litelog
 
-Backlogにインスパイアされた親しみやすく使いやすいUIを備え、**個人からチーム運用まで軽快・セキュアに使える**タスク・プロジェクト管理Webアプリケーションです。  
-Node.js組み込みのSQLite（`node:sqlite`）を使用しているため、外部DBサーバー不要で高速・手軽に動作します。
+個人や小さなチームで気楽に使える、Backlogライクなタスク・課題管理ツールです。  
+外部DB不要（Node.js組み込みのSQLite）なので、Dockerやローカルですぐ動きます。
 
 ![litelog ダッシュボード](docs/images/dashboard.png)
 

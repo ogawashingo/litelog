@@ -3,8 +3,8 @@ import "./globals.css";
 import { UserProvider } from "@/components/UserContext";
 
 export const metadata: Metadata = {
-  title: "litelog - チーム＆個人タスク・プロジェクト管理",
-  description: "複数人・チーム対応 タスク・プロジェクト管理スタジオ",
+  title: "litelog - タスク・プロジェクト管理",
+  description: "個人や小さなチームで気楽に使えるBacklogライクなタスク管理ツール",
 };
 
 export default function RootLayout({
