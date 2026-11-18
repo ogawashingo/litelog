@@ -178,7 +178,7 @@ function InviteContent() {
         <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 p-6 sm:p-8 text-white">
           <div className="flex items-center gap-2.5 mb-2 text-indigo-200 text-xs font-semibold tracking-wide uppercase">
             <ShieldCheck className="w-4 h-4 text-emerald-300" />
-            Personal Backlog 初期セットアップ
+            litelog 初期セットアップ
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white mb-2">
             ようこそ、{user.name} さん！

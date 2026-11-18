@@ -115,7 +115,7 @@ export async function GET() {
     }
 
     const secret = generateTotpSecret();
-    const uri = getTotpUri(secret, sessionUser.login_id, "PersonalBacklog");
+    const uri = getTotpUri(secret, sessionUser.login_id, "litelog");
     const qrSvg = await generateQrCodeSvg(uri);
 
     return NextResponse.json({
@@ -123,7 +123,7 @@ export async function GET() {
       uri,
       qrSvg,
       accountName: sessionUser.login_id,
-      issuer: "PersonalBacklog",
+      issuer: "litelog",
     });
   } catch (error) {
     console.error("2FAセットアップ情報生成エラー:", error);

@@ -72,7 +72,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
     // 初回2FAセットアップ用のシークレットとQRコードSVGも準備
     const totpSecret = generateTotpSecret();
-    const totpUri = getTotpUri(totpSecret, row.login_id, "PersonalBacklog");
+    const totpUri = getTotpUri(totpSecret, row.login_id, "litelog");
     const qrSvg = await generateQrCodeSvg(totpUri);
 
     return NextResponse.json({
@@ -212,7 +212,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({
       success: true,
       user,
-      message: "パスワードとセキュリティ設定が完了しました！Personal Backlogへようこそ。",
+      message: "パスワードとセキュリティ設定が完了しました！litelogへようこそ。",
     });
   } catch (error) {
     console.error("招待受諾エラー:", error);

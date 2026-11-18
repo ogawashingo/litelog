@@ -1,4 +1,4 @@
-// Personal Backlog ダッシュボードメインページ
+// litelog ダッシュボードメインページ
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";

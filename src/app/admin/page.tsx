@@ -678,7 +678,7 @@ export default function AdminPage() {
               <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-900 shadow-inner">
                 {/* ヘッダー風のモックバー */}
                 <div className="h-9 bg-slate-950 px-3.5 flex items-center justify-between border-b border-white/10 text-xs text-white/70">
-                  <span>Personal Backlog ヘッダー</span>
+                  <span>litelog ヘッダー</span>
                   <span className="text-xs">プレビュー</span>
                 </div>
                 {/* アナウンスメントバーのプレビュー */}
@@ -825,7 +825,7 @@ export default function AdminPage() {
                               ★
                             </div>
                             <span className="text-xs font-extrabold tracking-tight">
-                              Backlog
+                              litelog
                             </span>
                           </div>
                           <div
@@ -2060,7 +2060,7 @@ export default function AdminPage() {
         {/* ページ下部 バージョン表記 */}
         <div className="text-center pt-2 pb-4">
           <span className="text-xs text-slate-400 font-mono select-all">
-            Personal Backlog • {versionData.version}
+            litelog • {versionData.version}
           </span>
         </div>
       </main>

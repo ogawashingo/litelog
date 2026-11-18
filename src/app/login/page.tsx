@@ -165,7 +165,7 @@ export default function LoginPage() {
               )}
             </div>
           </div>
-          <h1 className="text-xl font-extrabold tracking-tight">Personal Backlog</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">litelog</h1>
           {needsSetup && (
             <p className="text-xs text-indigo-200 mt-1">
               初期セットアップ: 最初の管理者アカウントを作成してください
