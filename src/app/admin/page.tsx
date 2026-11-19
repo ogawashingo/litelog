@@ -70,8 +70,6 @@ export default function AdminPage() {
     settings,
     updateSettings,
     refreshUsers,
-    updateUserWeekStart,
-    updateUserShowHolidays,
     previewTheme,
     setPreviewTheme,
   } = useUser();
@@ -1235,7 +1233,7 @@ export default function AdminPage() {
                 <span>5. カレンダーの週開始曜日（システム共通デフォルト設定）</span>
               </label>
               <p className="text-xs sm:text-sm text-slate-500">
-                期日・開始日選択カレンダーのシステム共通デフォルトです。各個人ごとの設定は、下部の「チームメンバー・権限管理」一覧の [月始 / 日始] または各個人のマイアカウント画面で個別に選べます。
+                期日・開始日選択カレンダーのシステム共通デフォルトです。各個人ごとの設定は、各個人のマイアカウント画面やメンバー編集モーダルで個別に選べます。
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 <button
@@ -1808,7 +1806,7 @@ export default function AdminPage() {
                 </button>
               </div>
               <p className="text-sm text-slate-500">
-                メンバーの追加・編集・権限確認のほか、各個人の [月始 / 日始] および祝日 [祝ON / 祝OFF] 設定を直接変更できます。
+                メンバーの追加・編集・権限確認のほか、所属プロジェクトやロールを管理できます。
               </p>
 
               {/* メンバー検索入力バー */}
@@ -1865,16 +1863,14 @@ export default function AdminPage() {
                   }
 
                   return filtered.map((u) => {
-                  const userWeekStart = u.week_start || "monday";
-                  const userShowHolidays = u.show_holidays !== undefined ? Boolean(u.show_holidays) : true;
                   return (
                     <div
                       key={u.id}
                       className="px-4 py-3 space-y-1.5 text-sm bg-white hover:bg-slate-50/60 transition-colors"
                     >
-                      {/* 上段: アバター、名前、ロール、役職、個人設定ボタン */}
+                      {/* 上段: アバター、名前、ロール、役職、編集ボタン */}
                       <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div
                             style={{ backgroundColor: u.color || "#4f46e5" }}
                             className="w-7 h-7 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs"
@@ -1882,68 +1878,30 @@ export default function AdminPage() {
                           >
                             {getUserInitials(u.name)}
                           </div>
-                          <span className="font-bold text-slate-800 truncate">{u.name}</span>
-                          {getUserRoleType(u) === "admin" && (
-                            <span className="inline-flex items-center gap-0.5 text-xs bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
-                              <Crown className="w-3 h-3 text-amber-600" />
-                              Admin
-                            </span>
-                          )}
-                          {getUserRoleType(u) === "pmo" && (
-                            <span className="inline-flex items-center gap-0.5 text-xs bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
-                              PMO
-                            </span>
-                          )}
-                          {u.role && (
-                            <span className="text-slate-500 text-xs shrink-0" title={u.role}>
-                              {u.role}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+                            <span className="font-bold text-slate-800 break-words">{u.name}</span>
+                            {getUserRoleType(u) === "admin" && (
+                              <span className="inline-flex items-center gap-0.5 text-xs bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                                <Crown className="w-3 h-3 text-amber-600" />
+                                Admin
+                              </span>
+                            )}
+                            {getUserRoleType(u) === "pmo" && (
+                              <span className="inline-flex items-center gap-0.5 text-xs bg-purple-100 text-purple-900 border border-purple-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
+                                PMO
+                              </span>
+                            )}
+                            {u.role && (
+                              <span className="text-slate-500 text-xs shrink-0" title={u.role}>
+                                {u.role}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* 祝日表示個人設定切替（ON / OFF） */}
-                          <button
-                            type="button"
-                            onClick={() => updateUserShowHolidays(u.id, !userShowHolidays)}
-                            className={`px-2.5 py-1 rounded text-xs font-bold border transition-colors cursor-pointer ${
-                              userShowHolidays
-                                ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
-                                : "bg-slate-50 text-slate-400 border-slate-200 hover:text-slate-600"
-                            }`}
-                            title={`${u.name}さんの日本の祝日表示: ${userShowHolidays ? "ON (赤字・祝日名)" : "OFF"}（クリックで切替）`}
-                          >
-                            祝{userShowHolidays ? "ON" : "OFF"}
-                          </button>
-                          {/* カレンダー個人設定切替（月曜始まり / 日曜始まり） */}
-                          <div className="inline-flex rounded border border-slate-200 bg-slate-50 p-0.5 text-xs">
-                            <button
-                              type="button"
-                              onClick={() => updateUserWeekStart(u.id, "monday")}
-                              className={`px-2.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                                userWeekStart === "monday"
-                                  ? "bg-indigo-600 text-white shadow-xs"
-                                  : "text-slate-500 hover:text-slate-800"
-                              }`}
-                              title={`${u.name}さんのカレンダーを月曜始まりに設定`}
-                            >
-                              月始
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateUserWeekStart(u.id, "sunday")}
-                              className={`px-2.5 py-0.5 rounded font-semibold transition-colors cursor-pointer ${
-                                userWeekStart === "sunday"
-                                  ? "bg-indigo-600 text-white shadow-xs"
-                                  : "text-slate-500 hover:text-slate-800"
-                              }`}
-                              title={`${u.name}さんのカレンダーを日曜始まりに設定`}
-                            >
-                              日始
-                            </button>
-                          </div>
-                          {/* メンバー編集ボタン（クリックでそのメンバーの編集専用ビューを直接開く） */}
-                          {canManageIssues(currentUser) && (
+                        {/* メンバー編集ボタン（クリックでそのメンバーの編集専用ビューを直接開く） */}
+                        {canManageIssues(currentUser) && (
+                          <div className="flex items-center shrink-0">
                             <button
                               type="button"
                               onClick={() => openUserManageModal(u.id)}
@@ -1952,8 +1910,8 @@ export default function AdminPage() {
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* 下段: 所属プロジェクトタグ表示 */}
