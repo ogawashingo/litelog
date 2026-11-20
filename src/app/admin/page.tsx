@@ -1491,11 +1491,28 @@ export default function AdminPage() {
         <div className="bg-white rounded-xl shadow-xs border border-indigo-100/80 p-5 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <FolderGit2 className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 text-base">
-                  {isAdminUser(currentUser) ? "プロジェクト管理" : "参加プロジェクト管理"} ({projects.length}件)
-                </h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <FolderGit2 className="w-5 h-5 text-indigo-600" />
+                  <h3 className="font-bold text-slate-800 text-base">
+                    {isAdminUser(currentUser) ? "プロジェクト管理" : "参加プロジェクト管理"} ({projects.length}件)
+                  </h3>
+                </div>
+                {/* モバイル表示時の新規作成ボタン */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!canManageIssues(currentUser)) {
+                      alert("新規プロジェクトの作成は管理者（Admin）またはPMOのみ実行できます。");
+                      return;
+                    }
+                    setIsCreateProjectOpen(true);
+                  }}
+                  className="md:hidden flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>新規作成</span>
+                </button>
               </div>
               <p className="text-sm text-slate-500 mt-1">
                 {isAdminUser(currentUser)
@@ -1504,13 +1521,13 @@ export default function AdminPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center justify-between md:justify-end gap-2.5">
               {/* プロジェクトフィルター切り替えタブ */}
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-sm shrink-0">
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg text-xs sm:text-sm w-full md:w-auto justify-between md:justify-start">
                 <button
                   type="button"
                   onClick={() => setProjectFilterTab("all")}
-                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                  className={`flex-1 md:flex-initial px-2.5 sm:px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer text-center ${
                     projectFilterTab === "all"
                       ? "bg-white text-indigo-700 shadow-2xs font-bold"
                       : "text-slate-600 hover:text-slate-900"
@@ -1521,7 +1538,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setProjectFilterTab("active")}
-                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                  className={`flex-1 md:flex-initial px-2.5 sm:px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer text-center ${
                     projectFilterTab === "active"
                       ? "bg-white text-indigo-700 shadow-2xs font-bold"
                       : "text-slate-600 hover:text-slate-900"
@@ -1532,7 +1549,7 @@ export default function AdminPage() {
                 <button
                   type="button"
                   onClick={() => setProjectFilterTab("archived")}
-                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                  className={`flex-1 md:flex-initial px-2.5 sm:px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer text-center ${
                     projectFilterTab === "archived"
                       ? "bg-white text-indigo-700 shadow-2xs font-bold"
                       : "text-slate-600 hover:text-slate-900"
@@ -1542,6 +1559,7 @@ export default function AdminPage() {
                 </button>
               </div>
 
+              {/* PC表示時の新規作成ボタン */}
               <button
                 type="button"
                 onClick={() => {
@@ -1551,7 +1569,7 @@ export default function AdminPage() {
                   }
                   setIsCreateProjectOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
+                className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 <span>新規作成</span>
