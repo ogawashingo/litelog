@@ -28,7 +28,15 @@ function DashboardContent() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(() => {
+    const queryParam = searchParams.get("projectId");
+    if (queryParam !== null) {
+      const num = Number(queryParam);
+      return !isNaN(num) && num > 0 ? num : null;
+    }
+    return null;
+  });
+  const activityReqIdRef = useRef(0);
   const [selectedStatus, setSelectedStatus] = useState<IssueStatus | "all">("all");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
 
@@ -104,18 +112,24 @@ function DashboardContent() {
     }
   }, [selectedProjectId]);
 
-  // アクティビティ履歴取得
-  const fetchActivities = useCallback(async () => {
+  // アクティビティ履歴取得（projectId引数が指定されていればそれを優先、なければselectedProjectIdを使用）
+  const fetchActivities = useCallback(async (targetProjectId?: number | null) => {
+    const reqId = ++activityReqIdRef.current;
     try {
-      const res = await fetch("/api/activities");
+      const pid = targetProjectId !== undefined ? targetProjectId : selectedProjectId;
+      const url = pid ? `/api/activities?projectId=${pid}` : "/api/activities";
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setActivities(data);
+        // 古いリクエストのレスポンスで最新状態を上書きしないようにガード
+        if (reqId === activityReqIdRef.current) {
+          setActivities(data);
+        }
       }
     } catch (err) {
       console.error("アクティビティ取得失敗:", err);
     }
-  }, []);
+  }, [selectedProjectId]);
 
   // 全体データのリロード
   const refreshAll = useCallback(async () => {
@@ -136,20 +150,21 @@ function DashboardContent() {
     }
   }, [searchParams]);
 
-  // selectedProjectIdが更新されたら対象プロジェクトの課題を取得
+  // selectedProjectIdが更新されたら対象プロジェクトの課題・アクティビティを取得
   useEffect(() => {
     fetchIssues(selectedProjectId);
-  }, [selectedProjectId, fetchIssues]);
+    fetchActivities(selectedProjectId);
+  }, [selectedProjectId, fetchIssues, fetchActivities]);
 
   // 初回データ取得
   useEffect(() => {
     const init = async () => {
       setIsLoading(true);
-      await Promise.all([fetchProjects(), fetchActivities(), refreshUsers()]);
+      await Promise.all([fetchProjects(), refreshUsers()]);
       setIsLoading(false);
     };
     init();
-  }, [fetchProjects, fetchActivities, refreshUsers]);
+  }, [fetchProjects, refreshUsers]);
 
   // プロジェクト選択切り替え（ローカルストレージおよびURL同期）
   const handleSelectProject = useCallback(

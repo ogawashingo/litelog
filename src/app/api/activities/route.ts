@@ -41,8 +41,18 @@ export async function GET(request: Request) {
     const params: (string | number)[] = [];
 
     if (projectId) {
-      sql += " AND i.project_id = ?";
-      params.push(Number(projectId));
+      const pid = Number(projectId);
+      // 削除済み課題のアクティビティ（issue_id が NULL）もプロジェクトキーから紐付けて取得する
+      const projRow = db.prepare("SELECT key FROM projects WHERE id = ?").get(pid) as
+        | { key: string }
+        | undefined;
+      if (projRow?.key) {
+        sql += " AND (i.project_id = ? OR (a.issue_id IS NULL AND a.content LIKE ?))";
+        params.push(pid, `%[${projRow.key}-%`);
+      } else {
+        sql += " AND i.project_id = ?";
+        params.push(pid);
+      }
     } else if (sessionUser) {
       const accessibleIds = getUserAccessibleProjectIds(
         db,
