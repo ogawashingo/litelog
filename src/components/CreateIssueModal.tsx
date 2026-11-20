@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft } from "lucide-react";
+import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Project, Issue, IssueType, IssueStatus, IssuePriority, IssueResolution } from "@/types";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
@@ -10,6 +10,10 @@ import MentionTextarea from "./MentionTextarea";
 import NotifyUserSelector from "./NotifyUserSelector";
 import ResolutionSelect from "./ResolutionSelect";
 import UserSelect from "./UserSelect";
+import ParentDueDateConfirmModal, {
+  ParentDueDateWarningInfo,
+  isExceedingParentDueDate,
+} from "./ParentDueDateConfirmModal";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -52,6 +56,8 @@ export default function CreateIssueModal({
   const [notifyUserIds, setNotifyUserIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  // 子課題の期限が親課題を超過する場合の確認モーダル情報
+  const [parentDueWarning, setParentDueWarning] = useState<ParentDueDateWarningInfo | null>(null);
 
   // モーダルが開かれたときに初期状態を同期
   useEffect(() => {
@@ -111,13 +117,17 @@ export default function CreateIssueModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      setErrorMessage("件名を入力してください");
-      return;
-    }
+  // 選択中の親課題情報（期限日超過チェック用）
+  const selectedParentIssue = parentId
+    ? availableParents.find((p) => p.id === Number(parentId)) || null
+    : null;
+  const isExceedingParentDue = isExceedingParentDueDate(
+    selectedParentIssue?.due_date,
+    dueDate || null
+  );
 
+  // 課題作成のAPI送信
+  const executeCreate = async (extendParentDueDate: boolean) => {
     try {
       setIsSubmitting(true);
       setErrorMessage("");
@@ -138,6 +148,7 @@ export default function CreateIssueModal({
           resolution: resolution || null,
           startDate: startDate || null,
           dueDate: dueDate || null,
+          extendParentDueDate,
           attachmentIds,
           notifyUserIds,
         }),
@@ -169,6 +180,27 @@ export default function CreateIssueModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setErrorMessage("件名を入力してください");
+      return;
+    }
+
+    // 子課題の期限日が親課題の期限日を超えている場合は確認モーダルを表示
+    if (selectedParentIssue?.due_date && dueDate && isExceedingParentDue) {
+      setParentDueWarning({
+        parentIssueKey: selectedParentIssue.issue_key,
+        parentTitle: selectedParentIssue.title,
+        parentDueDate: selectedParentIssue.due_date,
+        newChildDueDate: dueDate,
+      });
+      return;
+    }
+
+    await executeCreate(false);
   };
 
   return (
@@ -427,6 +459,12 @@ export default function CreateIssueModal({
                 placeholder="期限日を設定"
                 fullWidth
               />
+              {isExceedingParentDue && selectedParentIssue?.due_date && (
+                <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  親課題の期限日 ({selectedParentIssue.due_date}) を超えています
+                </p>
+              )}
             </div>
           </div>
 
@@ -459,6 +497,22 @@ export default function CreateIssueModal({
           </div>
         </form>
       </div>
+
+      {/* 子課題の期限超過に伴う親課題期限延長の確認モーダル */}
+      <ParentDueDateConfirmModal
+        info={parentDueWarning}
+        isSubmitting={isSubmitting}
+        childOnlyLabel="子課題のみ作成する"
+        onExtendBoth={async () => {
+          setParentDueWarning(null);
+          await executeCreate(true);
+        }}
+        onChildOnly={async () => {
+          setParentDueWarning(null);
+          await executeCreate(false);
+        }}
+        onCancel={() => setParentDueWarning(null)}
+      />
     </div>
   );
 }

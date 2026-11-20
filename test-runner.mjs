@@ -13,6 +13,7 @@ import {
 } from "./src/lib/notificationUtils.ts";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES, getAvatarColorLabel } from "./src/lib/avatarColors.ts";
 import { parseMarkdown, parseInline, isSafeUrl } from "./src/lib/markdownUtils.ts";
+import { extendAncestorDueDatesIfNeeded } from "./src/lib/parentDueDate.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -2752,6 +2753,97 @@ async function runTests() {
     db.prepare("DELETE FROM users WHERE id = ?").run(inviteUser);
 
     console.log("✓ 招待リンク発行・受諾＆TOTP 2要素認証・QRコード生成検証テスト成功");
+  }
+
+  // =========================================================================
+  // 子課題の期限延長に伴う親課題（祖先課題）期限日連動延長テスト
+  // =========================================================================
+  {
+    const proj = db.prepare("SELECT id FROM projects LIMIT 1").get();
+    const actor = db.prepare("SELECT id FROM users LIMIT 1").get();
+
+    // 祖父母・親・子課題を作成
+    const gpId = db.prepare(`
+      INSERT INTO issues (project_id, parent_id, issue_key, issue_number, title, due_date)
+      VALUES (?, NULL, 'PDUE-1', 9001, '祖父母課題', '2026-11-28')
+    `).run(proj.id).lastInsertRowid;
+
+    const pId = db.prepare(`
+      INSERT INTO issues (project_id, parent_id, issue_key, issue_number, title, due_date)
+      VALUES (?, ?, 'PDUE-2', 9002, '親課題', '2026-11-25')
+    `).run(proj.id, gpId).lastInsertRowid;
+
+    const cId = db.prepare(`
+      INSERT INTO issues (project_id, parent_id, issue_key, issue_number, title, due_date)
+      VALUES (?, ?, 'PDUE-3', 9003, '子課題', '2026-11-20')
+    `).run(proj.id, pId).lastInsertRowid;
+
+    // 1. 子課題を 2026-12-05 に延長し、親・祖父母も連動延長
+    const extended = extendAncestorDueDatesIfNeeded(db, {
+      startParentId: Number(pId),
+      newDueDate: "2026-12-05",
+      childIssueKey: "PDUE-3",
+      actorId: actor.id,
+    });
+
+    if (extended.length !== 2) {
+      throw new Error(`親・祖父母2件が延長されるべきですが ${extended.length} 件でした`);
+    }
+    const updatedParent = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(pId);
+    const updatedGrandParent = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(gpId);
+    if (updatedParent.due_date !== "2026-12-05" || updatedGrandParent.due_date !== "2026-12-05") {
+      throw new Error("親・祖父母課題の期限日が正しく延長されていません");
+    }
+
+    // 変更履歴とアクティビティの記録確認
+    const parentHist = db.prepare(
+      "SELECT old_value FROM issue_histories WHERE issue_id = ? AND field_name = 'due_date' ORDER BY id DESC LIMIT 1"
+    ).get(pId);
+    if (!parentHist || parentHist.old_value !== "2026-11-25") {
+      throw new Error("親課題の期限変更履歴が正しく記録されていません");
+    }
+    const parentAct = db.prepare(
+      "SELECT content FROM activities WHERE issue_id = ? ORDER BY id DESC LIMIT 1"
+    ).get(pId);
+    if (!parentAct || !parentAct.content.includes("PDUE-3") || !parentAct.content.includes("2026-12-05")) {
+      throw new Error("親課題の延長アクティビティが正しく記録されていません");
+    }
+
+    // 2. 子課題の期限が親より前の場合は短縮されないこと
+    const notShortened = extendAncestorDueDatesIfNeeded(db, {
+      startParentId: Number(pId),
+      newDueDate: "2026-11-30",
+      childIssueKey: "PDUE-3",
+      actorId: actor.id,
+    });
+    if (notShortened.length !== 0) {
+      throw new Error("親課題の期限より前の日付で延長処理が走ってしまいました");
+    }
+    const stillParent = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(pId);
+    if (stillParent.due_date !== "2026-12-05") {
+      throw new Error("親課題の期限日が短縮されてしまいました");
+    }
+
+    // 3. 親課題の期限が未設定(NULL)のときは自動設定されないこと
+    const nullParentId = db.prepare(`
+      INSERT INTO issues (project_id, parent_id, issue_key, issue_number, title, due_date)
+      VALUES (?, NULL, 'PDUE-4', 9004, '期限未設定の親課題', NULL)
+    `).run(proj.id).lastInsertRowid;
+
+    const nullExtended = extendAncestorDueDatesIfNeeded(db, {
+      startParentId: Number(nullParentId),
+      newDueDate: "2026-12-10",
+      childIssueKey: "PDUE-5",
+      actorId: actor.id,
+    });
+    if (nullExtended.length !== 0) {
+      throw new Error("期限未設定の親課題に対して延長が実行されてしまいました");
+    }
+
+    // 後始末
+    db.prepare("DELETE FROM issues WHERE id IN (?, ?, ?, ?)").run(cId, pId, gpId, nullParentId);
+
+    console.log("✓ 子課題の期限延長に伴う親課題（祖先課題）期限日連動延長テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

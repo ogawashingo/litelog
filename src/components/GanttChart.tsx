@@ -25,6 +25,10 @@ import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProjec
 import { TypeBadge } from "./IssueBadge";
 import IssueDetailModal from "./IssueDetailModal";
 import CreateIssueModal from "./CreateIssueModal";
+import ParentDueDateConfirmModal, {
+  ParentDueDateWarningInfo,
+  isExceedingParentDueDate,
+} from "./ParentDueDateConfirmModal";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
 import { getUserInitials } from "./UserManageModal";
@@ -148,6 +152,14 @@ export default function GanttChart({
   const [scale, setScale] = useState<ViewScale>(initialScale);
   const [startDate, setStartDate] = useState<Date>(initialStartDate);
   const [withParentRelation, setWithParentRelation] = useState<boolean>(initialWithParentRelation);
+  // 子課題の期限延長に伴う親課題期限延長の確認モーダル保留ステート
+  const [pendingDateUpdate, setPendingDateUpdate] = useState<{
+    issueId: number;
+    startDate: string | null;
+    dueDate: string | null;
+    warning: ParentDueDateWarningInfo;
+  } | null>(null);
+  const [isUpdatingDate, setIsUpdatingDate] = useState(false);
 
   // ブラウザの戻る/進む操作（popstate）時にURLパラメータとStateを同期
   useEffect(() => {
@@ -570,6 +582,64 @@ export default function GanttChart({
     [dragState, cellWidth, today]
   );
 
+  // ガントチャートからの期間更新API実行
+  const executeDateUpdate = useCallback(
+    async (
+      issueId: number,
+      nextStartDate: string | null,
+      nextDueDate: string | null,
+      extendParentDueDate = false
+    ) => {
+      try {
+        setIsUpdatingDate(true);
+        await fetch(`/api/issues/${issueId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            startDate: nextStartDate,
+            dueDate: nextDueDate,
+            extendParentDueDate,
+            actorId: currentUser?.id || null,
+          }),
+        });
+        onRefresh();
+      } catch (err) {
+        console.error("ガントチャート期間更新エラー:", err);
+      } finally {
+        setIsUpdatingDate(false);
+      }
+    },
+    [currentUser, onRefresh]
+  );
+
+  // 子課題の期限日が親課題の期限日を超える場合は確認モーダルを出し、そうでなければ即更新
+  const requestDateUpdateWithParentCheck = useCallback(
+    async (issueId: number, nextStartDate: string | null, nextDueDate: string | null) => {
+      const targetIssue = issues.find((i) => i.id === issueId);
+      if (targetIssue && targetIssue.parent_id && nextDueDate) {
+        const parentIssue = issues.find((i) => i.id === targetIssue.parent_id);
+        const parentDueDate = parentIssue?.due_date ?? targetIssue.parent_due_date ?? null;
+        if (isExceedingParentDueDate(parentDueDate, nextDueDate)) {
+          setPendingDateUpdate({
+            issueId,
+            startDate: nextStartDate,
+            dueDate: nextDueDate,
+            warning: {
+              parentIssueKey: parentIssue?.issue_key ?? targetIssue.parent_issue_key,
+              parentTitle: parentIssue?.title ?? targetIssue.parent_title,
+              parentDueDate: parentDueDate!,
+              newChildDueDate: nextDueDate,
+              childIssueKey: targetIssue.issue_key,
+            },
+          });
+          return;
+        }
+      }
+      await executeDateUpdate(issueId, nextStartDate, nextDueDate, false);
+    },
+    [issues, executeDateUpdate]
+  );
+
   // マウスアップ（ドラッグ終了時にAPIで日付保存）
   const handleMouseUp = useCallback(async () => {
     if (!dragState) return;
@@ -581,21 +651,8 @@ export default function GanttChart({
       return;
     }
 
-    try {
-      await fetch(`/api/issues/${issueId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startDate: currentStartDate,
-          dueDate: currentDueDate,
-          actorId: currentUser?.id || null,
-        }),
-      });
-      onRefresh();
-    } catch (err) {
-      console.error("ガントチャート期間更新エラー:", err);
-    }
-  }, [dragState, onRefresh, currentUser]);
+    await requestDateUpdateWithParentCheck(issueId, currentStartDate, currentDueDate);
+  }, [dragState, requestDateUpdateWithParentCheck]);
 
   useEffect(() => {
     if (dragState) {
@@ -610,21 +667,8 @@ export default function GanttChart({
 
   // 日付未設定の行でクリックして設定
   const handleSetDefaultDates = async (issue: Issue) => {
-    try {
-      const targetStr = formatDateString(startDate > today ? startDate : today);
-      await fetch(`/api/issues/${issue.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startDate: targetStr,
-          dueDate: targetStr,
-          actorId: currentUser?.id || null,
-        }),
-      });
-      onRefresh();
-    } catch (err) {
-      console.error("日付設定エラー:", err);
-    }
+    const targetStr = formatDateString(startDate > today ? startDate : today);
+    await requestDateUpdateWithParentCheck(issue.id, targetStr, targetStr);
   };
 
   // 年・月ヘッダーのグループ化
@@ -1600,6 +1644,25 @@ export default function GanttChart({
           onRefresh();
         }}
         onSelectIssue={(issue) => setDetailIssue(issue)}
+      />
+
+      {/* 子課題の期限延長に伴う親課題期限延長の確認モーダル */}
+      <ParentDueDateConfirmModal
+        info={pendingDateUpdate?.warning || null}
+        isSubmitting={isUpdatingDate}
+        onExtendBoth={async () => {
+          if (!pendingDateUpdate) return;
+          const { issueId, startDate: s, dueDate: d } = pendingDateUpdate;
+          setPendingDateUpdate(null);
+          await executeDateUpdate(issueId, s, d, true);
+        }}
+        onChildOnly={async () => {
+          if (!pendingDateUpdate) return;
+          const { issueId, startDate: s, dueDate: d } = pendingDateUpdate;
+          setPendingDateUpdate(null);
+          await executeDateUpdate(issueId, s, d, false);
+        }}
+        onCancel={() => setPendingDateUpdate(null)}
       />
     </div>
   );

@@ -169,6 +169,7 @@ export interface Issue {
   project_is_archived?: number; // 結合時のプロジェクトアーカイブ状態（1: アーカイブ済み）
   parent_issue_key?: string | null; // 結合時の親課題キー
   parent_title?: string | null;     // 結合時の親課題タイトル
+  parent_due_date?: string | null;  // 結合時の親課題期限日 (YYYY-MM-DD)
   assignee_name?: string | null;    // 結合時の担当者名
   assignee_color?: string | null;   // 結合時の担当者カラー
   creator_name?: string | null;     // 結合時の作成者名

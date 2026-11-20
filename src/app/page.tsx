@@ -12,6 +12,10 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import IssueDetailModal from "@/components/IssueDetailModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
+import ParentDueDateConfirmModal, {
+  ParentDueDateWarningInfo,
+  isExceedingParentDueDate,
+} from "@/components/ParentDueDateConfirmModal";
 import { useUser } from "@/components/UserContext";
 import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType, IssueResolution } from "@/types";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
@@ -34,6 +38,13 @@ function DashboardContent() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [, setIsLoading] = useState(true);
+  // 子課題の期限延長時に親課題の期限延長を確認するための保留ステート
+  const [pendingDueUpdate, setPendingDueUpdate] = useState<{
+    issueId: number;
+    newDueDate: string;
+    warning: ParentDueDateWarningInfo;
+  } | null>(null);
+  const [isUpdatingDueDate, setIsUpdatingDueDate] = useState(false);
 
   // プロジェクト一覧要素の高さ監視（「最近の更新」の高さをプロジェクト一覧と同期）
   const projectListRef = useRef<HTMLDivElement>(null);
@@ -275,9 +286,14 @@ function DashboardContent() {
     }
   };
 
-  // 課題の期限日即時変更
-  const handleUpdateDueDate = async (issueId: number, newDueDate: string | null) => {
+  // 課題の期限日更新API実行
+  const executeUpdateDueDate = async (
+    issueId: number,
+    newDueDate: string | null,
+    extendParentDueDate = false
+  ) => {
     try {
+      setIsUpdatingDueDate(true);
       // 楽観的UI更新
       setIssues((prev) =>
         prev.map((i) => (i.id === issueId ? { ...i, due_date: newDueDate } : i))
@@ -285,7 +301,11 @@ function DashboardContent() {
       const res = await fetch(`/api/issues/${issueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dueDate: newDueDate, actorId: currentUser?.id || null }),
+        body: JSON.stringify({
+          dueDate: newDueDate,
+          extendParentDueDate,
+          actorId: currentUser?.id || null,
+        }),
       });
       if (res.ok) {
         await refreshAll();
@@ -293,7 +313,33 @@ function DashboardContent() {
     } catch (err) {
       console.error("期限日変更エラー:", err);
       fetchIssues();
+    } finally {
+      setIsUpdatingDueDate(false);
     }
+  };
+
+  // 課題の期限日即時変更（子課題が親課題の期限を超える場合は確認ダイアログを表示）
+  const handleUpdateDueDate = async (issueId: number, newDueDate: string | null) => {
+    const targetIssue = issues.find((i) => i.id === issueId);
+    if (targetIssue && targetIssue.parent_id && newDueDate) {
+      const parentIssue = issues.find((i) => i.id === targetIssue.parent_id);
+      const parentDueDate = parentIssue?.due_date ?? targetIssue.parent_due_date ?? null;
+      if (isExceedingParentDueDate(parentDueDate, newDueDate)) {
+        setPendingDueUpdate({
+          issueId,
+          newDueDate,
+          warning: {
+            parentIssueKey: parentIssue?.issue_key ?? targetIssue.parent_issue_key,
+            parentTitle: parentIssue?.title ?? targetIssue.parent_title,
+            parentDueDate: parentDueDate!,
+            newChildDueDate: newDueDate,
+            childIssueKey: targetIssue.issue_key,
+          },
+        });
+        return;
+      }
+    }
+    await executeUpdateDueDate(issueId, newDueDate, false);
   };
 
   // 課題削除（作成者または管理者のみ）
@@ -446,6 +492,25 @@ function DashboardContent() {
         isOpen={isBackupOpen}
         onClose={() => setIsBackupOpen(false)}
         onRestored={refreshAll}
+      />
+
+      {/* 子課題の期限延長に伴う親課題期限延長の確認モーダル */}
+      <ParentDueDateConfirmModal
+        info={pendingDueUpdate?.warning || null}
+        isSubmitting={isUpdatingDueDate}
+        onExtendBoth={async () => {
+          if (!pendingDueUpdate) return;
+          const { issueId, newDueDate } = pendingDueUpdate;
+          setPendingDueUpdate(null);
+          await executeUpdateDueDate(issueId, newDueDate, true);
+        }}
+        onChildOnly={async () => {
+          if (!pendingDueUpdate) return;
+          const { issueId, newDueDate } = pendingDueUpdate;
+          setPendingDueUpdate(null);
+          await executeUpdateDueDate(issueId, newDueDate, false);
+        }}
+        onCancel={() => setPendingDueUpdate(null)}
       />
     </div>
   );

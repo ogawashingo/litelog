@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb, canUserAccessProject, getUserAccessibleProjectIds } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createIssueCreatedNotifications } from "@/lib/notificationUtils";
+import { extendAncestorDueDatesIfNeeded } from "@/lib/parentDueDate";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
         COALESCE(p.is_archived, 0) AS project_is_archived,
         parent.issue_key AS parent_issue_key,
         parent.title AS parent_title,
+        parent.due_date AS parent_due_date,
         u.name AS assignee_name,
         u.color AS assignee_color,
         creator.name AS creator_name,
@@ -177,6 +179,7 @@ export async function POST(request: Request) {
       resolution = null,
       startDate = null,
       dueDate = null,
+      extendParentDueDate = false,
     } = body;
 
     if (!projectId || !title || !String(title).trim()) {
@@ -312,6 +315,16 @@ export async function POST(request: Request) {
       `);
       insertActivity.run(issueId, resolvedActorId, `課題 [${issueKey}] 「${String(title).trim()}」を追加しました`);
 
+      // ユーザー承認がある場合、親課題（および祖先課題）の期限日も連動延長する
+      if (extendParentDueDate && parentId && dueDate) {
+        extendAncestorDueDatesIfNeeded(db, {
+          startParentId: Number(parentId),
+          newDueDate: String(dueDate),
+          childIssueKey: issueKey,
+          actorId: resolvedActorId,
+        });
+      }
+
       // 自動通知および通知先（参加者）指定・メンション通知の一括作成
       createIssueCreatedNotifications(db, {
         issueId: Number(issueId),
@@ -336,6 +349,7 @@ export async function POST(request: Request) {
         p.color AS project_color,
         parent.issue_key AS parent_issue_key,
         parent.title AS parent_title,
+        parent.due_date AS parent_due_date,
         u.name AS assignee_name,
         u.color AS assignee_color,
         creator.name AS creator_name

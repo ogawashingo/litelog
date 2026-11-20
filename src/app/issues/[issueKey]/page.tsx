@@ -16,6 +16,7 @@ import {
   GitBranch,
   Link as LinkIcon,
   AlertCircle,
+  AlertTriangle,
   MessageSquare,
   LayoutDashboard,
   Plus,
@@ -39,6 +40,10 @@ import NotifyUserSelector from "@/components/NotifyUserSelector";
 import CommentReactionBar from "@/components/CommentReactionBar";
 import ResolutionSelect from "@/components/ResolutionSelect";
 import ReviewRequestModal from "@/components/ReviewRequestModal";
+import ParentDueDateConfirmModal, {
+  ParentDueDateWarningInfo,
+  isExceedingParentDueDate,
+} from "@/components/ParentDueDateConfirmModal";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -63,6 +68,8 @@ export default function IssueDetailPage() {
   const [isSavingComment, setIsSavingComment] = useState(false);
   const [historyModalCommentId, setHistoryModalCommentId] = useState<number | null>(null);
   const [isIssueHistoryOpen, setIsIssueHistoryOpen] = useState(false);
+  // 子課題の期限延長に伴う親課題期限延長の確認モーダル情報
+  const [parentDueWarning, setParentDueWarning] = useState<ParentDueDateWarningInfo | null>(null);
   const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "dates" | "all">("description");
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
 
@@ -176,8 +183,35 @@ export default function IssueDetailPage() {
     }
   };
 
-  // 課題編集の保存
-  const handleSaveEdit = async () => {
+  // 編集フォームで選択中の親課題情報（期限日超過チェック用）
+  const selectedEditParentInfo = (() => {
+    if (!editParentId) return null;
+    const pid = Number(editParentId);
+    const found = availableParents.find((p) => p.id === pid);
+    if (found) {
+      return {
+        issueKey: found.issue_key,
+        title: found.title,
+        dueDate: found.due_date,
+      };
+    }
+    if (issue && issue.parent_id === pid) {
+      return {
+        issueKey: issue.parent_issue_key ?? null,
+        title: issue.parent_title ?? null,
+        dueDate: issue.parent_due_date ?? null,
+      };
+    }
+    return null;
+  })();
+
+  const isEditExceedingParentDue = isExceedingParentDueDate(
+    selectedEditParentInfo?.dueDate,
+    editDueDate || null
+  );
+
+  // 課題編集のAPI送信
+  const executeSaveEdit = async (extendParentDueDate: boolean) => {
     if (!issue || !editTitle.trim()) return;
     try {
       setIsSaving(true);
@@ -195,6 +229,7 @@ export default function IssueDetailPage() {
           parentId: editParentId ? Number(editParentId) : null,
           startDate: editStartDate || null,
           dueDate: editDueDate || null,
+          extendParentDueDate,
           actorId: currentUser?.id || null,
           notifyUserIds: editNotifyUserIds,
         }),
@@ -214,6 +249,31 @@ export default function IssueDetailPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // 課題編集の保存（親課題の期限を超過している場合は確認モーダルを表示）
+  const handleSaveEdit = async () => {
+    if (!issue || !editTitle.trim()) return;
+
+    const dueChanged = (editDueDate || null) !== (issue.due_date || null);
+    const parentChanged = (editParentId ? Number(editParentId) : null) !== (issue.parent_id || null);
+    if (
+      (dueChanged || parentChanged) &&
+      selectedEditParentInfo?.dueDate &&
+      editDueDate &&
+      isExceedingParentDueDate(selectedEditParentInfo.dueDate, editDueDate)
+    ) {
+      setParentDueWarning({
+        parentIssueKey: selectedEditParentInfo.issueKey,
+        parentTitle: selectedEditParentInfo.title,
+        parentDueDate: selectedEditParentInfo.dueDate,
+        newChildDueDate: editDueDate,
+        childIssueKey: issue.issue_key,
+      });
+      return;
+    }
+
+    await executeSaveEdit(false);
   };
 
   // ステータス即時変更
@@ -1164,6 +1224,12 @@ export default function IssueDetailPage() {
                         onChange={(val) => setEditDueDate(val || "")}
                         placeholder="期限日を選択"
                       />
+                      {isEditExceedingParentDue && selectedEditParentInfo?.dueDate && (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          親課題の期限日 ({selectedEditParentInfo.dueDate}) を超えています
+                        </p>
+                      )}
                     </div>
 
                     {/* 親課題 */}
@@ -1629,6 +1695,21 @@ export default function IssueDetailPage() {
           onSubmit={handleReviewRequestSubmit}
         />
       )}
+
+      {/* 子課題の期限延長に伴う親課題期限延長の確認モーダル */}
+      <ParentDueDateConfirmModal
+        info={parentDueWarning}
+        isSubmitting={isSaving}
+        onExtendBoth={async () => {
+          setParentDueWarning(null);
+          await executeSaveEdit(true);
+        }}
+        onChildOnly={async () => {
+          setParentDueWarning(null);
+          await executeSaveEdit(false);
+        }}
+        onCancel={() => setParentDueWarning(null)}
+      />
     </div>
   );
 }

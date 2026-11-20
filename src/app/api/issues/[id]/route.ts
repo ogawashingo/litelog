@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { getDb, ATTACHMENTS_DIR, attachReactionsToComments, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createIssueUpdatedNotifications } from "@/lib/notificationUtils";
+import { extendAncestorDueDatesIfNeeded } from "@/lib/parentDueDate";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
@@ -30,6 +31,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
         p.is_archived AS project_is_archived,
         parent.issue_key AS parent_issue_key,
         parent.title AS parent_title,
+        parent.due_date AS parent_due_date,
         u.name AS assignee_name,
         u.color AS assignee_color,
         creator.name AS creator_name,
@@ -494,6 +496,27 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         insertActivity.run(currentIssue.id, actorId, "updated", `課題 [${currentIssue.issue_key}] を更新しました`);
       }
 
+      // ユーザー承認がある場合、親課題（および祖先課題）の期限日も連動延長する
+      if (body.extendParentDueDate) {
+        const resolvedParentId =
+          body.parentId !== undefined
+            ? body.parentId
+              ? Number(body.parentId)
+              : null
+            : currentIssue.parent_id;
+        const resolvedDueDate =
+          body.dueDate !== undefined ? body.dueDate || null : currentIssue.due_date;
+
+        if (resolvedParentId && resolvedDueDate) {
+          extendAncestorDueDatesIfNeeded(db, {
+            startParentId: resolvedParentId,
+            newDueDate: String(resolvedDueDate),
+            childIssueKey: currentIssue.issue_key,
+            actorId,
+          });
+        }
+      }
+
       // 本文中の添付ファイルURLをこの課題にバインド
       if (body.description !== undefined) {
         const descMatches = String(body.description).matchAll(/\/api\/attachments\/(\d+)/g);
@@ -558,6 +581,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         p.color AS project_color,
         parent.issue_key AS parent_issue_key,
         parent.title AS parent_title,
+        parent.due_date AS parent_due_date,
         u.name AS assignee_name,
         u.color AS assignee_color,
         creator.name AS creator_name,
