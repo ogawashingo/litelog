@@ -1186,8 +1186,8 @@ export default function IssueDetailPage() {
                 </>
               )}
 
-              {/* 詳細説明（属性は上部固定ヘッダーに集約） */}
-              <div>
+              {/* 詳細説明（モバイル表示時、詳細未入力なら非表示にしてコンパクト化） */}
+              <div className={!isEditing && !issue.description ? "hidden sm:block" : ""}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs font-bold text-slate-700">詳細・メモ</h3>
@@ -1249,8 +1249,8 @@ export default function IssueDetailPage() {
                 )}
               </div>
 
-              {/* 子課題セクション */}
-              <div className="space-y-3 pt-3 border-t border-slate-100">
+              {/* 子課題セクション（モバイル表示時、0件かつ追加フォームが閉じていれば非表示にしてコンパクト化） */}
+              <div className={`space-y-3 pt-3 border-t border-slate-100 ${childrenIssues.length === 0 && !isAddingChild ? "hidden sm:block" : ""}`}>
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                     <GitBranch className="w-3.5 h-3.5 text-indigo-600" />

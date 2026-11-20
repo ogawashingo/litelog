@@ -1525,8 +1525,8 @@ export default function IssueDetailModal({
             </div>
           ) : (
             <>
-              {/* 詳細・メモ内容（属性は上部固定ヘッダーに集約） */}
-              <div>
+              {/* 詳細・メモ内容（モバイル表示時、詳細未入力なら非表示にしてコンパクト化） */}
+              <div className={!activeIssue.description ? "hidden sm:block" : ""}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -1560,8 +1560,8 @@ export default function IssueDetailModal({
                 </div>
               </div>
 
-              {/* 添付ファイルセクション */}
-              <div className="space-y-2">
+              {/* 添付ファイルセクション（モバイル表示時、0件なら非表示にしてコンパクト化） */}
+              <div className={`space-y-2 ${attachments.length === 0 ? "hidden sm:block" : ""}`}>
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                     <Paperclip className="w-3.5 h-3.5 text-indigo-600" />
@@ -1660,8 +1660,8 @@ export default function IssueDetailModal({
                 )}
               </div>
 
-              {/* 子課題セクション */}
-              <div className="space-y-2">
+              {/* 子課題セクション（モバイル表示時、0件かつ追加フォームが閉じていれば非表示にしてコンパクト化） */}
+              <div className={`space-y-2 ${childrenIssues.length === 0 && !isAddingChild ? "hidden sm:block" : ""}`}>
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                     <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
