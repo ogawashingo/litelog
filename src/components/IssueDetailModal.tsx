@@ -1974,11 +1974,7 @@ export default function IssueDetailModal({
               <form onSubmit={handlePostComment} className="space-y-2.5 pt-2">
                 <MentionTextarea
                   rows={5}
-                  placeholder={
-                    currentUser
-                      ? `${currentUser.name} としてコメント・進捗を入力... (@でメンバーをメンション、画像ペースト・添付対応)`
-                      : "進捗や気づき、メモを残せます... (@でメンバーをメンション、画像ペースト・添付対応)"
-                  }
+                  placeholder="コメント・進捗を入力... (@でメンバーをメンション、画像ペースト・添付対応)"
                   value={newComment}
                   onChange={(val) => setNewComment(val)}
                   users={users}
