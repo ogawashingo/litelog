@@ -28,6 +28,7 @@ import {
   Megaphone,
   Archive,
   Search,
+  KeyRound,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -1898,6 +1899,13 @@ export default function AdminPage() {
                           </div>
                           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
                             <span className="font-bold text-slate-800 break-words">{u.name}</span>
+                            {/* ログインIDバッジ表示 */}
+                            {u.login_id && (
+                              <span className="inline-flex items-center gap-0.5 text-[11px] font-mono text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
+                                <KeyRound className="w-2.5 h-2.5 text-slate-400" />
+                                ID: {u.login_id}
+                              </span>
+                            )}
                             {getUserRoleType(u) === "admin" && (
                               <span className="inline-flex items-center gap-0.5 text-xs bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-full font-bold shrink-0">
                                 <Crown className="w-3 h-3 text-amber-600" />
