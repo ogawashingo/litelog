@@ -733,9 +733,19 @@ export default function BoardView({
           setDetailIssue(null);
         }}
         onUpdated={async () => {
+          // モーダルを閉じずにボードの最新状態および詳細課題を同期更新
           await onRefresh();
-          setIsDetailOpen(false);
-          setDetailIssue(null);
+          if (detailIssue) {
+            try {
+              const res = await fetch(`/api/issues/${detailIssue.id}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.issue) setDetailIssue(data.issue);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          }
         }}
         onDeleted={async () => {
           await onRefresh();

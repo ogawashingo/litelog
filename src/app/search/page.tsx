@@ -921,8 +921,20 @@ function SearchPageContent() {
           setIsDetailOpen(false);
           setSelectedIssue(null);
         }}
-        onUpdated={() => {
+        onUpdated={async () => {
+          // モーダルを閉じずに検索結果および選択中課題を最新同期
           fetchSearchResults(currentQuery);
+          if (selectedIssue) {
+            try {
+              const res = await fetch(`/api/issues/${selectedIssue.id}`);
+              if (res.ok) {
+                const data = await res.json();
+                if (data.issue) setSelectedIssue(data.issue);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          }
         }}
         onDeleted={() => {
           setIsDetailOpen(false);
