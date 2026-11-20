@@ -710,7 +710,7 @@ export default function MentionTextarea({
             placeholder={placeholder}
             rows={rows}
             disabled={disabled}
-            className={`w-full p-2.5 bg-transparent border-0 outline-none text-slate-800 placeholder-slate-400 text-sm leading-relaxed resize-y ${className}`}
+            className={`w-full p-2.5 bg-transparent border-0 outline-none text-slate-800 placeholder-slate-400 text-base sm:text-sm leading-relaxed resize-y ${className}`}
             {...rest}
           />
 

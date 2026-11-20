@@ -1284,3 +1284,27 @@ dialog:modal[open]::backdrop {
   contain-intrinsic-size: auto none auto 76px;
 }
 
+/* iOS（WebKit: iPhoneのChrome / Safari）で入力欄フォーカス時に画面が自動拡大（ズーム）されるのを防止
+   フォントサイズ16px未満のフォーム要素フォーカス時に発生するWebKitの自動ズームを抑制し、端まで正しく表示を保持します */
+@media screen and (max-width: 767px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  input[type="search"],
+  input[type="email"],
+  input[type="url"],
+  input[type="tel"],
+  input:not([type]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* スマホ等でズームやフリック入力キーボード表示時に画面端が見切れたり不自然に横スクロールしないよう保護 */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+

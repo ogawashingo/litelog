@@ -173,15 +173,15 @@ export default function CreateIssueModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4"
+      className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white sm:rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
+        className="bg-white sm:rounded-xl shadow-2xl border border-slate-200/90 w-full max-w-full sm:max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 h-full sm:h-auto sm:max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* モーダルヘッダー（テーマ連動） */}
-        <div className="app-header px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between text-white shrink-0">
+        <div className="app-header px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between text-white shrink-0 max-w-full overflow-hidden">
           <div className="flex items-center gap-2">
             {/* モバイル用戻るボタン */}
             <button
@@ -208,7 +208,7 @@ export default function CreateIssueModal({
         </div>
 
         {/* フォーム入力領域 */}
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 overflow-y-auto overflow-x-hidden flex-1 max-w-full">
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg font-medium">
               {errorMessage}
@@ -321,7 +321,7 @@ export default function CreateIssueModal({
               placeholder="課題の概要を入力してください"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-base sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               required
             />
           </div>
@@ -338,7 +338,7 @@ export default function CreateIssueModal({
               onChange={(val) => setDescription(val)}
               users={users}
               onAttachmentUploaded={(att) => setAttachmentIds((prev) => [...prev, att.id])}
-              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-base sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
           </div>
 
