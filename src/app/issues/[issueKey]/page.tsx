@@ -57,7 +57,6 @@ export default function IssueDetailPage() {
 
   // コメント投稿State
   const [newComment, setNewComment] = useState("");
-  const [commentNotifyUserIds, setCommentNotifyUserIds] = useState<number[]>([]);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState("");
@@ -406,7 +405,6 @@ export default function IssueDetailPage() {
         body: JSON.stringify({
           content: newComment.trim(),
           userId: currentUser?.id || null,
-          notifyUserIds: commentNotifyUserIds,
         }),
       });
 
@@ -421,7 +419,6 @@ export default function IssueDetailPage() {
           setEditResolution(data.issue.resolution || null);
         }
         setNewComment("");
-        setCommentNotifyUserIds([]);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
@@ -1547,27 +1544,6 @@ export default function IssueDetailPage() {
                       users={users}
                       placeholder="コメントを入力... (@でメンバーをメンション)"
                       className="w-full px-3 py-2 border border-slate-300 rounded-xl text-base sm:text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
-                    />
-                    <NotifyUserSelector
-                      users={users}
-                      currentUserId={currentUser?.id || null}
-                      selectedUserIds={commentNotifyUserIds}
-                      onChange={setCommentNotifyUserIds}
-                      autoNotifyUserIds={
-                        [
-                          issue.created_by ? Number(issue.created_by) : 0,
-                          issue.assignee_id ? Number(issue.assignee_id) : 0,
-                        ].filter(Boolean)
-                      }
-                      participantUserIds={
-                        [
-                          issue.created_by ? Number(issue.created_by) : 0,
-                          issue.assignee_id ? Number(issue.assignee_id) : 0,
-                          ...comments.map((c) => Number(c.user_id || 0)),
-                        ].filter(Boolean)
-                      }
-                      label="コメントを通知するメンバー（参加者）"
-                      compact
                     />
                     <div className="flex justify-end">
                       <button

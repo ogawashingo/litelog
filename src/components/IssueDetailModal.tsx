@@ -45,7 +45,6 @@ export default function IssueDetailModal({
   const [childrenIssues, setChildrenIssues] = useState<Issue[]>([]);
   const [availableParents, setAvailableParents] = useState<Issue[]>([]);
   const [newComment, setNewComment] = useState("");
-  const [commentNotifyUserIds, setCommentNotifyUserIds] = useState<number[]>([]);
   const [isPostingComment, setIsPostingComment] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState("");
@@ -255,7 +254,6 @@ export default function IssueDetailModal({
     setEditStartDate(issue.start_date || "");
     setEditDueDate(issue.due_date || "");
     setEditNotifyUserIds([]);
-    setCommentNotifyUserIds([]);
     setIsEditing(false);
     setIsAddingChild(false);
     setChildTitle("");
@@ -740,7 +738,6 @@ export default function IssueDetailModal({
         body: JSON.stringify({
           content: newComment.trim(),
           userId: currentUser?.id || null,
-          notifyUserIds: commentNotifyUserIds,
         }),
       });
 
@@ -755,7 +752,6 @@ export default function IssueDetailModal({
           setEditResolution(data.issue.resolution || null);
         }
         setNewComment("");
-        setCommentNotifyUserIds([]);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("litelog:notifications-updated"));
         }
@@ -1989,29 +1985,6 @@ export default function IssueDetailModal({
                   issueId={activeIssue.id}
                   onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
                   className="w-full bg-white border border-slate-300 rounded-lg p-3 text-base sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                />
-
-                {/* コメント投稿時の通知先（参加者）チェックボックス選択 */}
-                <NotifyUserSelector
-                  users={candidateUsers.length > 0 ? candidateUsers : users}
-                  currentUserId={currentUser?.id || null}
-                  selectedUserIds={commentNotifyUserIds}
-                  onChange={setCommentNotifyUserIds}
-                  autoNotifyUserIds={
-                    [
-                      activeIssue.created_by ? Number(activeIssue.created_by) : 0,
-                      activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
-                    ].filter(Boolean)
-                  }
-                  participantUserIds={
-                    [
-                      activeIssue.created_by ? Number(activeIssue.created_by) : 0,
-                      activeIssue.assignee_id ? Number(activeIssue.assignee_id) : 0,
-                      ...comments.map((c) => Number(c.user_id || 0)),
-                    ].filter(Boolean)
-                  }
-                  label="コメントを通知するメンバー（参加者）"
-                  compact
                 />
 
                 <div className="flex justify-end">
