@@ -78,16 +78,44 @@ export default function MentionTextarea({
   // 選択中の候補インデックス
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // クエリによるユーザー候補の絞り込み
+  // クエリによるユーザー候補の絞り込み＆関連度ソート（前方一致・ログインID優先）
   const filteredUsers = React.useMemo(() => {
     if (!isOpen) return [];
-    const q = query.toLowerCase();
-    return users.filter(
-      (u) =>
-        u.login_id.toLowerCase().includes(q) ||
-        u.name.toLowerCase().includes(q) ||
-        (u.role && u.role.toLowerCase().includes(q))
-    );
+    const q = query.toLowerCase().trim();
+    if (!q) {
+      // クエリ未入力時は名前順
+      return [...users].sort((a, b) => a.name.localeCompare(b.name, "ja"));
+    }
+
+    // 各ユーザーのスコアを計算（完全一致 > 前方一致 > 部分一致）
+    const scored: { user: User; score: number }[] = [];
+    for (const u of users) {
+      const name = u.name.toLowerCase();
+      const login = (u.login_id || "").toLowerCase();
+      const role = (u.role || "").toLowerCase();
+
+      let score = 0;
+      if (login === q || name === q) {
+        score = 100; // 完全一致
+      } else if (login.startsWith(q)) {
+        score = 80; // ログインID前方一致
+      } else if (name.startsWith(q)) {
+        score = 70; // 名前前方一致
+      } else if (login.includes(q)) {
+        score = 50; // ログインID部分一致
+      } else if (name.includes(q)) {
+        score = 40; // 名前部分一致
+      } else if (role.includes(q)) {
+        score = 20; // 役職部分一致
+      }
+
+      if (score > 0) {
+        scored.push({ user: u, score });
+      }
+    }
+
+    scored.sort((a, b) => b.score - a.score || a.user.name.localeCompare(b.user.name, "ja"));
+    return scored.map((s) => s.user);
   }, [isOpen, query, users]);
 
   // 入力値変更時のメンション検知
@@ -763,42 +791,64 @@ export default function MentionTextarea({
       )}
 
       {/* メンション候補サジェストポップアップ */}
-      {isOpen && filteredUsers.length > 0 && activeTab === "edit" && (
-        <div className="absolute z-50 left-2 bottom-full mb-1 w-64 max-h-56 overflow-y-auto bg-white rounded-lg shadow-xl border border-slate-200 py-1 text-xs animate-in fade-in duration-100">
-          <div className="px-2.5 py-1 text-[10px] font-semibold text-slate-400 border-b border-slate-100 flex items-center justify-between">
-            <span>メンバーを選択 (@)</span>
+      {isOpen && activeTab === "edit" && (
+        <div className="absolute z-50 left-0 bottom-full mb-1.5 w-72 sm:w-80 max-h-64 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 py-1 text-xs animate-in fade-in zoom-in-95 duration-100 max-w-[calc(100vw-32px)]">
+          <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+            <span>
+              メンバーを選択 (@)
+              {filteredUsers.length > 0 && ` (${filteredUsers.length}名)`}
+            </span>
             <span className="text-[9px] text-slate-400">↑↓で移動 / Enterで確定</span>
           </div>
-          {filteredUsers.map((user, index) => {
-            const isSelected = index === selectedIndex;
-            return (
-              <button
-                key={user.id}
-                type="button"
-                onClick={() => insertMention(user)}
-                onMouseEnter={() => setSelectedIndex(index)}
-                className={`w-full px-2.5 py-1.5 flex items-center gap-2 text-left transition-colors ${
-                  isSelected ? "bg-indigo-50 text-indigo-900" : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <div
-                  style={{ backgroundColor: user.color || "#4f46e5" }}
-                  className="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs"
+          {filteredUsers.length === 0 ? (
+            <div className="py-4 px-3 text-center text-slate-400 text-xs">
+              「{query}」に一致するメンバーはいません
+            </div>
+          ) : (
+            filteredUsers.map((user, index) => {
+              const isSelected = index === selectedIndex;
+              return (
+                <button
+                  key={user.id}
+                  type="button"
+                  onClick={() => insertMention(user)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                  className={`w-full px-3 py-2 flex items-center gap-2.5 text-left transition-colors cursor-pointer ${
+                    isSelected ? "bg-indigo-50 text-indigo-900" : "text-slate-700 hover:bg-slate-50"
+                  }`}
                 >
-                  {getUserInitials(user.name)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold truncate">{user.name}</span>
-                    {user.is_admin === 1 && (
-                      <Crown className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                  <div
+                    style={{ backgroundColor: user.color || "#4f46e5" }}
+                    className="w-6 h-6 rounded-full text-white flex items-center justify-center font-bold text-[10px] shrink-0 shadow-2xs"
+                  >
+                    {getUserInitials(user.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`truncate ${isSelected ? "font-bold text-indigo-950" : "font-semibold text-slate-800"}`}>
+                        {user.name}
+                      </span>
+                      {user.login_id && (
+                        <span className="text-[10px] text-slate-400 truncate">
+                          @{user.login_id}
+                        </span>
+                      )}
+                      {user.is_admin === 1 && (
+                        <span className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 font-bold">
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                    {user.role && (
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                        {user.role}
+                      </div>
                     )}
                   </div>
-                  <div className="text-[10px] text-slate-400 truncate">@{user.login_id}</div>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })
+          )}
         </div>
       )}
     </div>

@@ -1488,7 +1488,7 @@ export default function IssueDetailModal({
 
               {/* 編集時の通知先（参加者）チェックボックス選択 */}
               <NotifyUserSelector
-                users={users}
+                users={candidateUsers.length > 0 ? candidateUsers : users}
                 currentUserId={currentUser?.id || null}
                 selectedUserIds={editNotifyUserIds}
                 onChange={setEditNotifyUserIds}
@@ -1993,7 +1993,7 @@ export default function IssueDetailModal({
 
                 {/* コメント投稿時の通知先（参加者）チェックボックス選択 */}
                 <NotifyUserSelector
-                  users={users}
+                  users={candidateUsers.length > 0 ? candidateUsers : users}
                   currentUserId={currentUser?.id || null}
                   selectedUserIds={commentNotifyUserIds}
                   onChange={setCommentNotifyUserIds}
