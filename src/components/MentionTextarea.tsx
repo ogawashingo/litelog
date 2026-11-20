@@ -790,10 +790,10 @@ export default function MentionTextarea({
         </div>
       )}
 
-      {/* メンション候補サジェストポップアップ */}
+      {/* メンション候補サジェストポップアップ（ダークテーマ対応・高コントラスト視認性確保） */}
       {isOpen && activeTab === "edit" && (
-        <div className="absolute z-50 left-0 bottom-full mb-1.5 w-72 sm:w-80 max-h-64 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 py-1 text-xs animate-in fade-in zoom-in-95 duration-100 max-w-[calc(100vw-32px)]">
-          <div className="px-3 py-1.5 text-[10px] font-semibold text-slate-500 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+        <div className="mention-suggest-popup absolute z-50 left-0 bottom-full mb-1.5 w-72 sm:w-80 max-h-64 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 py-1 text-xs animate-in fade-in zoom-in-95 duration-100 max-w-[calc(100vw-32px)]">
+          <div className="mention-suggest-header px-3 py-1.5 text-[10px] font-semibold text-slate-500 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
             <span>
               メンバーを選択 (@)
               {filteredUsers.length > 0 && ` (${filteredUsers.length}名)`}
@@ -813,8 +813,10 @@ export default function MentionTextarea({
                   type="button"
                   onClick={() => insertMention(user)}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`w-full px-3 py-2 flex items-center gap-2.5 text-left transition-colors cursor-pointer ${
-                    isSelected ? "bg-indigo-50 text-indigo-900" : "text-slate-700 hover:bg-slate-50"
+                  className={`mention-suggest-item w-full px-3 py-2 flex items-center gap-2.5 text-left transition-colors cursor-pointer ${
+                    isSelected
+                      ? "is-selected bg-indigo-50 text-indigo-900"
+                      : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
                   <div
@@ -825,11 +827,11 @@ export default function MentionTextarea({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`truncate ${isSelected ? "font-bold text-indigo-950" : "font-semibold text-slate-800"}`}>
+                      <span className={`mention-user-name truncate ${isSelected ? "font-bold text-indigo-900" : "font-semibold text-slate-800"}`}>
                         {user.name}
                       </span>
                       {user.login_id && (
-                        <span className="text-[10px] text-slate-400 truncate">
+                        <span className={`mention-user-login text-[11px] font-mono truncate ${isSelected ? "text-indigo-600 font-semibold" : "text-indigo-600/80"}`}>
                           @{user.login_id}
                         </span>
                       )}
@@ -840,7 +842,7 @@ export default function MentionTextarea({
                       )}
                     </div>
                     {user.role && (
-                      <div className="text-[10px] text-slate-400 truncate mt-0.5">
+                      <div className="mention-user-role text-[10px] text-slate-400 truncate mt-0.5">
                         {user.role}
                       </div>
                     )}

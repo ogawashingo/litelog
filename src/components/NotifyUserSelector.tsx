@@ -369,14 +369,14 @@ export default function NotifyUserSelector({
                               <span
                                 className={`text-xs truncate ${
                                   isSelected
-                                    ? "font-bold text-indigo-950"
+                                    ? "font-bold text-indigo-900"
                                     : "font-semibold text-slate-800"
                                 }`}
                               >
                                 {user.name}
                               </span>
                               {user.login_id && (
-                                <span className="text-[10px] text-slate-400 truncate">
+                                <span className="text-[11px] font-mono text-indigo-600/80 truncate">
                                   @{user.login_id}
                                 </span>
                               )}
