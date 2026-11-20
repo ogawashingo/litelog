@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import SummaryCards from "@/components/SummaryCards";
 import IssueList from "@/components/IssueList";
@@ -17,6 +17,7 @@ import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType, IssueR
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 function DashboardContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { currentUser, refreshUsers } = useUser();
 
@@ -120,9 +121,7 @@ function DashboardContent() {
       setStoredProjectId(targetId);
     } else {
       const stored = getStoredProjectId();
-      if (stored !== null) {
-        setSelectedProjectId(stored);
-      }
+      setSelectedProjectId(stored);
     }
   }, [searchParams]);
 
@@ -142,14 +141,15 @@ function DashboardContent() {
   }, [fetchProjects, fetchActivities, refreshUsers]);
 
   // プロジェクト選択切り替え（ローカルストレージおよびURL同期）
-  const handleSelectProject = useCallback((id: number | null) => {
-    setSelectedProjectId(id);
-    setStoredProjectId(id);
-    if (typeof window !== "undefined") {
+  const handleSelectProject = useCallback(
+    (id: number | null) => {
+      setSelectedProjectId(id);
+      setStoredProjectId(id);
       const url = id ? `/?projectId=${id}` : "/";
-      window.history.replaceState(null, "", url);
-    }
-  }, []);
+      router.push(url);
+    },
+    [router]
+  );
 
   // 課題のステータス即時変更（完了理由の同時指定にも対応）
   const handleUpdateStatus = async (

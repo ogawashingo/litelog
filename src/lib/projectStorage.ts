@@ -26,8 +26,10 @@ export function setStoredProjectId(id: number | null): void {
   try {
     if (id === null || id === undefined) {
       localStorage.removeItem(PROJECT_STORAGE_KEY);
+      localStorage.removeItem("backlog_selected_project_id");
     } else {
       localStorage.setItem(PROJECT_STORAGE_KEY, String(id));
+      localStorage.removeItem("backlog_selected_project_id");
     }
   } catch {
     // ローカルストレージが無効な環境では無視

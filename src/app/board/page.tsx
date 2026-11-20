@@ -39,12 +39,17 @@ export default function BoardIndexPage() {
         const projData: Project[] = await projRes.json();
         setProjects(projData);
 
-        // プロジェクトが1件以上ある場合、選択中または先頭のプロジェクトのボードURLへ遷移（Backlog仕様準拠）
+        // 保存されている選択中プロジェクトがある場合はそのプロジェクトのボードURLへ遷移
+        // 未選択（null＝すべてのプロジェクト）の場合はリダイレクトせず全プロジェクトのボードを表示
         if (projData.length > 0) {
           const storedId = getStoredProjectId();
-          const target = (storedId && projData.find((p) => p.id === storedId)) || projData[0];
-          router.replace(`/board/${encodeURIComponent(target.key)}`);
-          return;
+          if (storedId) {
+            const target = projData.find((p) => p.id === storedId);
+            if (target) {
+              router.replace(`/board/${encodeURIComponent(target.key)}`);
+              return;
+            }
+          }
         }
       }
 
@@ -120,6 +125,8 @@ export default function BoardIndexPage() {
             if (found) {
               router.push(`/board/${encodeURIComponent(found.key)}`);
             }
+          } else {
+            router.push("/board");
           }
         }}
         onOpenCreateIssue={() => setIsCreateIssueOpen(true)}

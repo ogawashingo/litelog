@@ -36,13 +36,18 @@ function GanttIndexContent() {
         const projData: Project[] = await projRes.json();
         setProjects(projData);
 
-        // プロジェクトが1件以上ある場合、選択中または先頭プロジェクトのURLへ遷移（クエリパラメータも引き継ぐ）
+        // 保存されている選択中プロジェクトがある場合はそのプロジェクトのURLへ遷移（クエリパラメータも引き継ぐ）
+        // 未選択（null＝すべてのプロジェクト）の場合はリダイレクトせず全プロジェクトのガントチャートを表示
         if (projData.length > 0) {
           const storedId = getStoredProjectId();
-          const target = (storedId && projData.find((p) => p.id === storedId)) || projData[0];
-          const search = typeof window !== "undefined" ? window.location.search : "";
-          router.replace(`/gantt/${encodeURIComponent(target.key)}${search}`);
-          return;
+          if (storedId) {
+            const target = projData.find((p) => p.id === storedId);
+            if (target) {
+              const search = typeof window !== "undefined" ? window.location.search : "";
+              router.replace(`/gantt/${encodeURIComponent(target.key)}${search}`);
+              return;
+            }
+          }
         }
       }
 
@@ -78,11 +83,14 @@ function GanttIndexContent() {
         onSelectProject={(id) => {
           setSelectedProjectId(id);
           setStoredProjectId(id);
+          const search = typeof window !== "undefined" ? window.location.search : "";
           if (id) {
             const found = projects.find((p) => p.id === id);
             if (found) {
-              router.push(`/gantt/${encodeURIComponent(found.key)}`);
+              router.push(`/gantt/${encodeURIComponent(found.key)}${search}`);
             }
+          } else {
+            router.push(`/gantt${search}`);
           }
         }}
         onOpenCreateIssue={() => setIsCreateIssueOpen(true)}
