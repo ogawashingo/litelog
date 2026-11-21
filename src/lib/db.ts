@@ -4,10 +4,9 @@ import path from "node:path";
 import fs from "node:fs";
 import { isSafeStoredAttachmentName } from "@/lib/attachmentPolicy";
 
-// データベースファイルの保存先パス（環境変数 LITELOG_DB_PATH または BACKLOG_DB_PATH で切り替え可能）
+// データベースファイルの保存先パス（環境変数 LITELOG_DB_PATH で切り替え可能）
 const DB_DIR = path.join(process.cwd(), "data");
-// 既存の backlog.db がある場合はそれを継続利用、新規時は litelog.db を作成
-const DEFAULT_DB_FILENAME = fs.existsSync(path.join(DB_DIR, "backlog.db")) ? "backlog.db" : "litelog.db";
+const DEFAULT_DB_FILENAME = "litelog.db";
 const DB_PATH =
   process.env.LITELOG_DB_PATH ||
   process.env.BACKLOG_DB_PATH ||

@@ -71,7 +71,7 @@ docker compose up -d --build
 # 停止
 docker compose down
 ```
-※ データはホスト側の `./data/litelog.db`（または既存の `./data/backlog.db`）に永続化されます。
+※ データはホスト側の `./data/litelog.db` に永続化されます。
 
 ### 4. テスト実行
 ```bash

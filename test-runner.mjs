@@ -467,7 +467,7 @@ async function runTests() {
   if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
   }
-  const prodDbFilename = fs.existsSync(path.join(dbDir, "backlog.db")) ? "backlog.db" : "litelog.db";
+  const prodDbFilename = "litelog.db";
   const prodDbPath = path.join(dbDir, prodDbFilename);
   const prodDb = new DatabaseSync(prodDbPath);
   setupSchemaAndSeed(prodDb, true);
