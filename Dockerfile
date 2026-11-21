@@ -42,8 +42,11 @@ ENV HOSTNAME="0.0.0.0"
 # データベースファイルの保存先ディレクトリ設定
 ENV LITELOG_DB_PATH=/app/data/litelog.db
 
-# セキュリティのため非 root ユーザーを作成（Debian/Ubuntu 形式）
-RUN groupadd --system --gid 1001 nodejs && \
+# セキュリティパッチ適用および非 root ユーザーを作成（Debian/Ubuntu 形式）
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 -g nodejs nextjs
 
 # 公開静的ファイルと standalone 出力結果をコピー
