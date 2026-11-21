@@ -161,18 +161,18 @@ function DashboardContent() {
     setIsLoadingIssues(true);
     fetchIssues(selectedProjectId);
     fetchActivities(selectedProjectId);
-  }, [isAuthReady, currentUser, selectedProjectId, fetchIssues, fetchActivities]);
+  }, [isAuthReady, currentUser?.id, selectedProjectId, fetchIssues, fetchActivities]);
 
-  // 初回データ取得
+  // 初回データ取得（認証完了後にプロジェクト一覧を取得。refreshUsersはUserContext初期化で実行済みのためここでは呼ばない）
   useEffect(() => {
     if (!isAuthReady || !currentUser) return;
     const init = async () => {
       setIsLoading(true);
-      await Promise.all([fetchProjects(), refreshUsers()]);
+      await fetchProjects();
       setIsLoading(false);
     };
     init();
-  }, [isAuthReady, currentUser, fetchProjects, refreshUsers]);
+  }, [isAuthReady, currentUser?.id, fetchProjects]);
 
   // プロジェクト選択切り替え（ローカルストレージおよびURL同期）
   const handleSelectProject = useCallback(

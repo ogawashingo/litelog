@@ -75,7 +75,7 @@ function GanttIndexContent() {
     return () => {
       active = false;
     };
-  }, [isAuthReady, currentUser, fetchData]);
+  }, [isAuthReady, currentUser?.id, fetchData]);
 
   // 認証確定待ち・未ログイン時は描画をスキップ
   if (!isAuthReady || !currentUser) {

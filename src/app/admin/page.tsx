@@ -255,7 +255,7 @@ export default function AdminPage() {
     if (isAuthReady && currentUser && canManageIssues(currentUser)) {
       fetchProjects();
     }
-  }, [isAuthReady, currentUser, fetchProjects]);
+  }, [isAuthReady, currentUser?.id, fetchProjects]);
 
   // プロジェクト名変更の開始（AdminまたはPMO）
   const handleStartEditProject = (proj: Project) => {

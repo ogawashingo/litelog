@@ -67,7 +67,7 @@ export default function BoardIndexPage() {
   useEffect(() => {
     if (!isAuthReady || !currentUser) return;
     fetchData();
-  }, [isAuthReady, currentUser, fetchData]);
+  }, [isAuthReady, currentUser?.id, fetchData]);
 
   // ステータス更新処理
   const handleUpdateStatus = async (

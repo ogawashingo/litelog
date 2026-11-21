@@ -1,7 +1,7 @@
 // プロジェクト新規作成モーダルコンポーネント
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, FolderPlus, Users } from "lucide-react";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -36,12 +36,15 @@ export default function CreateProjectModal({
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  // モーダルが新規に開かれた瞬間のみ初期化するための直前ステートRef
+  const prevIsOpenRef = useRef(false);
 
-  // モーダルオープン時に全ユーザーをデフォルト選択
+  // モーダルオープン時に全ユーザーをデフォルト選択（入力中の再描画による選択リセットを防止）
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setSelectedUserIds(users.map((u) => u.id));
     }
+    prevIsOpenRef.current = isOpen;
   }, [isOpen, users]);
 
   if (!isOpen) return null;

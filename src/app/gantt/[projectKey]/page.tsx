@@ -91,7 +91,7 @@ function ProjectGanttContent() {
       setIsLoading(false);
     };
     init();
-  }, [isAuthReady, currentUser, fetchProjects, fetchIssues, projectKey]);
+  }, [isAuthReady, currentUser?.id, fetchProjects, fetchIssues, projectKey]);
 
   // プロジェクト選択時のルーティング遷移（現在のクエリパラメータを保持）
   const handleSelectProjectKey = (newKey: string) => {

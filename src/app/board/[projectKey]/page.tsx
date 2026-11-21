@@ -93,7 +93,7 @@ export default function ProjectBoardPage() {
       setIsLoading(false);
     };
     init();
-  }, [isAuthReady, currentUser, fetchProjects, fetchIssues, projectKey]);
+  }, [isAuthReady, currentUser?.id, fetchProjects, fetchIssues, projectKey]);
 
   // 課題ステータスの更新処理（ドラッグ＆ドロップまたはモーダルから実行、完了理由の同時指定にも対応）
   const handleUpdateStatus = async (

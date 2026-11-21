@@ -1,7 +1,7 @@
 // 課題の新規作成モーダルコンポーネント
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Project, Issue, IssueType, IssueStatus, IssuePriority, IssueResolution, canManageIssues } from "@/types";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
@@ -59,10 +59,12 @@ export default function CreateIssueModal({
   const [errorMessage, setErrorMessage] = useState("");
   // 子課題の期限が親課題を超過する場合の確認モーダル情報
   const [parentDueWarning, setParentDueWarning] = useState<ParentDueDateWarningInfo | null>(null);
+  // モーダルが新規に開かれた瞬間のみ初期化するための直前ステートRef
+  const prevIsOpenRef = useRef(false);
 
-  // モーダルが開かれたときに初期状態を同期
+  // モーダルが新規に開かれたときに初期状態を同期（入力中の再描画による入力値リセットを防止）
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       const activeList = projects.filter((p) => !p.is_archived);
       if (selectedProjectId && activeList.some((p) => p.id === selectedProjectId)) {
         setProjectId(selectedProjectId);
@@ -85,6 +87,7 @@ export default function CreateIssueModal({
       setIssueType("task");
       setErrorMessage("");
     }
+    prevIsOpenRef.current = isOpen;
   }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, defaultTitle, projects, currentUser]);
 
   // 選択中プロジェクトの参加メンバー候補（プロジェクトメンバー＋Admin/PMO）
