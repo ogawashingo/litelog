@@ -1,7 +1,15 @@
 // ユーザー（チームメンバー）更新・削除API
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getDb, getUserAccessibleProjectIds, setUserProjects } from "@/lib/db";
-import { getSessionUser, hashPassword, verifyPassword } from "@/lib/auth";
+import {
+  SESSION_COOKIE_NAME,
+  createSessionToken,
+  getSessionCookieOptions,
+  getSessionUser,
+  hashPassword,
+  verifyPassword,
+} from "@/lib/auth";
 import {
   MAX_LENGTHS,
   MIN_LENGTHS,
@@ -230,6 +238,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if (updates.length > 0) {
       values.push(targetId);
       db.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`).run(...values);
+
+      // 自身のパスワードを変更した場合、旧トークン自動失効後も自身のブラウザはログイン維持できるよう新トークンを再発行
+      if (isSelf && hashedPasswordToUpdate !== null) {
+        const cookieStore = await cookies();
+        cookieStore.set(
+          SESSION_COOKIE_NAME,
+          createSessionToken(sessionUser.id),
+          getSessionCookieOptions()
+        );
+      }
     }
 
     // 所属プロジェクトの更新（Adminは全プロジェクト同期可能。PMOは自身が参加しているプロジェクトの範囲内のみ変更可能）

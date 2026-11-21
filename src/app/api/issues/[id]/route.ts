@@ -1,8 +1,11 @@
 // 課題詳細取得・更新・削除API
 import { NextResponse } from "next/server";
-import path from "node:path";
-import fs from "node:fs";
-import { getDb, ATTACHMENTS_DIR, attachReactionsToComments, canUserAccessProject } from "@/lib/db";
+import {
+  getDb,
+  attachReactionsToComments,
+  canUserAccessProject,
+  deleteAttachmentFilesOnDisk,
+} from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createIssueUpdatedNotifications } from "@/lib/notificationUtils";
 import { extendAncestorDueDatesIfNeeded } from "@/lib/parentDueDate";
@@ -763,10 +766,14 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     const issueId = currentIssue.id;
 
-    // 削除前に関連する添付ファイルの保存ファイル名を取得
+    // 削除前に関連する添付ファイルの保存ファイル名を取得（課題直下およびコメント紐付け分を含む）
     const attachmentsToDelete = db
-      .prepare("SELECT stored_name FROM attachments WHERE issue_id = ?")
-      .all(issueId) as { stored_name: string }[];
+      .prepare(`
+        SELECT stored_name FROM attachments
+        WHERE issue_id = ?
+           OR comment_id IN (SELECT id FROM comments WHERE issue_id = ?)
+      `)
+      .all(issueId, issueId) as { stored_name: string }[];
 
     db.exec("BEGIN;");
     try {
@@ -784,17 +791,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       throw txErr;
     }
 
-    // ディスク上の実体ファイルをクリーンアップ
-    for (const att of attachmentsToDelete) {
-      try {
-        const filePath = path.join(ATTACHMENTS_DIR, att.stored_name);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (err) {
-        console.error("添付ファイル削除エラー:", err);
-      }
-    }
+    // ディスク上の実体ファイルを安全にクリーンアップ（パストラバーサル防止付き）
+    deleteAttachmentFilesOnDisk(attachmentsToDelete.map((a) => a.stored_name));
 
     return NextResponse.json({ success: true, message: "課題を削除しました" });
   } catch (error) {

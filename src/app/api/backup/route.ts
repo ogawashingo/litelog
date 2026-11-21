@@ -1,7 +1,17 @@
 // データバックアップ・インポートAPI（管理者専用・パスワード保護対応）
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
+import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
-import { getSessionUser, hashPassword } from "@/lib/auth";
+import {
+  SESSION_COOKIE_NAME,
+  createSessionToken,
+  getSessionCookieOptions,
+  getSessionUser,
+  hashPassword,
+} from "@/lib/auth";
+import { isSafeStoredAttachmentName } from "@/lib/attachmentPolicy";
+import { isValidTotpSecret } from "@/lib/totp";
 import { isArchivedProject } from "@/types";
 
 const PUBLIC_SETTING_KEYS = new Set([
@@ -96,17 +106,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "有効なバックアップデータ形式ではありません" }, { status: 400 });
     }
 
-    // 既存ユーザーのパスワードハッシュを退避（バックアップJSONにpasswordが含まれない場合の復元用）
-    const existingPwById = new Map<number, string>();
-    const existingPwByLoginId = new Map<string, string>();
+    // 既存ユーザーのパスワードハッシュおよび2FA設定を退避（バックアップJSONには秘密情報が含まれないため復元時に引き継ぐ）
+    interface ExistingAuthData {
+      password: string;
+      totp_secret: string | null;
+      totp_enabled: number;
+      totp_last_used_step: number | null;
+    }
+    const existingAuthById = new Map<number, ExistingAuthData>();
+    const existingAuthByLoginId = new Map<string, ExistingAuthData>();
     const existingUsers = db
-      .prepare("SELECT id, login_id, password FROM users")
-      .all() as { id: number; login_id: string; password: string }[];
+      .prepare(
+        "SELECT id, login_id, password, totp_secret, COALESCE(totp_enabled, 0) AS totp_enabled, totp_last_used_step FROM users"
+      )
+      .all() as {
+      id: number;
+      login_id: string;
+      password: string;
+      totp_secret: string | null;
+      totp_enabled: number;
+      totp_last_used_step: number | null;
+    }[];
     for (const eu of existingUsers) {
       if (eu.password) {
-        existingPwById.set(eu.id, eu.password);
+        const authInfo: ExistingAuthData = {
+          password: eu.password,
+          totp_secret: eu.totp_secret || null,
+          totp_enabled: eu.totp_enabled ? 1 : 0,
+          totp_last_used_step: eu.totp_last_used_step ?? null,
+        };
+        existingAuthById.set(eu.id, authInfo);
         if (eu.login_id) {
-          existingPwByLoginId.set(eu.login_id.toLowerCase(), eu.password);
+          existingAuthByLoginId.set(eu.login_id.toLowerCase(), authInfo);
         }
       }
     }
@@ -127,9 +158,11 @@ export async function POST(request: Request) {
       if (Array.isArray(users) && users.length > 0) {
         db.exec("DELETE FROM users;");
         const insertUser = db.prepare(`
-          INSERT INTO users (id, login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO users (id, login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays, totp_secret, totp_enabled, totp_last_used_step, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
+        let restoredAdminCount = 0;
+
         for (const u of users) {
           const isAdminVal =
             u.is_admin !== undefined
@@ -139,6 +172,9 @@ export async function POST(request: Request) {
               : String(u.name || "").startsWith("山田")
               ? 1
               : 0;
+          if (isAdminVal === 1) {
+            restoredAdminCount++;
+          }
           const roleTypeVal =
             isAdminVal === 1
               ? "admin"
@@ -154,13 +190,29 @@ export async function POST(request: Request) {
             : `user${u.id}`;
           const loginIdStr = String(u.login_id || fallbackLoginId).trim().toLowerCase();
 
-          // バックアップ内のパスワード、または退避した既存パスワードハッシュ、または初期パスワードをハッシュ化して設定
+          const matchedAuth =
+            existingAuthById.get(Number(u.id)) ||
+            existingAuthByLoginId.get(loginIdStr);
+
+          // バックアップ内の明示パスワード、または退避した既存パスワードハッシュ、または推測不可能なランダム初期パスワードを設定
           const rawOrExistingPw =
             (u.password && String(u.password).trim()) ||
-            existingPwById.get(Number(u.id)) ||
-            existingPwByLoginId.get(loginIdStr) ||
-            `${fallbackLoginId}123`;
+            matchedAuth?.password ||
+            crypto.randomBytes(16).toString("base64url");
           const hashedPw = hashPassword(rawOrExistingPw);
+
+          // 2FA設定の引き継ぎ（バックアップに有効なシークレットが含まれる場合、または既存DBの2FA設定を維持）
+          let totpSecret: string | null = null;
+          let totpEnabled = 0;
+          let totpLastStep: number | null = null;
+          if (u.totp_secret && isValidTotpSecret(u.totp_secret)) {
+            totpSecret = String(u.totp_secret).trim();
+            totpEnabled = u.totp_enabled ? 1 : 0;
+          } else if (matchedAuth && matchedAuth.totp_enabled === 1 && matchedAuth.totp_secret) {
+            totpSecret = matchedAuth.totp_secret;
+            totpEnabled = 1;
+            totpLastStep = matchedAuth.totp_last_used_step;
+          }
 
           insertUser.run(
             u.id,
@@ -173,8 +225,24 @@ export async function POST(request: Request) {
             u.color || "#4f46e5",
             u.week_start === "sunday" ? "sunday" : "monday",
             u.show_holidays === 0 || u.show_holidays === false ? 0 : 1,
+            totpSecret,
+            totpEnabled,
+            totpLastStep,
             u.created_at || new Date().toISOString()
           );
+        }
+
+        // バックアップデータ内に管理者が0名だった場合、管理者不在ロックアウトを防ぐため実行者または先頭ユーザーをAdminに昇格
+        if (restoredAdminCount === 0) {
+          const fallbackAdmin = db
+            .prepare("SELECT id FROM users WHERE id = ? OR LOWER(login_id) = LOWER(?) LIMIT 1")
+            .get(sessionUser.id, sessionUser.login_id) as { id: number } | undefined;
+          const targetAdminId =
+            fallbackAdmin?.id ||
+            (db.prepare("SELECT id FROM users ORDER BY id ASC LIMIT 1").get() as { id: number } | undefined)?.id;
+          if (targetAdminId) {
+            db.prepare("UPDATE users SET is_admin = 1, role_type = 'admin' WHERE id = ?").run(targetAdminId);
+          }
         }
       }
 
@@ -348,15 +416,19 @@ export async function POST(request: Request) {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         for (const att of attachments) {
+          // パストラバーサルを含む不正な stored_name はインポートを拒否（任意ファイル読み取り・削除攻撃を防止）
+          if (!att || !isSafeStoredAttachmentName(att.stored_name)) {
+            continue;
+          }
           const userId = att.user_id && validUserIds.has(att.user_id) ? att.user_id : null;
           insertAtt.run(
             att.id,
             att.issue_id || null,
             att.comment_id || null,
             userId,
-            att.file_name,
-            att.stored_name,
-            att.file_size,
+            String(att.file_name || att.stored_name).slice(0, 255),
+            String(att.stored_name).trim(),
+            Math.max(0, Number(att.file_size) || 0),
             att.mime_type || "application/octet-stream",
             att.created_at || new Date().toISOString()
           );
@@ -411,6 +483,20 @@ export async function POST(request: Request) {
       }
 
       db.exec("COMMIT;");
+
+      // 復元後のユーザー情報に合わせて実行中の管理者のセッションCookieを再発行
+      const currentAdminAfterRestore = db
+        .prepare("SELECT id FROM users WHERE id = ? OR LOWER(login_id) = LOWER(?) LIMIT 1")
+        .get(sessionUser.id, sessionUser.login_id) as { id: number } | undefined;
+      if (currentAdminAfterRestore) {
+        const cookieStore = await cookies();
+        cookieStore.set(
+          SESSION_COOKIE_NAME,
+          createSessionToken(currentAdminAfterRestore.id),
+          getSessionCookieOptions()
+        );
+      }
+
       return NextResponse.json({ success: true, message: "データのインポートが完了しました" });
     } catch (txError) {
       db.exec("ROLLBACK;");

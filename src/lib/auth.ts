@@ -1,5 +1,6 @@
 // 認証・パスワードハッシュ化・署名付きセッション管理・API認可ユーティリティ
 import crypto from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
 
@@ -67,12 +68,12 @@ export function verifyPassword(plainPassword: string, storedPassword: string): b
 /**
  * HMAC署名用のシークレットキーを取得します（未生成の場合は自動生成してsettingsテーブルに保存）
  */
-function getSessionSecret(): string {
+function getSessionSecret(dbOverride?: DatabaseSync): string {
   if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16) {
     return process.env.SESSION_SECRET;
   }
 
-  const db = getDb();
+  const db = dbOverride || getDb();
   const row = db
     .prepare("SELECT value FROM settings WHERE key = 'session_secret'")
     .get() as { value: string } | undefined;
@@ -96,21 +97,77 @@ function getSessionSecret(): string {
 }
 
 /**
+ * ユーザーの現在の認証状態（パスワードハッシュ・2FA設定・2FA使用ステップ）を署名入力用コンテキストとして取得します。
+ * パスワード変更や2FA設定変更が行われるとコンテキスト値が変化し、過去発行のトークンが即座に自動失効します。
+ */
+function getUserCredentialContext(
+  userId: number,
+  includeTotpStep = false,
+  dbOverride?: DatabaseSync
+): string {
+  try {
+    const db = dbOverride || getDb();
+    const userCols = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+    const hasTotpStep = userCols.some((c) => c.name === "totp_last_used_step");
+    const hasTotpSecret = userCols.some((c) => c.name === "totp_secret");
+    const hasTotpEnabled = userCols.some((c) => c.name === "totp_enabled");
+
+    const row = db
+      .prepare(`
+        SELECT
+          password,
+          ${hasTotpEnabled ? "COALESCE(totp_enabled, 0)" : "0"} AS totp_enabled,
+          ${hasTotpSecret ? "COALESCE(totp_secret, '')" : "''"} AS totp_secret,
+          ${hasTotpStep ? "COALESCE(totp_last_used_step, 0)" : "0"} AS totp_last_used_step
+        FROM users
+        WHERE id = ?
+      `)
+      .get(userId) as
+      | {
+          password: string;
+          totp_enabled: number;
+          totp_secret: string;
+          totp_last_used_step: number;
+        }
+      | undefined;
+
+    if (!row) return "";
+    if (includeTotpStep) {
+      return `:${row.password}:${row.totp_enabled}:${row.totp_secret}:${row.totp_last_used_step}`;
+    }
+    return `:${row.password}:${row.totp_enabled}:${row.totp_secret}`;
+  } catch {
+    return "";
+  }
+}
+
+/**
  * ユーザーIDからHMAC-SHA256署名付きセッショントークンを生成します
  * 形式: <userId>.<expiresAtMs>.<signatureHex>
  */
-export function createSessionToken(userId: number, maxAgeSec = SESSION_MAX_AGE_SEC): string {
+export function createSessionToken(
+  userId: number,
+  maxAgeSec = SESSION_MAX_AGE_SEC,
+  dbOverride?: DatabaseSync
+): string {
   const expiresAt = Date.now() + maxAgeSec * 1000;
   const payload = `${userId}.${expiresAt}`;
-  const secret = getSessionSecret();
-  const signature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  const secret = getSessionSecret(dbOverride);
+  const credContext = getUserCredentialContext(userId, false, dbOverride);
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(`${payload}${credContext}`)
+    .digest("hex");
   return `${payload}.${signature}`;
 }
 
 /**
  * 署名付きセッショントークンを検証し、有効であればユーザーIDを返します
  */
-export function verifySessionToken(token: string | undefined | null): number | null {
+export function verifySessionToken(
+  token: string | undefined | null,
+  dbOverride?: DatabaseSync
+): number | null {
   if (!token || typeof token !== "string") return null;
 
   const parts = token.split(".");
@@ -131,8 +188,12 @@ export function verifySessionToken(token: string | undefined | null): number | n
   }
 
   const payload = `${uidStr}.${expStr}`;
-  const secret = getSessionSecret();
-  const expectedSigHex = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  const secret = getSessionSecret(dbOverride);
+  const credContext = getUserCredentialContext(userId, false, dbOverride);
+  const expectedSigHex = crypto
+    .createHmac("sha256", secret)
+    .update(`${payload}${credContext}`)
+    .digest("hex");
 
   try {
     const sigBuf = Buffer.from(sigHex, "hex");
@@ -149,18 +210,29 @@ export function verifySessionToken(token: string | undefined | null): number | n
  * 2要素認証コード入力待機用の一時署名トークン（有効期限5分）を生成します
  * 形式: 2fa.<userId>.<expiresAtMs>.<signatureHex>
  */
-export function createTemp2faToken(userId: number, maxAgeSec = 300): string {
+export function createTemp2faToken(
+  userId: number,
+  maxAgeSec = 300,
+  dbOverride?: DatabaseSync
+): string {
   const expiresAt = Date.now() + maxAgeSec * 1000;
   const payload = `2fa.${userId}.${expiresAt}`;
-  const secret = getSessionSecret();
-  const signature = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  const secret = getSessionSecret(dbOverride);
+  const credContext = getUserCredentialContext(userId, true, dbOverride);
+  const signature = crypto
+    .createHmac("sha256", secret)
+    .update(`${payload}${credContext}`)
+    .digest("hex");
   return `${payload}.${signature}`;
 }
 
 /**
  * 2要素認証用の一時署名トークンを検証し、有効であればユーザーIDを返します
  */
-export function verifyTemp2faToken(token: string | undefined | null): number | null {
+export function verifyTemp2faToken(
+  token: string | undefined | null,
+  dbOverride?: DatabaseSync
+): number | null {
   if (!token || typeof token !== "string") return null;
 
   const parts = token.split(".");
@@ -181,8 +253,12 @@ export function verifyTemp2faToken(token: string | undefined | null): number | n
   }
 
   const payload = `2fa.${uidStr}.${expStr}`;
-  const secret = getSessionSecret();
-  const expectedSigHex = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  const secret = getSessionSecret(dbOverride);
+  const credContext = getUserCredentialContext(userId, true, dbOverride);
+  const expectedSigHex = crypto
+    .createHmac("sha256", secret)
+    .update(`${payload}${credContext}`)
+    .digest("hex");
 
   try {
     const sigBuf = Buffer.from(sigHex, "hex");

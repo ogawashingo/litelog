@@ -1,6 +1,6 @@
 // プロジェクト情報（プロジェクト名・テーマカラー）更新・削除API（管理者専用）
 import { NextResponse } from "next/server";
-import { getDb, canUserAccessProject } from "@/lib/db";
+import { getDb, canUserAccessProject, deleteAttachmentFilesOnDisk } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { MAX_LENGTHS, validateHexColor, validateMaxLength } from "@/lib/validation";
 
@@ -169,6 +169,19 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       );
     }
 
+    // 削除前に対象プロジェクト配下の課題・コメントに紐づく添付ファイル名を取得
+    const attachmentsToDelete = db
+      .prepare(`
+        SELECT stored_name FROM attachments
+        WHERE issue_id IN (SELECT id FROM issues WHERE project_id = ?)
+           OR comment_id IN (
+             SELECT c.id FROM comments c
+             JOIN issues i ON c.issue_id = i.id
+             WHERE i.project_id = ?
+           )
+      `)
+      .all(projectId, projectId) as { stored_name: string }[];
+
     // トランザクションで関連するコメント・アクティビティ・課題・プロジェクトを一括削除
     db.exec("BEGIN;");
     try {
@@ -191,6 +204,9 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       db.exec("ROLLBACK;");
       throw txErr;
     }
+
+    // ディスク上の添付ファイル実体をクリーンアップ
+    deleteAttachmentFilesOnDisk(attachmentsToDelete.map((a) => a.stored_name));
 
     return NextResponse.json({
       success: true,

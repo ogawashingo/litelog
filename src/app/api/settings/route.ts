@@ -77,10 +77,18 @@ function loadSettingsFromDb(): SystemSettings {
   };
 }
 
-// システム設定の取得
+// システム設定の取得（未ログイン時は社内向け一言通知メッセージをマスクし、テーマ等の描画設定のみ返却）
 export async function GET() {
   try {
+    const sessionUser = await getSessionUser();
     const settings = loadSettingsFromDb();
+    if (!sessionUser) {
+      return NextResponse.json({
+        ...settings,
+        announcementEnabled: false,
+        announcementMessage: "",
+      });
+    }
     return NextResponse.json(settings);
   } catch (error) {
     console.error("システム設定取得エラー:", error);

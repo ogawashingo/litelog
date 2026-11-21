@@ -9,7 +9,12 @@ import {
   getSessionCookieOptions,
   hashPassword,
 } from "@/lib/auth";
-import { generateTotpSecret, getTotpUri, verifyTotpCode } from "@/lib/totp";
+import {
+  generateTotpSecret,
+  getTotpUri,
+  isValidTotpSecret,
+  verifyTotpCodeWithStep,
+} from "@/lib/totp";
 import { generateQrCodeSvg } from "@/lib/qrcode";
 import { MIN_LENGTHS, validatePassword } from "@/lib/validation";
 
@@ -151,6 +156,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     let is2faEnabled = 0;
     let finalTotpSecret: string | null = null;
+    let finalTotpStep: number | null = null;
 
     // 2要素認証を有効化する場合の検証
     if (enable2fa) {
@@ -160,15 +166,23 @@ export async function POST(request: Request, { params }: RouteParams) {
           { status: 400 }
         );
       }
-      const isValid = verifyTotpCode(String(totpCode), String(totpSecret), 1);
-      if (!isValid) {
+      const cleanTotpSecret = String(totpSecret).trim();
+      if (!isValidTotpSecret(cleanTotpSecret)) {
+        return NextResponse.json(
+          { error: "無効な2要素認証シークレット形式です。画面を再読み込みしてください" },
+          { status: 400 }
+        );
+      }
+      const verifyResult = verifyTotpCodeWithStep(String(totpCode), cleanTotpSecret, 1);
+      if (!verifyResult.valid) {
         return NextResponse.json(
           { error: "2要素認証コードが一致しません。スマホアプリに表示されている最新の6桁を入力してください" },
           { status: 400 }
         );
       }
       is2faEnabled = 1;
-      finalTotpSecret = String(totpSecret);
+      finalTotpSecret = cleanTotpSecret;
+      finalTotpStep = verifyResult.matchedStep;
     }
 
     // パスワードのハッシュ化
@@ -179,9 +193,10 @@ export async function POST(request: Request, { params }: RouteParams) {
       UPDATE users
       SET password = ?,
           totp_secret = ?,
-          totp_enabled = ?
+          totp_enabled = ?,
+          totp_last_used_step = ?
       WHERE id = ?
-    `).run(hashedPassword, finalTotpSecret, is2faEnabled, row.user_id);
+    `).run(hashedPassword, finalTotpSecret, is2faEnabled, finalTotpStep, row.user_id);
 
     db.prepare(`
       UPDATE invitations

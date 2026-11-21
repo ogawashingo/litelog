@@ -371,9 +371,14 @@ export function parseMarkdown(text: string, users: User[] = []): BlockNode[] {
 export function isSafeUrl(url: string, allowDataImage = false): boolean {
   if (!url || typeof url !== "string") return false;
   const trimmed = url.trim();
+  if (!trimmed || /[\x00-\x1f\x7f]/.test(trimmed)) return false;
 
-  // 相対パスまたはアンカーリンクは許可
-  if (trimmed.startsWith("/") || trimmed.startsWith("#") || trimmed.startsWith("./") || trimmed.startsWith("../")) {
+  // 相対パスまたはアンカーリンクは許可（ただし //evil.com や /\evil.com 等のプロトコル相対外部URLは遮断）
+  if (
+    /^\/(?!\/|\\)/.test(trimmed) ||
+    trimmed.startsWith("#") ||
+    ((trimmed.startsWith("./") || trimmed.startsWith("../")) && !trimmed.includes("\\"))
+  ) {
     return true;
   }
 

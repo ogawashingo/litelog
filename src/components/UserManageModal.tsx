@@ -340,7 +340,7 @@ export default function UserManageModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           loginId: newLoginId.trim().toLowerCase(),
-          password: newPassword.trim() || `${newLoginId.trim().toLowerCase()}123`,
+          password: newPassword.trim() || undefined,
           name: newName.trim(),
           role: newRole.trim() || defaultRoleLabel,
           isAdmin: false,

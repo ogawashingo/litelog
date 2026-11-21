@@ -1,6 +1,6 @@
 // 課題コメント個別操作（更新）API
 import { NextResponse } from "next/server";
-import { getDb, getCommentReactions, canUserAccessProject } from "@/lib/db";
+import { getDb, getCommentReactions, canUserAccessProject, deleteAttachmentFilesOnDisk } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createMentionNotifications } from "@/lib/notificationUtils";
 import { MAX_LENGTHS, validateMaxLength } from "@/lib/validation";
@@ -226,17 +226,23 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
     // 課題の存在確認（プロジェクトのアーカイブ状態も確認）
     const issue = db.prepare(`
-      SELECT i.id, i.issue_key, p.is_archived AS project_is_archived
+      SELECT i.id, i.issue_key, p.is_archived AS project_is_archived, p.name AS project_name, p.key AS project_key
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       WHERE ${isNumericIssue ? "i.id = ?" : "i.issue_key = ?"}
-    `).get(isNumericIssue ? Number(id) : id) as { id: number; issue_key: string; project_is_archived?: number } | undefined;
+    `).get(isNumericIssue ? Number(id) : id) as {
+      id: number;
+      issue_key: string;
+      project_is_archived?: number;
+      project_name?: string;
+      project_key?: string;
+    } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
     }
 
-    if (issue.project_is_archived) {
+    if (isArchivedProject(issue)) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、コメントを削除できません（読み取り専用）" },
         { status: 403 }
@@ -252,7 +258,12 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "対象のコメントが見つかりません" }, { status: 404 });
     }
 
-    // トランザクション処理：コメント削除（外部キーにより紐づく comment_histories も自動カスケード削除）
+    // 削除前にこのコメントに紐づく添付ファイル名を取得（ON DELETE CASCADEでDBから消える前に取得）
+    const attachmentsToDelete = db
+      .prepare("SELECT stored_name FROM attachments WHERE comment_id = ?")
+      .all(commentIdNum) as { stored_name: string }[];
+
+    // トランザクション処理：コメント削除（外部キーにより紐づく comment_histories や attachments も自動カスケード削除）
     db.exec("BEGIN;");
     try {
       db.prepare("DELETE FROM comments WHERE id = ?").run(commentIdNum);
@@ -271,6 +282,9 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       db.exec("ROLLBACK;");
       throw txErr;
     }
+
+    // ディスク上の添付ファイル実体をクリーンアップ
+    deleteAttachmentFilesOnDisk(attachmentsToDelete.map((a) => a.stored_name));
 
     return NextResponse.json({ success: true, message: "コメントを完全に削除しました" });
   } catch (error) {

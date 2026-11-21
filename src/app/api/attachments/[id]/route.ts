@@ -1,8 +1,12 @@
 // 個別添付ファイルの配信（GET）および削除（DELETE）API
 import { NextResponse } from "next/server";
-import path from "node:path";
 import fs from "node:fs";
-import { getDb, ATTACHMENTS_DIR, canUserAccessProject } from "@/lib/db";
+import {
+  getDb,
+  canUserAccessProject,
+  resolveSafeAttachmentPath,
+  deleteAttachmentFilesOnDisk,
+} from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { isArchivedProject } from "@/types";
 
@@ -91,8 +95,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
       );
     }
 
-    const filePath = path.join(ATTACHMENTS_DIR, attachment.stored_name);
-    if (!fs.existsSync(filePath)) {
+    const filePath = resolveSafeAttachmentPath(attachment.stored_name);
+    if (!filePath || !fs.existsSync(filePath)) {
       return NextResponse.json(
         { error: "ディスク上にファイル実体が存在しません" },
         { status: 404 }
@@ -214,15 +218,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     // DBレコード削除
     db.prepare("DELETE FROM attachments WHERE id = ?").run(attachmentId);
 
-    // ディスク上の実体ファイルを削除
-    try {
-      const filePath = path.join(ATTACHMENTS_DIR, attachment.stored_name);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    } catch (fsErr) {
-      console.error("ファイル実体削除エラー:", fsErr);
-    }
+    // ディスク上の実体ファイルを安全に削除（パストラバーサル防止付き）
+    deleteAttachmentFilesOnDisk([attachment.stored_name]);
 
     return NextResponse.json({ success: true, message: "添付ファイルを削除しました" });
   } catch (error) {

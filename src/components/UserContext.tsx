@@ -196,6 +196,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             const usersData: User[] = await usersRes.json();
             setUsers(usersData);
           }
+          await refreshSettings();
           setIsAuthReady(true);
           return;
         }

@@ -365,3 +365,29 @@ export function validateFileSignature(
       return false;
   }
 }
+
+// 保存用ファイル名（stored_name）がパストラバーサルを含まない安全な単一ファイル名か検証する
+export function isSafeStoredAttachmentName(storedName: unknown): boolean {
+  if (typeof storedName !== "string") return false;
+  const trimmed = storedName.trim();
+  if (!trimmed || trimmed.length > 255 || trimmed !== storedName) return false;
+
+  // パス区切り文字、親ディレクトリ参照、隠しファイル（先頭ドット）、制御文字・NULバイトをすべて拒否
+  if (
+    trimmed.includes("/") ||
+    trimmed.includes("\\") ||
+    trimmed.includes("..") ||
+    trimmed.startsWith(".") ||
+    /[\x00-\x1f\x7f]/.test(trimmed)
+  ) {
+    return false;
+  }
+
+  // 許可された拡張子を持つファイル名のみ許容
+  const ext = getFileExtension(trimmed);
+  if (!ext || !ALLOWED_ATTACHMENT_RULES[ext]) {
+    return false;
+  }
+
+  return true;
+}

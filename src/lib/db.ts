@@ -2,6 +2,7 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
+import { isSafeStoredAttachmentName } from "@/lib/attachmentPolicy";
 
 // データベースファイルの保存先パス（環境変数 LITELOG_DB_PATH または BACKLOG_DB_PATH で切り替え可能）
 const DB_DIR = path.join(process.cwd(), "data");
@@ -88,6 +89,9 @@ function initDb(db: DatabaseSync) {
     }
     if (!userCols.some((col) => col.name === "totp_enabled")) {
       db.exec("ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;");
+    }
+    if (!userCols.some((col) => col.name === "totp_last_used_step")) {
+      db.exec("ALTER TABLE users ADD COLUMN totp_last_used_step INTEGER;");
     }
 
     // is_admin=1 のユーザーは常に role_type='admin' となるよう整合性を維持
@@ -761,7 +765,19 @@ export function getProjectMemberUsers(db: DatabaseSync, projectId: number) {
 
 // プロジェクトの参加メンバーを更新（選択されたメンバーID一覧で正確に同期・脱退。継続メンバーのピン留め状態は保持）
 export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: number[]) {
-  const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
+  const rawUniqueIds = Array.from(new Set(userIds.map(Number))).filter(
+    (id) => Number.isInteger(id) && id > 0
+  );
+
+  // 実在するユーザーIDのみに絞り込み（外部キー制約エラーによる500例外を防止）
+  let uniqueIds: number[] = [];
+  if (rawUniqueIds.length > 0) {
+    const checkPlaceholders = rawUniqueIds.map(() => "?").join(", ");
+    const existingRows = db
+      .prepare(`SELECT id FROM users WHERE id IN (${checkPlaceholders})`)
+      .all(...rawUniqueIds) as { id: number }[];
+    uniqueIds = existingRows.map((r) => Number(r.id));
+  }
 
   db.exec("BEGIN IMMEDIATE;");
   try {
@@ -790,7 +806,19 @@ export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: 
 
 // ユーザーの所属プロジェクト一覧を更新（選択されたプロジェクトID一覧で正確に同期・脱退。継続プロジェクトのピン留め状態は保持）
 export function setUserProjects(db: DatabaseSync, userId: number, projectIds: number[]) {
-  const uniqueProjectIds = Array.from(new Set(projectIds.map(Number))).filter(Boolean);
+  const rawUniqueProjectIds = Array.from(new Set(projectIds.map(Number))).filter(
+    (id) => Number.isInteger(id) && id > 0
+  );
+
+  // 実在するプロジェクトIDのみに絞り込み（外部キー制約エラーによる500例外を防止）
+  let uniqueProjectIds: number[] = [];
+  if (rawUniqueProjectIds.length > 0) {
+    const checkPlaceholders = rawUniqueProjectIds.map(() => "?").join(", ");
+    const existingRows = db
+      .prepare(`SELECT id FROM projects WHERE id IN (${checkPlaceholders})`)
+      .all(...rawUniqueProjectIds) as { id: number }[];
+    uniqueProjectIds = existingRows.map((r) => Number(r.id));
+  }
 
   db.exec("BEGIN IMMEDIATE;");
   try {
@@ -814,6 +842,47 @@ export function setUserProjects(db: DatabaseSync, userId: number, projectIds: nu
   } catch (err) {
     db.exec("ROLLBACK;");
     throw err;
+  }
+}
+
+// 保存ファイル名（stored_name）の安全性を検証し、ATTACHMENTS_DIR 直下の絶対パスを解決する（パストラバーサル防止）
+export function resolveSafeAttachmentPath(
+  storedName: unknown,
+  baseDir: string = ATTACHMENTS_DIR
+): string | null {
+  if (!isSafeStoredAttachmentName(storedName)) {
+    return null;
+  }
+  const cleanName = String(storedName).trim();
+  const resolvedBase = path.resolve(baseDir);
+  const resolvedTarget = path.resolve(resolvedBase, cleanName);
+
+  // 解決後のパスが必ず ATTACHMENTS_DIR 直下のファイルであることを厳密に検証
+  if (
+    path.dirname(resolvedTarget) !== resolvedBase ||
+    !resolvedTarget.startsWith(resolvedBase + path.sep)
+  ) {
+    return null;
+  }
+  return resolvedTarget;
+}
+
+// ディスク上の添付ファイル実体を安全に一括削除する（パストラバーサル防止付き）
+export function deleteAttachmentFilesOnDisk(
+  storedNames: Array<string | null | undefined>,
+  baseDir: string = ATTACHMENTS_DIR
+): void {
+  for (const name of storedNames) {
+    if (!name) continue;
+    const safePath = resolveSafeAttachmentPath(name, baseDir);
+    if (!safePath) continue;
+    try {
+      if (fs.existsSync(safePath)) {
+        fs.unlinkSync(safePath);
+      }
+    } catch (err) {
+      console.error("添付ファイル実体削除エラー:", err);
+    }
   }
 }
 

@@ -75,16 +75,29 @@ interface RateLimitRow {
 }
 
 /**
- * リクエストヘッダーからクライアントIPアドレスを抽出します
+ * リクエストヘッダーからクライアントIPアドレスを安全に抽出します
+ * （不正文字列インジェクション防止のためIPアドレス文字種を検証）
  */
 export function getClientIp(request: Request): string {
+  if (process.env.TRUST_PROXY === "false") {
+    return "local";
+  }
+  const sanitizeIp = (raw: string | undefined | null): string | null => {
+    if (!raw) return null;
+    const trimmed = raw.trim().slice(0, 64);
+    if (!trimmed || !/^[0-9a-fA-F:.\-%]+$/.test(trimmed)) {
+      return null;
+    }
+    return trimmed;
+  };
+
   const xff = request.headers.get("x-forwarded-for");
   if (xff) {
-    const firstIp = xff.split(",")[0]?.trim();
-    if (firstIp) return firstIp.slice(0, 64);
+    const firstIp = sanitizeIp(xff.split(",")[0]);
+    if (firstIp) return firstIp;
   }
-  const realIp = request.headers.get("x-real-ip")?.trim();
-  if (realIp) return realIp.slice(0, 64);
+  const realIp = sanitizeIp(request.headers.get("x-real-ip"));
+  if (realIp) return realIp;
   return "local";
 }
 
@@ -108,6 +121,8 @@ export function formatRetryAfterJa(retryAfterSec: number): string {
 
 /**
  * 現在のレート制限状態を確認します（ロック期限切れの場合は自動リセット）
+ * ※ login / 2fa スコープでは X-Forwarded-For 偽装や分散IPによる総当たり攻撃を防ぐため、
+ *   同一アカウント（identifier）に対する複数IP横断のロック状態・累積失敗数も統合判定します。
  */
 export function checkRateLimit(
   db: DatabaseSync,
@@ -118,13 +133,21 @@ export function checkRateLimit(
   const nowMs = params.nowMs ?? Date.now();
   const policy = RATE_LIMIT_POLICIES[scope];
 
-  const row = db
-    .prepare(
-      "SELECT id, scope, identifier, ip_address, failed_count, first_failed_at, last_failed_at, locked_until FROM login_rate_limits WHERE scope = ? AND identifier = ? AND ip_address = ?"
-    )
-    .get(scope, identifier, ipAddress) as RateLimitRow | undefined;
+  const rows = (
+    scope === "login_ip"
+      ? db
+          .prepare(
+            "SELECT id, scope, identifier, ip_address, failed_count, first_failed_at, last_failed_at, locked_until FROM login_rate_limits WHERE scope = ? AND identifier = ? AND ip_address = ?"
+          )
+          .all(scope, identifier, ipAddress)
+      : db
+          .prepare(
+            "SELECT id, scope, identifier, ip_address, failed_count, first_failed_at, last_failed_at, locked_until FROM login_rate_limits WHERE scope = ? AND identifier = ?"
+          )
+          .all(scope, identifier)
+  ) as unknown as RateLimitRow[];
 
-  if (!row) {
+  if (!rows || rows.length === 0) {
     return {
       allowed: true,
       failedCount: 0,
@@ -135,54 +158,72 @@ export function checkRateLimit(
     };
   }
 
-  // ロック中かどうか判定
-  if (row.locked_until) {
-    const lockedUntilMs = Date.parse(row.locked_until);
-    if (Number.isFinite(lockedUntilMs) && lockedUntilMs > nowMs) {
-      const retryAfterSec = Math.max(1, Math.ceil((lockedUntilMs - nowMs) / 1000));
-      return {
-        allowed: false,
-        failedCount: row.failed_count,
-        maxAttempts: policy.maxAttempts,
-        remainingAttempts: 0,
-        retryAfterSec,
-        lockedUntil: row.locked_until,
-      };
+  let totalActiveFailed = 0;
+  let maxLockedUntilMs = 0;
+  let maxLockedUntilIso: string | null = null;
+  const expiredIds: number[] = [];
+
+  for (const r of rows) {
+    if (r.locked_until) {
+      const lockedUntilMs = Date.parse(r.locked_until);
+      if (Number.isFinite(lockedUntilMs) && lockedUntilMs > nowMs) {
+        totalActiveFailed += r.failed_count;
+        if (lockedUntilMs > maxLockedUntilMs) {
+          maxLockedUntilMs = lockedUntilMs;
+          maxLockedUntilIso = r.locked_until;
+        }
+        continue;
+      }
+      // ロック期限が切れていれば自動解除対象
+      expiredIds.push(r.id);
+      continue;
     }
 
-    // ロック期限が切れていれば自動解除してレコードをクリア
-    db.prepare("DELETE FROM login_rate_limits WHERE id = ?").run(row.id);
+    if (r.first_failed_at) {
+      const firstFailedMs = Date.parse(r.first_failed_at);
+      if (Number.isFinite(firstFailedMs) && nowMs - firstFailedMs > policy.windowSeconds * 1000) {
+        expiredIds.push(r.id);
+        continue;
+      }
+    }
+
+    totalActiveFailed += r.failed_count;
+  }
+
+  if (expiredIds.length > 0) {
+    const placeholders = expiredIds.map(() => "?").join(",");
+    db.prepare(`DELETE FROM login_rate_limits WHERE id IN (${placeholders})`).run(...expiredIds);
+  }
+
+  if (maxLockedUntilMs > nowMs && maxLockedUntilIso) {
+    const retryAfterSec = Math.max(1, Math.ceil((maxLockedUntilMs - nowMs) / 1000));
     return {
-      allowed: true,
-      failedCount: 0,
+      allowed: false,
+      failedCount: totalActiveFailed,
       maxAttempts: policy.maxAttempts,
-      remainingAttempts: policy.maxAttempts,
-      retryAfterSec: 0,
-      lockedUntil: null,
+      remainingAttempts: 0,
+      retryAfterSec,
+      lockedUntil: maxLockedUntilIso,
     };
   }
 
-  // 時間窓（windowSeconds）を過ぎた古い失敗カウントはリセット
-  if (row.first_failed_at) {
-    const firstFailedMs = Date.parse(row.first_failed_at);
-    if (Number.isFinite(firstFailedMs) && nowMs - firstFailedMs > policy.windowSeconds * 1000) {
-      db.prepare("DELETE FROM login_rate_limits WHERE id = ?").run(row.id);
-      return {
-        allowed: true,
-        failedCount: 0,
-        maxAttempts: policy.maxAttempts,
-        remainingAttempts: policy.maxAttempts,
-        retryAfterSec: 0,
-        lockedUntil: null,
-      };
-    }
+  if (totalActiveFailed >= policy.maxAttempts) {
+    const lockedUntilIso = new Date(nowMs + policy.lockSeconds * 1000).toISOString();
+    return {
+      allowed: false,
+      failedCount: totalActiveFailed,
+      maxAttempts: policy.maxAttempts,
+      remainingAttempts: 0,
+      retryAfterSec: policy.lockSeconds,
+      lockedUntil: lockedUntilIso,
+    };
   }
 
   return {
     allowed: true,
-    failedCount: row.failed_count,
+    failedCount: totalActiveFailed,
     maxAttempts: policy.maxAttempts,
-    remainingAttempts: Math.max(0, policy.maxAttempts - row.failed_count),
+    remainingAttempts: Math.max(0, policy.maxAttempts - totalActiveFailed),
     retryAfterSec: 0,
     lockedUntil: null,
   };
@@ -223,7 +264,27 @@ export function recordAuthFailure(
     }
   }
 
-  const shouldLock = nextCount >= policy.maxAttempts;
+  // login / 2fa スコープでは同一識別子に対する他IPからの有効期間内失敗数も合算してロック判定（XFF偽装バイパス防止）
+  let otherIpActiveFailures = 0;
+  if (scope !== "login_ip") {
+    const otherRows = db
+      .prepare(
+        "SELECT id, failed_count, first_failed_at, locked_until FROM login_rate_limits WHERE scope = ? AND identifier = ? AND ip_address != ?"
+      )
+      .all(scope, identifier, ipAddress) as unknown as RateLimitRow[];
+    for (const orow of otherRows) {
+      const fMs = orow.first_failed_at ? Date.parse(orow.first_failed_at) : NaN;
+      const lMs = orow.locked_until ? Date.parse(orow.locked_until) : NaN;
+      const winActive = Number.isFinite(fMs) && nowMs - fMs <= policy.windowSeconds * 1000;
+      const lockActive = Number.isFinite(lMs) && lMs > nowMs;
+      if (winActive || lockActive) {
+        otherIpActiveFailures += orow.failed_count;
+      }
+    }
+  }
+
+  const effectiveTotalCount = nextCount + otherIpActiveFailures;
+  const shouldLock = effectiveTotalCount >= policy.maxAttempts;
   const lockedUntilIso = shouldLock
     ? new Date(nowMs + policy.lockSeconds * 1000).toISOString()
     : null;
@@ -241,9 +302,9 @@ export function recordAuthFailure(
 
   return {
     allowed: !shouldLock,
-    failedCount: nextCount,
+    failedCount: effectiveTotalCount,
     maxAttempts: policy.maxAttempts,
-    remainingAttempts: Math.max(0, policy.maxAttempts - nextCount),
+    remainingAttempts: Math.max(0, policy.maxAttempts - effectiveTotalCount),
     retryAfterSec: shouldLock ? policy.lockSeconds : 0,
     lockedUntil: lockedUntilIso,
   };
@@ -257,9 +318,15 @@ export function resetAuthRateLimit(
   params: { scope: RateLimitScope; identifier: string; ipAddress: string }
 ): void {
   const identifier = normalizeIdentifier(params.identifier);
-  db.prepare(
-    "DELETE FROM login_rate_limits WHERE scope = ? AND identifier = ? AND ip_address = ?"
-  ).run(params.scope, identifier, params.ipAddress);
+  if (params.scope === "login_ip") {
+    db.prepare(
+      "DELETE FROM login_rate_limits WHERE scope = ? AND identifier = ? AND ip_address = ?"
+    ).run(params.scope, identifier, params.ipAddress);
+  } else {
+    db.prepare(
+      "DELETE FROM login_rate_limits WHERE scope = ? AND identifier = ?"
+    ).run(params.scope, identifier);
+  }
 }
 
 /**

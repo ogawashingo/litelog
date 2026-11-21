@@ -249,6 +249,10 @@ export async function PUT(request: Request) {
       row.id
     );
 
+    // パスワード変更により他端末・旧トークンは失効するため、操作者本人のセッションCookieを新状態で再発行
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE_NAME, createSessionToken(row.id), getSessionCookieOptions());
+
     return NextResponse.json({
       success: true,
       message: "パスワードを変更しました",

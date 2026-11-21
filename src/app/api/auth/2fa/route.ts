@@ -12,10 +12,10 @@ import {
   verifyTemp2faToken,
 } from "@/lib/auth";
 import {
-  generateTotpCode,
   generateTotpSecret,
   getTotpUri,
-  verifyTotpCode,
+  isValidTotpSecret,
+  verifyTotpCodeWithStep,
 } from "@/lib/totp";
 import { generateQrCodeSvg } from "@/lib/qrcode";
 import {
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     }
 
     const userRow = db.prepare(`
-      SELECT id, login_id, name, role, is_admin, role_type, color, week_start, show_holidays, totp_secret, totp_enabled, created_at
+      SELECT id, login_id, name, role, is_admin, role_type, color, week_start, show_holidays, totp_secret, totp_enabled, totp_last_used_step, created_at
       FROM users
       WHERE id = ?
     `).get(userId) as {
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
       show_holidays: number;
       totp_secret: string | null;
       totp_enabled: number;
+      totp_last_used_step: number | null;
       created_at: string;
     } | undefined;
 
@@ -95,9 +96,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // TOTPコードの検証（前後30秒の時刻ズレ許容）
-    const isValid = verifyTotpCode(String(code), userRow.totp_secret, 1);
-    if (!isValid) {
+    // TOTPコードの検証（前後30秒の時刻ズレ許容 ＆ 同一タイムステップのリプレイ再利用防止）
+    const verifyResult = verifyTotpCodeWithStep(
+      String(code),
+      userRow.totp_secret,
+      1,
+      Date.now(),
+      30,
+      userRow.totp_last_used_step
+    );
+    if (!verifyResult.valid) {
       const nextLimit = recordAuthFailure(db, {
         scope: "2fa",
         identifier: userRow.login_id,
@@ -112,9 +120,23 @@ export async function POST(request: Request) {
           { status: 429, headers: { "Retry-After": String(nextLimit.retryAfterSec) } }
         );
       }
+      if (verifyResult.replayed) {
+        return NextResponse.json(
+          { error: "この2要素認証コードは既に使用されています。認証アプリに次のコードが表示されるまでお待ちください" },
+          { status: 401 }
+        );
+      }
       return NextResponse.json(
         { error: "2要素認証コードが正しくありません。スマホの認証アプリをご確認ください" },
         { status: 401 }
+      );
+    }
+
+    // 使用済みタイムステップを記録（同一コードのリプレイ攻撃および一時トークンの再利用を防止）
+    if (verifyResult.matchedStep !== null) {
+      db.prepare("UPDATE users SET totp_last_used_step = ? WHERE id = ?").run(
+        verifyResult.matchedStep,
+        userRow.id
       );
     }
 
@@ -189,26 +211,56 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { secret, code } = body;
+    const { secret, code, password } = body;
 
     if (!secret || !code) {
       return NextResponse.json({ error: "シークレットと6桁コードが必要です" }, { status: 400 });
     }
 
-    const isValid = verifyTotpCode(String(code), String(secret), 1);
-    if (!isValid) {
+    const cleanSecret = String(secret).trim();
+    if (!isValidTotpSecret(cleanSecret)) {
+      return NextResponse.json(
+        { error: "無効な2要素認証シークレット形式です。QRコードを再生成してください" },
+        { status: 400 }
+      );
+    }
+
+    const db = getDb();
+    const currentUserRow = db
+      .prepare("SELECT password, COALESCE(totp_enabled, 0) AS totp_enabled FROM users WHERE id = ?")
+      .get(sessionUser.id) as { password: string; totp_enabled: number } | undefined;
+
+    if (!currentUserRow) {
+      return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
+    }
+
+    // 既に2FAが有効な場合は無断上書きを防止（一度解除するか、現在のパスワード照合を必須とする）
+    if (currentUserRow.totp_enabled === 1) {
+      if (!password || !verifyPassword(String(password), currentUserRow.password)) {
+        return NextResponse.json(
+          { error: "既に2要素認証が有効です。再設定する場合は一度解除してから設定してください" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const verifyResult = verifyTotpCodeWithStep(String(code), cleanSecret, 1);
+    if (!verifyResult.valid) {
       return NextResponse.json(
         { error: "認証コードが一致しません。スマホアプリに表示されている最新の6桁を入力してください" },
         { status: 400 }
       );
     }
 
-    const db = getDb();
     db.prepare(`
       UPDATE users
-      SET totp_secret = ?, totp_enabled = 1
+      SET totp_secret = ?, totp_enabled = 1, totp_last_used_step = ?
       WHERE id = ?
-    `).run(String(secret), sessionUser.id);
+    `).run(cleanSecret, verifyResult.matchedStep, sessionUser.id);
+
+    // 2FA状態の変更により旧セッショントークンは失効するため、操作者本人のCookieを再発行
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE_NAME, createSessionToken(sessionUser.id), getSessionCookieOptions());
 
     return NextResponse.json({ success: true, message: "2要素認証を有効化しました" });
   } catch (error) {
@@ -238,9 +290,13 @@ export async function DELETE(request: Request) {
 
     db.prepare(`
       UPDATE users
-      SET totp_secret = NULL, totp_enabled = 0
+      SET totp_secret = NULL, totp_enabled = 0, totp_last_used_step = NULL
       WHERE id = ?
     `).run(sessionUser.id);
+
+    // 2FA解除後の認証状態で操作者本人のセッションCookieを再発行
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE_NAME, createSessionToken(sessionUser.id), getSessionCookieOptions());
 
     return NextResponse.json({ success: true, message: "2要素認証を解除しました" });
   } catch (error) {

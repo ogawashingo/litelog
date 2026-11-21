@@ -64,6 +64,20 @@ export function generateTotpSecret(byteLength = 20): string {
 }
 
 /**
+ * TOTPシークレットが有効なBase32文字列であり、十分な鍵長（デフォルト16バイト＝128bit以上）を持つか検証します。
+ * 0バイト鍵や無効文字混入・低エントロピー鍵の登録を防止します。
+ */
+export function isValidTotpSecret(secret: unknown, minByteLength = 16): boolean {
+  if (typeof secret !== "string") return false;
+  const clean = secret.toUpperCase().replace(/=+$/, "").replace(/[\s-]/g, "");
+  if (!clean || !/^[A-Z2-7]+$/.test(clean)) {
+    return false;
+  }
+  const decoded = base32Decode(clean);
+  return decoded.length >= minByteLength;
+}
+
+/**
  * 指定したカウンタ（30秒単位のタイムステップ）に対する6桁のHOTPコードを生成します
  */
 export function generateHotpCode(secret: string, counter: number): string {
@@ -96,6 +110,56 @@ export function generateTotpCode(secret: string, timestampMs = Date.now(), stepS
   return generateHotpCode(secret, counter);
 }
 
+export interface TotpVerifyResult {
+  valid: boolean;
+  matchedStep: number | null;
+  replayed: boolean;
+}
+
+/**
+ * ユーザーが入力した6桁コードを検証し、一致したタイムステップおよびリプレイ（再利用）有無を返します（RFC 6238 Section 5.2 準拠）
+ */
+export function verifyTotpCodeWithStep(
+  token: string,
+  secret: string,
+  window = 1,
+  timestampMs = Date.now(),
+  stepSec = 30,
+  lastUsedStep: number | null | undefined = null
+): TotpVerifyResult {
+  if (!token || !secret || !isValidTotpSecret(secret, 10)) {
+    return { valid: false, matchedStep: null, replayed: false };
+  }
+  const cleanToken = token.trim().replace(/\s/g, "");
+  if (!/^\d{6}$/.test(cleanToken)) {
+    return { valid: false, matchedStep: null, replayed: false };
+  }
+
+  const currentCounter = Math.floor(timestampMs / 1000 / stepSec);
+
+  for (let errorWindow = -window; errorWindow <= window; errorWindow++) {
+    const candidateStep = currentCounter + errorWindow;
+    const calculated = generateHotpCode(secret, candidateStep);
+    // タイミング攻撃防止のため crypto.timingSafeEqual を使用
+    if (
+      calculated.length === cleanToken.length &&
+      crypto.timingSafeEqual(Buffer.from(calculated), Buffer.from(cleanToken))
+    ) {
+      if (
+        lastUsedStep !== null &&
+        lastUsedStep !== undefined &&
+        Number.isFinite(Number(lastUsedStep)) &&
+        candidateStep <= Number(lastUsedStep)
+      ) {
+        return { valid: false, matchedStep: candidateStep, replayed: true };
+      }
+      return { valid: true, matchedStep: candidateStep, replayed: false };
+    }
+  }
+
+  return { valid: false, matchedStep: null, replayed: false };
+}
+
 /**
  * ユーザーが入力した6桁コードを検証します（時刻ズレ許容 window: デフォルト前後1ステップ = ±30秒）
  */
@@ -106,24 +170,7 @@ export function verifyTotpCode(
   timestampMs = Date.now(),
   stepSec = 30
 ): boolean {
-  if (!token || !secret) return false;
-  const cleanToken = token.trim().replace(/\s/g, "");
-  if (!/^\d{6}$/.test(cleanToken)) return false;
-
-  const currentCounter = Math.floor(timestampMs / 1000 / stepSec);
-
-  for (let errorWindow = -window; errorWindow <= window; errorWindow++) {
-    const calculated = generateHotpCode(secret, currentCounter + errorWindow);
-    // タイミング攻撃防止のため crypto.timingSafeEqual を使用
-    if (
-      calculated.length === cleanToken.length &&
-      crypto.timingSafeEqual(Buffer.from(calculated), Buffer.from(cleanToken))
-    ) {
-      return true;
-    }
-  }
-
-  return false;
+  return verifyTotpCodeWithStep(token, secret, window, timestampMs, stepSec).valid;
 }
 
 /**

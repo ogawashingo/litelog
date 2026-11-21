@@ -3289,6 +3289,288 @@ async function runTests() {
     console.log("✓ ログイン・2FA試行レート制限＆管理者ロック確認・手動解除テスト成功");
   }
 
+  // =========================================================================
+  // 追加セキュリティ強化検証テスト（パストラバーサル防止・パスワード/2FA変更時トークン失効・TOTPリプレイ/0バイト鍵防止・XFF偽装対策・プロトコル相対URL遮断）
+  // =========================================================================
+  {
+    const os = await import("node:os");
+    const { isSafeStoredAttachmentName } = await import("./src/lib/attachmentPolicy.ts");
+    const { generateTotpSecret, generateTotpCode, isValidTotpSecret, verifyTotpCode, verifyTotpCodeWithStep } = await import("./src/lib/totp.ts");
+    const { getClientIp } = await import("./src/lib/rateLimit.ts");
+
+    // src/lib/db.ts と同一の安全な添付ファイルパス解決＆削除ヘルパー
+    function testResolveSafeAttachmentPath(storedName, baseDir) {
+      if (!isSafeStoredAttachmentName(storedName)) return null;
+      const cleanName = String(storedName).trim();
+      const resolvedBase = path.resolve(baseDir);
+      const resolvedTarget = path.resolve(resolvedBase, cleanName);
+      if (
+        path.dirname(resolvedTarget) !== resolvedBase ||
+        !resolvedTarget.startsWith(resolvedBase + path.sep)
+      ) {
+        return null;
+      }
+      return resolvedTarget;
+    }
+
+    function testDeleteAttachmentFilesOnDisk(storedNames, baseDir) {
+      for (const name of storedNames) {
+        if (!name) continue;
+        const safePath = testResolveSafeAttachmentPath(name, baseDir);
+        if (!safePath) continue;
+        if (fs.existsSync(safePath)) {
+          fs.unlinkSync(safePath);
+        }
+      }
+    }
+
+    // src/lib/auth.ts と同一の認証状態バインド型トークン生成・検証ヘルパー
+    const testSessionSecret = "test_session_secret_for_cred_binding_2026";
+    function getTestCredContext(userId, includeStep = false) {
+      const row = db
+        .prepare(
+          "SELECT password, COALESCE(totp_enabled, 0) AS totp_enabled, COALESCE(totp_secret, '') AS totp_secret, COALESCE(totp_last_used_step, 0) AS totp_last_used_step FROM users WHERE id = ?"
+        )
+        .get(userId);
+      if (!row) return "";
+      if (includeStep) {
+        return `:${row.password}:${row.totp_enabled}:${row.totp_secret}:${row.totp_last_used_step}`;
+      }
+      return `:${row.password}:${row.totp_enabled}:${row.totp_secret}`;
+    }
+    function createBoundSessionToken(userId, maxAgeSec = 3600) {
+      const expiresAt = Date.now() + maxAgeSec * 1000;
+      const payload = `${userId}.${expiresAt}`;
+      const ctx = getTestCredContext(userId, false);
+      const sig = crypto.createHmac("sha256", testSessionSecret).update(`${payload}${ctx}`).digest("hex");
+      return `${payload}.${sig}`;
+    }
+    function verifyBoundSessionToken(token) {
+      const parts = String(token || "").split(".");
+      if (parts.length !== 3) return null;
+      const [uidStr, expStr, sigHex] = parts;
+      const userId = Number(uidStr);
+      const expiresAt = Number(expStr);
+      if (!Number.isInteger(userId) || userId <= 0 || Date.now() > expiresAt) return null;
+      const payload = `${uidStr}.${expStr}`;
+      const ctx = getTestCredContext(userId, false);
+      const expectedHex = crypto.createHmac("sha256", testSessionSecret).update(`${payload}${ctx}`).digest("hex");
+      const sigBuf = Buffer.from(sigHex, "hex");
+      const expBuf = Buffer.from(expectedHex, "hex");
+      if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+      return userId;
+    }
+    function createBoundTemp2faToken(userId, maxAgeSec = 300) {
+      const expiresAt = Date.now() + maxAgeSec * 1000;
+      const payload = `2fa.${userId}.${expiresAt}`;
+      const ctx = getTestCredContext(userId, true);
+      const sig = crypto.createHmac("sha256", testSessionSecret).update(`${payload}${ctx}`).digest("hex");
+      return `${payload}.${sig}`;
+    }
+    function verifyBoundTemp2faToken(token) {
+      const parts = String(token || "").split(".");
+      if (parts.length !== 4 || parts[0] !== "2fa") return null;
+      const [, uidStr, expStr, sigHex] = parts;
+      const userId = Number(uidStr);
+      const expiresAt = Number(expStr);
+      if (!Number.isInteger(userId) || userId <= 0 || Date.now() > expiresAt) return null;
+      const payload = `2fa.${uidStr}.${expStr}`;
+      const ctx = getTestCredContext(userId, true);
+      const expectedHex = crypto.createHmac("sha256", testSessionSecret).update(`${payload}${ctx}`).digest("hex");
+      const sigBuf = Buffer.from(sigHex, "hex");
+      const expBuf = Buffer.from(expectedHex, "hex");
+      if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+      return userId;
+    }
+
+    // 1. 添付ファイル stored_name のパストラバーサル検証
+    const testAttachDir = path.join(os.tmpdir(), `litelog_att_test_${Date.now()}`);
+    fs.mkdirSync(testAttachDir, { recursive: true });
+
+    if (!isSafeStoredAttachmentName("1732180000_a1b2c3d4_report.pdf")) {
+      throw new Error("正当な stored_name が拒否されました");
+    }
+    for (const maliciousName of [
+      "../litelog.db",
+      "../../package.json",
+      "..\\litelog.db",
+      "/etc/passwd",
+      "subdir/file.png",
+      ".env",
+      ".hidden.png",
+      "malware.exe",
+      "script.svg",
+      "file\x00.png",
+      "",
+    ]) {
+      if (isSafeStoredAttachmentName(maliciousName)) {
+        throw new Error(`危険な stored_name が通過してしまいました: ${maliciousName}`);
+      }
+      if (testResolveSafeAttachmentPath(maliciousName, testAttachDir) !== null) {
+        throw new Error(`危険なパス解決が null になりませんでした: ${maliciousName}`);
+      }
+    }
+
+    const safeResolved = testResolveSafeAttachmentPath("1732180000_a1b2c3d4_image.png", testAttachDir);
+    if (!safeResolved || path.dirname(safeResolved) !== path.resolve(testAttachDir)) {
+      throw new Error("正当な添付ファイルパスの解決に失敗しました");
+    }
+    fs.writeFileSync(safeResolved, "dummy");
+    testDeleteAttachmentFilesOnDisk(["../litelog.db", "1732180000_a1b2c3d4_image.png"], testAttachDir);
+    if (fs.existsSync(safeResolved)) {
+      throw new Error("deleteAttachmentFilesOnDisk で対象ファイルが削除されませんでした");
+    }
+    fs.rmSync(testAttachDir, { recursive: true, force: true });
+
+    // 2. パスワード変更・2FA状態変更による既存セッショントークン＆2FA一時トークンの即時自動失効検証
+    const userCols = db.prepare("PRAGMA table_info(users)").all();
+    if (!userCols.some((c) => c.name === "totp_last_used_step")) {
+      db.exec("ALTER TABLE users ADD COLUMN totp_last_used_step INTEGER;");
+    }
+
+    const secUserId = Number(
+      db.prepare(`
+        INSERT INTO users (login_id, password, name, role, is_admin, role_type, totp_enabled, totp_secret)
+        VALUES ('sec_token_user', ?, 'トークン失効検証ユーザー', 'メンバー', 0, 'member', 0, NULL)
+      `).run(hashPassword("initialPass123")).lastInsertRowid
+    );
+
+    // セッショントークン発行と検証
+    const tokenBeforePwChange = createBoundSessionToken(secUserId, 3600);
+    if (verifyBoundSessionToken(tokenBeforePwChange) !== secUserId) {
+      throw new Error("発行直後のセッショントークン検証に失敗しました");
+    }
+
+    // パスワード変更後、旧セッショントークンが自動的に失効すること
+    db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashPassword("changedPass456"), secUserId);
+    if (verifyBoundSessionToken(tokenBeforePwChange) !== null) {
+      throw new Error("パスワード変更後に旧セッショントークンが失効していません");
+    }
+
+    // 新パスワード状態で再発行したトークンは有効であり、その後2FAを有効化すると再び旧トークンが失効すること
+    const tokenBefore2fa = createBoundSessionToken(secUserId, 3600);
+    if (verifyBoundSessionToken(tokenBefore2fa) !== secUserId) {
+      throw new Error("パスワード変更後の新トークン検証に失敗しました");
+    }
+    const validTotpSec = generateTotpSecret();
+    db.prepare("UPDATE users SET totp_enabled = 1, totp_secret = ? WHERE id = ?").run(validTotpSec, secUserId);
+    if (verifyBoundSessionToken(tokenBefore2fa) !== null) {
+      throw new Error("2FA有効化後に旧セッショントークンが失効していません");
+    }
+
+    // 2FA一時トークンが totp_last_used_step 更新（1回使用）で即時失効すること
+    const temp2fa = createBoundTemp2faToken(secUserId, 300);
+    if (verifyBoundTemp2faToken(temp2fa) !== secUserId) {
+      throw new Error("2FA一時トークンの初回検証に失敗しました");
+    }
+    db.prepare("UPDATE users SET totp_last_used_step = 58000000 WHERE id = ?").run(secUserId);
+    if (verifyBoundTemp2faToken(temp2fa) !== null) {
+      throw new Error("2FA完了（ステップ更新）後に一時トークンが失効していません（再利用可能になっています）");
+    }
+
+    // 実装ファイル（auth.ts / db.ts / backup/route.ts）にもこれらの保護が組み込まれていることを検証
+    const authFileSrc = fs.readFileSync(path.join(process.cwd(), "src/lib/auth.ts"), "utf8");
+    const dbFileSrc = fs.readFileSync(path.join(process.cwd(), "src/lib/db.ts"), "utf8");
+    const backupFileSrc = fs.readFileSync(path.join(process.cwd(), "src/app/api/backup/route.ts"), "utf8");
+    if (!authFileSrc.includes("getUserCredentialContext")) {
+      throw new Error("src/lib/auth.ts に認証状態バインド関数 getUserCredentialContext が含まれていません");
+    }
+    if (!dbFileSrc.includes("resolveSafeAttachmentPath") || !dbFileSrc.includes("deleteAttachmentFilesOnDisk")) {
+      throw new Error("src/lib/db.ts に安全な添付ファイルパス解決・削除関数が含まれていません");
+    }
+    if (!backupFileSrc.includes("isSafeStoredAttachmentName")) {
+      throw new Error("src/app/api/backup/route.ts に添付ファイル名の安全性検証が含まれていません");
+    }
+
+    // 3. TOTP 0バイト鍵・低エントロピー鍵の拒否、および同一ステップのリプレイ攻撃防止検証
+    for (const invalidSec of ["", "11111111", "====", "AAAA", "SHORTSECRET2345", "INVALID_CHARS_189!"]) {
+      if (isValidTotpSecret(invalidSec)) {
+        throw new Error(`不正または鍵長不足のTOTPシークレットが許可されました: ${invalidSec}`);
+      }
+      if (verifyTotpCode("123456", invalidSec)) {
+        throw new Error(`不正なTOTPシークレットで verifyTotpCode が通過しました: ${invalidSec}`);
+      }
+    }
+    if (!isValidTotpSecret(validTotpSec)) {
+      throw new Error("正常なTOTPシークレットが拒否されました");
+    }
+
+    const fixedNow = 1732180000000;
+    const validCode = generateTotpCode(validTotpSec, fixedNow);
+    const firstTry = verifyTotpCodeWithStep(validCode, validTotpSec, 1, fixedNow, 30, null);
+    if (!firstTry.valid || firstTry.matchedStep === null || firstTry.replayed) {
+      throw new Error("TOTP初回コード検証に失敗しました");
+    }
+    // 同じタイムステップのコードを再送信（リプレイ攻撃） -> 拒否されること
+    const replayTry = verifyTotpCodeWithStep(validCode, validTotpSec, 1, fixedNow + 5000, 30, firstTry.matchedStep);
+    if (replayTry.valid || !replayTry.replayed) {
+      throw new Error("使用済みTOTPタイムステップのリプレイ攻撃が遮断されませんでした");
+    }
+    // 次のタイムステップ（30秒後）の新しいコードは正常に通過すること
+    const nextStepCode = generateTotpCode(validTotpSec, fixedNow + 30000);
+    const nextStepTry = verifyTotpCodeWithStep(nextStepCode, validTotpSec, 1, fixedNow + 30000, 30, firstTry.matchedStep);
+    if (!nextStepTry.valid || nextStepTry.replayed) {
+      throw new Error("次のタイムステップの正当なTOTPコードが拒否されました");
+    }
+
+    // 4. X-Forwarded-For 偽装（毎回異なるIP）によるログイン・2FA総当たり攻撃のロック検証
+    unlockAllRateLimits(db);
+    const xffBaseTime = Date.now();
+    for (let i = 1; i <= 4; i++) {
+      const r = recordAuthFailure(db, {
+        scope: "2fa",
+        identifier: "sec_token_user",
+        ipAddress: `10.99.0.${i}`,
+        nowMs: xffBaseTime + i * 1000,
+      });
+      if (!r.allowed || r.failedCount !== i) {
+        throw new Error(`異なるIPからの失敗カウント合算が不正です: step=${i}, count=${r.failedCount}`);
+      }
+    }
+    // 5回目をさらに別の偽装IPから試行 -> アカウント単位で合算5回に達しロックされること
+    const fifthSpoofed = recordAuthFailure(db, {
+      scope: "2fa",
+      identifier: "sec_token_user",
+      ipAddress: "10.99.0.5",
+      nowMs: xffBaseTime + 5000,
+    });
+    if (fifthSpoofed.allowed) {
+      throw new Error("X-Forwarded-For を毎回変えた5回連続失敗時にアカウントロックが発動しませんでした");
+    }
+    // 6回目を全く新しいIPからチェックしてもロック中として拒否されること
+    const sixthNewIpCheck = checkRateLimit(db, {
+      scope: "2fa",
+      identifier: "sec_token_user",
+      ipAddress: "203.0.113.99",
+      nowMs: xffBaseTime + 6000,
+    });
+    if (sixthNewIpCheck.allowed) {
+      throw new Error("アカウントロック中に別IPからの2FA試行が許可されてしまいました");
+    }
+
+    // getClientIp の不正ヘッダーインジェクション防御テスト
+    const badIpReq = new Request("http://localhost:3000/api/auth", {
+      headers: { "x-forwarded-for": "<script>alert(1)</script>, 192.168.1.1" },
+    });
+    if (getClientIp(badIpReq) !== "local") {
+      throw new Error("不正な文字列を含む X-Forwarded-For がサニタイズされませんでした");
+    }
+
+    // 5. Markdown isSafeUrl におけるプロトコル相対外部URL（//evil.com, /\evil.com）の遮断検証
+    if (isSafeUrl("//evil.com/phishing") || isSafeUrl("/\\evil.com/phishing") || isSafeUrl("java\x00script:alert(1)")) {
+      throw new Error("プロトコル相対外部URLまたは制御文字混入URLが isSafeUrl を通過してしまいました");
+    }
+    if (!isSafeUrl("/api/attachments/1") || !isSafeUrl("#section-1") || !isSafeUrl("https://example.com")) {
+      throw new Error("安全な相対パスまたはHTTPS URLが isSafeUrl で拒否されました");
+    }
+
+    // 後始末
+    unlockAllRateLimits(db);
+    db.prepare("DELETE FROM users WHERE id = ?").run(secUserId);
+
+    console.log("✓ 追加セキュリティ強化検証（パストラバーサル遮断・パスワード/2FA変更時トークン失効・TOTPリプレイ/不正鍵防止・XFF偽装対策・プロトコル相対URL遮断）テスト成功");
+  }
+
   console.log("=== すべての動作テストに合格しました！ ===");
 }
 

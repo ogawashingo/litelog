@@ -56,10 +56,19 @@ export async function POST(request: Request) {
       VALUES (?, ?, ?)
     `).run(token, targetUser.id, expiresAt);
 
-    // リクエストのホスト情報から完全な招待URLを組み立て
-    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
-    const proto = request.headers.get("x-forwarded-proto") || "http";
-    const inviteUrl = `${proto}://${host}/invite?token=${token}`;
+    // リクエストのホスト情報から完全な招待URLを安全に組み立て（Host / Proto ヘッダーインジェクション防止）
+    const rawHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
+      .split(",")[0]
+      .trim();
+    const safeHost = /^(?:[a-zA-Z0-9.-]+|\[[a-fA-F0-9:]+\])(?::\d{1,5})?$/.test(rawHost)
+      ? rawHost
+      : "localhost:3000";
+    const rawProto = (request.headers.get("x-forwarded-proto") || "")
+      .split(",")[0]
+      .trim()
+      .toLowerCase();
+    const safeProto = rawProto === "https" ? "https" : "http";
+    const inviteUrl = `${safeProto}://${safeHost}/invite?token=${token}`;
 
     return NextResponse.json({
       success: true,

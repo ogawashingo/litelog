@@ -1,5 +1,6 @@
 // ユーザー（チームメンバー）一覧取得および新規追加API
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
 import { getSessionUser, hashPassword } from "@/lib/auth";
 import {
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const {
       loginId,
-      password = "pass123",
+      password,
       name,
       role = "メンバー",
       isAdmin: reqIsAdmin = false,
@@ -166,10 +167,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const rawPassword = String(password).trim() || "pass123";
-    const passwordErr = validatePassword(rawPassword, MIN_LENGTHS.PASSWORD_DEFAULT);
-    if (passwordErr) {
-      return NextResponse.json({ error: passwordErr }, { status: 400 });
+    // パスワード省略時は推測不可能なランダムパスワードを自動生成（招待リンク受諾前の第三者ログインを防止）
+    const hasExplicitPassword = password !== undefined && password !== null && String(password).trim() !== "";
+    const rawPassword = hasExplicitPassword
+      ? String(password).trim()
+      : crypto.randomBytes(16).toString("base64url");
+    if (hasExplicitPassword) {
+      const passwordErr = validatePassword(rawPassword, MIN_LENGTHS.PASSWORD_DEFAULT);
+      if (passwordErr) {
+        return NextResponse.json({ error: passwordErr }, { status: 400 });
+      }
     }
     const hashedPassword = hashPassword(rawPassword);
 
