@@ -32,12 +32,14 @@ interface SummaryCardsProps {
   issues: Issue[];
   selectedProjectId?: number | null;
   onSelectIssue: (issue: Issue) => void;
+  isLoading?: boolean;
 }
 
 export default function SummaryCards({
   issues,
   selectedProjectId,
   onSelectIssue,
+  isLoading = false,
 }: SummaryCardsProps) {
   const { settings } = useUser();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -122,6 +124,19 @@ export default function SummaryCards({
 
   // 初期表示件数（デフォルトは最大4件、展開時は全件）
   const visibleItems = isExpanded ? urgentItems : urgentItems.slice(0, 4);
+
+  // 読み込み中（ロード中）のスケルトン表示（初回ロード・リロード時のチラつきや誤表示を防止）
+  if (isLoading) {
+    return (
+      <div className="summary-cards-skeleton flex items-center justify-between p-3.5 bg-slate-50/80 border border-slate-200/70 rounded-xl text-sm animate-pulse shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-4 h-4 rounded-full bg-slate-200 shrink-0" />
+          <div className="h-4 w-48 sm:w-64 bg-slate-200 rounded" />
+        </div>
+        <div className="hidden sm:block h-3.5 w-40 bg-slate-200 rounded" />
+      </div>
+    );
+  }
 
   // 問題なし（0件）の場合のクリーン表示
   if (urgentItems.length === 0) {

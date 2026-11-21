@@ -48,6 +48,7 @@ function DashboardContent() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [, setIsLoading] = useState(true);
+  const [isLoadingIssues, setIsLoadingIssues] = useState(true);
   // 子課題の期限延長時に親課題の期限延長を確認するための保留ステート
   const [pendingDueUpdate, setPendingDueUpdate] = useState<{
     issueId: number;
@@ -111,6 +112,8 @@ function DashboardContent() {
       }
     } catch (err) {
       console.error("課題取得失敗:", err);
+    } finally {
+      setIsLoadingIssues(false);
     }
   }, [selectedProjectId]);
 
@@ -155,6 +158,7 @@ function DashboardContent() {
   // selectedProjectIdが更新されたら対象プロジェクトの課題・アクティビティを取得
   useEffect(() => {
     if (!isAuthReady || !currentUser) return;
+    setIsLoadingIssues(true);
     fetchIssues(selectedProjectId);
     fetchActivities(selectedProjectId);
   }, [isAuthReady, currentUser, selectedProjectId, fetchIssues, fetchActivities]);
@@ -459,6 +463,7 @@ function DashboardContent() {
           issues={filteredIssues}
           selectedProjectId={selectedProjectId}
           onSelectIssue={handleSelectIssue}
+          isLoading={isLoadingIssues}
         />
 
         {/* メインエリア: 課題一覧を全幅で表示し、件名や担当者の視認性を確保 */}
@@ -475,6 +480,7 @@ function DashboardContent() {
             onUpdateResolution={handleUpdateResolution}
             onUpdateDueDate={handleUpdateDueDate}
             onDeleteIssue={handleDeleteIssue}
+            isLoading={isLoadingIssues}
           />
         </div>
 

@@ -25,6 +25,7 @@ interface IssueListProps {
   onUpdateResolution?: (issueId: number, resolution: IssueResolution | null) => void;
   onUpdateDueDate?: (issueId: number, dueDate: string | null) => void;
   onDeleteIssue: (issueId: number) => void;
+  isLoading?: boolean;
 }
 
 export default function IssueList({
@@ -39,6 +40,7 @@ export default function IssueList({
   onUpdateResolution,
   onUpdateDueDate,
   onDeleteIssue,
+  isLoading = false,
 }: IssueListProps) {
   const { users, currentUser, settings } = useUser();
 
@@ -417,7 +419,14 @@ export default function IssueList({
 
       {/* スマホ・iPhone用 課題一覧リスト（SummaryCardsと同様のブロック構造ではみ出し・横スクロールを完全排除） */}
       <div className="md:hidden divide-y divide-slate-100">
-        {displayedIssues.length === 0 ? (
+        {isLoading ? (
+          <div className="py-12 text-center text-slate-400">
+            <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
+              <div className="w-8 h-8 rounded-full bg-slate-200" />
+              <div className="h-4 w-32 bg-slate-200 rounded" />
+            </div>
+          </div>
+        ) : displayedIssues.length === 0 ? (
           <div className="py-12 text-center text-slate-400">
             <div className="flex flex-col items-center justify-center gap-2">
               <Filter className="w-8 h-8 text-slate-300" />
@@ -583,7 +592,16 @@ export default function IssueList({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {displayedIssues.length === 0 ? (
+            {isLoading ? (
+              <tr>
+                <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
+                  <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
+                    <div className="w-8 h-8 rounded-full bg-slate-200" />
+                    <div className="h-4 w-32 bg-slate-200 rounded" />
+                  </div>
+                </td>
+              </tr>
+            ) : displayedIssues.length === 0 ? (
               <tr>
                 <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
