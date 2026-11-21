@@ -640,21 +640,24 @@ export default function UserManageModal({
                     <input
                       type="text"
                       value={editLoginId}
+                      disabled={!isCurrentUserAdmin}
                       onChange={(e) => setEditLoginId(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      className="w-full bg-white disabled:bg-slate-100 disabled:text-slate-500 border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                       placeholder="ログインID"
+                      title={!isCurrentUserAdmin ? "ログインIDの変更はAdminのみ可能です" : undefined}
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      新しいパスワード（変更時のみ入力）
+                      新しいパスワード（Admin専用・変更時のみ入力）
                     </label>
                     <input
                       type="password"
                       value={editPassword}
+                      disabled={!isCurrentUserAdmin}
                       onChange={(e) => setEditPassword(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                      placeholder="変更しない場合は空欄"
+                      className="w-full bg-white disabled:bg-slate-100 disabled:text-slate-400 border border-slate-300 rounded-md px-3 py-1.5 text-xs text-slate-900 font-mono focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                      placeholder={isCurrentUserAdmin ? "変更しない場合は空欄" : "パスワードリセットはAdminのみ可能"}
                     />
                   </div>
                 </div>

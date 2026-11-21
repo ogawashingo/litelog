@@ -3564,11 +3564,66 @@ async function runTests() {
       throw new Error("安全な相対パスまたはHTTPS URLが isSafeUrl で拒否されました");
     }
 
+    // 6. CSRF Origin 検証（isSameOriginHeader と同等の検証ロジックおよび auth.ts 組込確認）
+    function testIsSameOriginHeader(originHeader, hostHeader, forwardedHostHeader) {
+      if (!originHeader) return true;
+      if (originHeader === "null") return false;
+      const effectiveHost = (forwardedHostHeader || hostHeader || "").split(",")[0].trim().toLowerCase();
+      if (!effectiveHost) return true;
+      try {
+        const parsedOrigin = new URL(originHeader.trim());
+        return parsedOrigin.host.toLowerCase() === effectiveHost;
+      } catch {
+        return false;
+      }
+    }
+    if (!testIsSameOriginHeader(null, "localhost:3000")) {
+      throw new Error("Origin未指定（通常GET等）が拒否されました");
+    }
+    if (!testIsSameOriginHeader("http://localhost:3000", "localhost:3000")) {
+      throw new Error("同一オリジンリクエストが拒否されました");
+    }
+    if (!testIsSameOriginHeader("https://litelog.example.com", "internal:3000", "litelog.example.com")) {
+      throw new Error("X-Forwarded-Host 一致の同一オリジンが拒否されました");
+    }
+    if (
+      testIsSameOriginHeader("https://evil.example.com", "localhost:3000") ||
+      testIsSameOriginHeader("null", "localhost:3000") ||
+      testIsSameOriginHeader("javascript:alert(1)", "localhost:3000")
+    ) {
+      throw new Error("クロスオリジン（CSRF）または不正Originが通過してしまいました");
+    }
+    if (!authFileSrc.includes("isSameOriginHeader") || !authFileSrc.includes("verifyDummyPassword")) {
+      throw new Error("src/lib/auth.ts に CSRF Origin検証またはタイミング攻撃対策が含まれていません");
+    }
+
+    // 7. PMOによる他メンバーアカウント乗っ取り防止・招待アトミック消費・CSP強化の実装確認
+    const userIdRouteSrc = fs.readFileSync(path.join(process.cwd(), "src/app/api/users/[id]/route.ts"), "utf8");
+    if (
+      !userIdRouteSrc.includes("他のメンバーのパスワード強制変更はシステム管理者（Admin）のみ実行できます") ||
+      !userIdRouteSrc.includes("他のメンバーのログインID変更はシステム管理者（Admin）のみ実行できます")
+    ) {
+      throw new Error("src/app/api/users/[id]/route.ts にPMOによる他メンバー乗っ取り防止ガードが含まれていません");
+    }
+
+    const inviteTokenRouteSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/invitations/[token]/route.ts"),
+      "utf8"
+    );
+    if (!inviteTokenRouteSrc.includes("WHERE id = ? AND used_at IS NULL") || !inviteTokenRouteSrc.includes("BEGIN IMMEDIATE")) {
+      throw new Error("招待受諾APIにアトミック消費トランザクションが含まれていません");
+    }
+
+    const nextConfigSrc = fs.readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
+    if (!nextConfigSrc.includes("object-src 'none'") || !nextConfigSrc.includes("Permissions-Policy")) {
+      throw new Error("next.config.ts に強化された CSP および Permissions-Policy が設定されていません");
+    }
+
     // 後始末
     unlockAllRateLimits(db);
     db.prepare("DELETE FROM users WHERE id = ?").run(secUserId);
 
-    console.log("✓ 追加セキュリティ強化検証（パストラバーサル遮断・パスワード/2FA変更時トークン失効・TOTPリプレイ/不正鍵防止・XFF偽装対策・プロトコル相対URL遮断）テスト成功");
+    console.log("✓ 追加セキュリティ強化検証（パストラバーサル遮断・パスワード/2FA変更時トークン失効・TOTPリプレイ/不正鍵防止・XFF偽装対策・プロトコル相対URL遮断・CSRF保護・PMO権限境界強化）テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

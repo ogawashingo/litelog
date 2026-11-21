@@ -17,6 +17,12 @@ import {
 } from "@/lib/totp";
 import { generateQrCodeSvg } from "@/lib/qrcode";
 import { MIN_LENGTHS, validatePassword } from "@/lib/validation";
+import {
+  checkRateLimit,
+  formatRetryAfterJa,
+  getClientIp,
+  recordAuthFailure,
+} from "@/lib/rateLimit";
 
 interface RouteParams {
   params: Promise<{ token: string }>;
@@ -33,6 +39,21 @@ export async function GET(request: Request, { params }: RouteParams) {
     }
 
     const db = getDb();
+    const clientIp = getClientIp(request);
+    const ipLimit = checkRateLimit(db, {
+      scope: "login_ip",
+      identifier: clientIp,
+      ipAddress: clientIp,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `アクセス試行回数が上限に達したため一時ロック中です。${formatRetryAfterJa(ipLimit.retryAfterSec)}後に再試行してください`,
+        },
+        { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec) } }
+      );
+    }
+
     const row = db.prepare(`
       SELECT i.id, i.token, i.expires_at, i.used_at, i.created_at,
              u.id as user_id, u.login_id, u.name as user_name, u.role as user_role, u.role_type, u.color
@@ -54,6 +75,11 @@ export async function GET(request: Request, { params }: RouteParams) {
     } | undefined;
 
     if (!row) {
+      recordAuthFailure(db, {
+        scope: "login_ip",
+        identifier: clientIp,
+        ipAddress: clientIp,
+      });
       return NextResponse.json({ error: "無効な招待リンクです。URLをご確認ください。" }, { status: 404 });
     }
 
@@ -119,6 +145,21 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const db = getDb();
+    const clientIp = getClientIp(request);
+    const ipLimit = checkRateLimit(db, {
+      scope: "login_ip",
+      identifier: clientIp,
+      ipAddress: clientIp,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `試行回数が上限に達したため一時ロック中です。${formatRetryAfterJa(ipLimit.retryAfterSec)}後に再試行してください`,
+        },
+        { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec) } }
+      );
+    }
+
     const row = db.prepare(`
       SELECT i.id, i.user_id, i.expires_at, i.used_at,
              u.login_id, u.name, u.role, u.role_type, u.is_admin, u.color, u.week_start, u.show_holidays, u.created_at
@@ -142,6 +183,11 @@ export async function POST(request: Request, { params }: RouteParams) {
     } | undefined;
 
     if (!row) {
+      recordAuthFailure(db, {
+        scope: "login_ip",
+        identifier: clientIp,
+        ipAddress: clientIp,
+      });
       return NextResponse.json({ error: "無効な招待リンクです" }, { status: 404 });
     }
 
@@ -188,21 +234,32 @@ export async function POST(request: Request, { params }: RouteParams) {
     // パスワードのハッシュ化
     const hashedPassword = hashPassword(String(password));
 
-    // ユーザー情報の更新 & 招待トークンを使用済みにマーク
-    db.prepare(`
-      UPDATE users
-      SET password = ?,
-          totp_secret = ?,
-          totp_enabled = ?,
-          totp_last_used_step = ?
-      WHERE id = ?
-    `).run(hashedPassword, finalTotpSecret, is2faEnabled, finalTotpStep, row.user_id);
+    // トランザクション内で招待トークンをアトミックに消費し、ユーザー情報を更新（競合状態の二重受諾を防止）
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      const consumeResult = db
+        .prepare("UPDATE invitations SET used_at = CURRENT_TIMESTAMP WHERE id = ? AND used_at IS NULL")
+        .run(row.id);
 
-    db.prepare(`
-      UPDATE invitations
-      SET used_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(row.id);
+      if (Number(consumeResult.changes) !== 1) {
+        db.exec("ROLLBACK;");
+        return NextResponse.json({ error: "この招待リンクは既に使用されています" }, { status: 410 });
+      }
+
+      db.prepare(`
+        UPDATE users
+        SET password = ?,
+            totp_secret = ?,
+            totp_enabled = ?,
+            totp_last_used_step = ?
+        WHERE id = ?
+      `).run(hashedPassword, finalTotpSecret, is2faEnabled, finalTotpStep, row.user_id);
+
+      db.exec("COMMIT;");
+    } catch (txErr) {
+      db.exec("ROLLBACK;");
+      throw txErr;
+    }
 
     const user = {
       id: row.user_id,

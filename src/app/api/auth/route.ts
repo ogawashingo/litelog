@@ -10,6 +10,7 @@ import {
   getSessionCookieOptions,
   getSessionUser,
   hashPassword,
+  verifyDummyPassword,
   verifyPassword,
 } from "@/lib/auth";
 import {
@@ -108,7 +109,11 @@ export async function POST(request: Request) {
       created_at: string;
     } | undefined;
 
-    if (!row || !verifyPassword(String(password), row.password)) {
+    const isPasswordMatched = row
+      ? verifyPassword(String(password), row.password)
+      : verifyDummyPassword(String(password));
+
+    if (!row || !isPasswordMatched) {
       // 認証失敗をアカウント単位・IP単位の両方で記録
       const nextAccountLimit = recordAuthFailure(db, {
         scope: "login",
@@ -224,12 +229,48 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
     }
 
+    const clientIp = getClientIp(request);
+    const limitStatus = checkRateLimit(db, {
+      scope: "login",
+      identifier: row.login_id,
+      ipAddress: clientIp,
+    });
+    if (!limitStatus.allowed) {
+      return NextResponse.json(
+        {
+          error: `パスワード照合の失敗回数が上限に達したため一時ロック中です。${formatRetryAfterJa(limitStatus.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+          retryAfterSec: limitStatus.retryAfterSec,
+        },
+        { status: 429, headers: { "Retry-After": String(limitStatus.retryAfterSec) } }
+      );
+    }
+
     if (!verifyPassword(String(currentPassword), row.password)) {
+      const nextLimit = recordAuthFailure(db, {
+        scope: "login",
+        identifier: row.login_id,
+        ipAddress: clientIp,
+      });
+      if (!nextLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: `パスワード照合の失敗が規定回数に達したため一時ロックしました。${formatRetryAfterJa(nextLimit.retryAfterSec)}後に再試行してください`,
+            retryAfterSec: nextLimit.retryAfterSec,
+          },
+          { status: 429, headers: { "Retry-After": String(nextLimit.retryAfterSec) } }
+        );
+      }
       return NextResponse.json(
         { error: "現在のパスワードが正しくありません" },
         { status: 400 }
       );
     }
+
+    resetAuthRateLimit(db, {
+      scope: "login",
+      identifier: row.login_id,
+      ipAddress: clientIp,
+    });
 
     const cleanNewPassword = String(newPassword).trim();
     const newPwErr = validatePassword(cleanNewPassword, MIN_LENGTHS.PASSWORD_DEFAULT, "新しいパスワード");

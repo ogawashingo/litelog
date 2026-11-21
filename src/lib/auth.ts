@@ -1,13 +1,16 @@
 // 認証・パスワードハッシュ化・署名付きセッション管理・API認可ユーティリティ
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getDb } from "@/lib/db";
 
 export const SESSION_COOKIE_NAME = "litelog_session_uid";
 export const LEGACY_SESSION_COOKIE_NAME = "backlog_session_uid";
 const HASH_PREFIX = "scrypt$";
 const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7; // 7日間
+
+// 存在しないログインID照合時のタイミング攻撃（ユーザー列挙）を防ぐためのダミーscryptハッシュ
+const DUMMY_PASSWORD_HASH = hashPassword("litelog_dummy_timing_protection_secret");
 
 export interface SessionUser {
   id: number;
@@ -60,6 +63,42 @@ export function verifyPassword(plainPassword: string, storedPassword: string): b
     const originalKey = Buffer.from(originalHashHex, "hex");
     if (derivedKey.length !== originalKey.length) return false;
     return crypto.timingSafeEqual(derivedKey, originalKey);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ユーザーが存在しない場合でも実在ユーザーと同等のscrypt計算時間を消費させ、
+ * レスポンス時間差によるログインID列挙（タイミング攻撃）を防止します
+ */
+export function verifyDummyPassword(plainPassword: string): false {
+  verifyPassword(String(plainPassword || "dummy"), DUMMY_PASSWORD_HASH);
+  return false;
+}
+
+/**
+ * Origin ヘッダーと Host / X-Forwarded-Host ヘッダーが同一オリジン（ホスト一致）か検証します（CSRF防止）
+ * Origin ヘッダーが存在しない場合（同一オリジンGET等）は true を返し、
+ * 外部サイトからのクロスオリジン POST / PUT / PATCH / DELETE 等で Origin が不一致の場合は false を返します
+ */
+export function isSameOriginHeader(
+  originHeader: string | null | undefined,
+  hostHeader: string | null | undefined,
+  forwardedHostHeader?: string | null | undefined
+): boolean {
+  if (!originHeader) return true;
+  if (originHeader === "null") return false;
+
+  const effectiveHost = (forwardedHostHeader || hostHeader || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  if (!effectiveHost) return true;
+
+  try {
+    const parsedOrigin = new URL(originHeader.trim());
+    return parsedOrigin.host.toLowerCase() === effectiveHost;
   } catch {
     return false;
   }
@@ -273,9 +312,23 @@ export function verifyTemp2faToken(
 
 /**
  * 現在のリクエストのCookieからログイン中のユーザー情報を取得します
+ * （Originヘッダーが存在する状態変更リクエストではCSRF保護のためHost一致も検証します）
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
   try {
+    const headerStore = await headers();
+    const origin = headerStore.get("origin");
+    if (
+      origin &&
+      !isSameOriginHeader(
+        origin,
+        headerStore.get("host"),
+        headerStore.get("x-forwarded-host")
+      )
+    ) {
+      return null;
+    }
+
     const cookieStore = await cookies();
     const rawCookie =
       cookieStore.get(SESSION_COOKIE_NAME)?.value ||

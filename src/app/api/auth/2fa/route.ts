@@ -283,10 +283,46 @@ export async function DELETE(request: Request) {
     const { password } = body;
 
     const db = getDb();
+    const clientIp = getClientIp(request);
+    const limitStatus = checkRateLimit(db, {
+      scope: "login",
+      identifier: sessionUser.login_id,
+      ipAddress: clientIp,
+    });
+    if (!limitStatus.allowed) {
+      return NextResponse.json(
+        {
+          error: `パスワード照合の失敗回数が上限に達したため一時ロック中です。${formatRetryAfterJa(limitStatus.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+          retryAfterSec: limitStatus.retryAfterSec,
+        },
+        { status: 429, headers: { "Retry-After": String(limitStatus.retryAfterSec) } }
+      );
+    }
+
     const userRow = db.prepare("SELECT password FROM users WHERE id = ?").get(sessionUser.id) as { password: string } | undefined;
     if (!userRow || !verifyPassword(String(password), userRow.password)) {
+      const nextLimit = recordAuthFailure(db, {
+        scope: "login",
+        identifier: sessionUser.login_id,
+        ipAddress: clientIp,
+      });
+      if (!nextLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: `パスワード照合の失敗が規定回数に達したため一時ロックしました。${formatRetryAfterJa(nextLimit.retryAfterSec)}後に再試行してください`,
+            retryAfterSec: nextLimit.retryAfterSec,
+          },
+          { status: 429, headers: { "Retry-After": String(nextLimit.retryAfterSec) } }
+        );
+      }
       return NextResponse.json({ error: "パスワードが正しくありません" }, { status: 401 });
     }
+
+    resetAuthRateLimit(db, {
+      scope: "login",
+      identifier: sessionUser.login_id,
+      ipAddress: clientIp,
+    });
 
     db.prepare(`
       UPDATE users

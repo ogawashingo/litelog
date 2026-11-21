@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb, canUserAccessProject, setProjectMembers, getProjectMemberUsers } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { isArchivedProject } from "@/types";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -95,9 +96,18 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const db = getDb();
-    const project = db.prepare("SELECT id, key, name FROM projects WHERE id = ?").get(projectId);
+    const project = db
+      .prepare("SELECT id, key, name, COALESCE(is_archived, 0) AS is_archived FROM projects WHERE id = ?")
+      .get(projectId) as { id: number; key: string; name: string; is_archived?: number } | undefined;
     if (!project) {
       return NextResponse.json({ error: "対象のプロジェクトが見つかりません" }, { status: 404 });
+    }
+
+    if (isArchivedProject(project)) {
+      return NextResponse.json(
+        { error: "このプロジェクトはアーカイブされているため、参加メンバーを変更できません（読み取り専用）" },
+        { status: 403 }
+      );
     }
 
     // 参加権限チェック（Adminは全件、PMOは参加しているプロジェクトのみメンバー変更可能）

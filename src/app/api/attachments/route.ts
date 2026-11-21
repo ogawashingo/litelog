@@ -8,6 +8,7 @@ import {
   ATTACHMENTS_DIR,
   canUserAccessProject,
   getUserAccessibleProjectIds,
+  deleteAttachmentFilesOnDisk,
 } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import {
@@ -154,8 +155,21 @@ export async function POST(request: Request) {
     const issueIdVal = formData.get("issueId");
     const commentIdVal = formData.get("commentId");
 
-    const issueId = issueIdVal ? Number(issueIdVal) : null;
-    const commentId = commentIdVal ? Number(commentIdVal) : null;
+    let issueId: number | null = null;
+    if (issueIdVal !== null && String(issueIdVal).trim() !== "") {
+      issueId = Number(issueIdVal);
+      if (!Number.isInteger(issueId) || issueId <= 0) {
+        return NextResponse.json({ error: "無効な課題IDです" }, { status: 400 });
+      }
+    }
+
+    let commentId: number | null = null;
+    if (commentIdVal !== null && String(commentIdVal).trim() !== "") {
+      commentId = Number(commentIdVal);
+      if (!Number.isInteger(commentId) || commentId <= 0) {
+        return NextResponse.json({ error: "無効なコメントIDです" }, { status: 400 });
+      }
+    }
 
     // ファイルエントリーの取得（単一または複数）
     const rawEntries = formData.getAll("file");
@@ -274,6 +288,32 @@ export async function POST(request: Request) {
         return NextResponse.json(
           { error: "この課題が属するプロジェクトはアーカイブされているため、ファイルを添付できません（読み取り専用）" },
           { status: 403 }
+        );
+      }
+    }
+
+    // 課題・コメント未紐付けの先行アップロード時は、放置された古い未紐付けファイル（24時間経過）を自動掃除し、蓄積上限（30件）でディスク枯渇DoSを防止
+    if (!issueId && !commentId) {
+      const staleUnattached = db
+        .prepare(
+          "SELECT id, stored_name FROM attachments WHERE user_id = ? AND issue_id IS NULL AND comment_id IS NULL AND datetime(created_at) < datetime('now', '-24 hours')"
+        )
+        .all(sessionUser.id) as { id: number; stored_name: string }[];
+      if (staleUnattached.length > 0) {
+        const staleIds = staleUnattached.map((a) => a.id);
+        db.prepare(`DELETE FROM attachments WHERE id IN (${staleIds.map(() => "?").join(",")})`).run(...staleIds);
+        deleteAttachmentFilesOnDisk(staleUnattached.map((a) => a.stored_name));
+      }
+
+      const unattachedCountRow = db
+        .prepare(
+          "SELECT COUNT(*) AS count FROM attachments WHERE user_id = ? AND issue_id IS NULL AND comment_id IS NULL"
+        )
+        .get(sessionUser.id) as { count: number };
+      if ((unattachedCountRow?.count || 0) + fileEntries.length > 30) {
+        return NextResponse.json(
+          { error: "未保存の添付ファイル数が上限（30件）に達しています。課題を保存するか不要なファイルを削除してください" },
+          { status: 429 }
         );
       }
     }

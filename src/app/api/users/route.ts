@@ -1,7 +1,7 @@
 // ユーザー（チームメンバー）一覧取得および新規追加API
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
+import { getDb, getUserAccessibleProjectIds, setUserProjects } from "@/lib/db";
 import { getSessionUser, hashPassword } from "@/lib/auth";
 import {
   MAX_LENGTHS,
@@ -228,12 +228,13 @@ export async function POST(request: Request) {
 
     const newUserId = Number(result.lastInsertRowid);
 
-    // 所属プロジェクトの登録
+    // 所属プロジェクトの登録（実在するプロジェクトIDのみ安全に登録）
     if (Array.isArray(projectIds) && projectIds.length > 0) {
-      const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
-      for (const pid of projectIds) {
-        if (Number(pid)) pmInsert.run(Number(pid), newUserId);
-      }
+      setUserProjects(
+        db,
+        newUserId,
+        projectIds.map(Number).filter(Boolean)
+      );
     }
 
     const created = db.prepare(`

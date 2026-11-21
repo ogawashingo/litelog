@@ -18,13 +18,18 @@ const nextConfig: NextConfig = {
             value: "SAMEORIGIN",
           },
           {
-            // モダンブラウザ向けクリックジャッキング保護（Modern Web Guidance: security §1.4）
+            // モダンブラウザ向けクリックジャッキング・ベースURL改ざん・オブジェクト実行保護（Modern Web Guidance: security §1.4）
             key: "Content-Security-Policy",
-            value: "frame-ancestors 'self';",
+            value: "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none';",
           },
           {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
+          },
+          {
+            // 不要なブラウザハードウェア・センサーAPIの無効化
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
           },
         ],
       },

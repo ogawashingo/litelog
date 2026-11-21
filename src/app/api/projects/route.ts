@@ -1,6 +1,6 @@
 // プロジェクト一覧取得・新規作成API
 import { NextResponse } from "next/server";
-import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
+import { getDb, setProjectMembers } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { MAX_LENGTHS, validateHexColor, validateMaxLength, validateProjectKey } from "@/lib/validation";
 
@@ -183,10 +183,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const pmInsert = db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)");
-    for (const uid of targetUserIds) {
-      pmInsert.run(newProjectId, uid);
-    }
+    // 実在するユーザーIDのみ安全に登録
+    setProjectMembers(db, newProjectId, Array.from(targetUserIds));
 
     const created = db.prepare("SELECT * FROM projects WHERE id = ?").get(newProjectId);
     return NextResponse.json(created, { status: 201 });

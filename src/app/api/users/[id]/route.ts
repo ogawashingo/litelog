@@ -11,6 +11,13 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import {
+  checkRateLimit,
+  formatRetryAfterJa,
+  getClientIp,
+  recordAuthFailure,
+  resetAuthRateLimit,
+} from "@/lib/rateLimit";
+import {
   MAX_LENGTHS,
   MIN_LENGTHS,
   validateHexColor,
@@ -54,6 +61,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     const targetUser = db.prepare("SELECT * FROM users WHERE id = ?").get(targetId) as {
       id: number;
+      login_id: string;
       name: string;
       password: string;
       is_admin: number;
@@ -63,7 +71,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "対象のメンバーが見つかりません" }, { status: 404 });
     }
 
-    // PMOはシステム管理者（Admin）アカウントの編集や、Admin権限の付与は不可
+    // PMOの権限境界制御（Adminアカウントの編集・Admin付与・他メンバーのパスワード/ログインID強制変更によるアカウント乗っ取りを遮断）
     if (isPmo && !isAdmin) {
       if (targetUser.is_admin === 1 || targetUser.role_type === "admin") {
         return NextResponse.json(
@@ -74,6 +82,28 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       if (body.isAdmin === true || body.isAdmin === 1 || body.roleType === "admin") {
         return NextResponse.json(
           { error: "システム管理者（Admin）権限の付与はAdminのみ実行できます" },
+          { status: 403 }
+        );
+      }
+      if (!isSelf && body.password !== undefined && String(body.password).trim() !== "") {
+        return NextResponse.json(
+          { error: "他のメンバーのパスワード強制変更はシステム管理者（Admin）のみ実行できます" },
+          { status: 403 }
+        );
+      }
+      if (
+        !isSelf &&
+        body.loginId !== undefined &&
+        String(body.loginId).trim().toLowerCase() !== String(targetUser.login_id || "").toLowerCase()
+      ) {
+        return NextResponse.json(
+          { error: "他のメンバーのログインID変更はシステム管理者（Admin）のみ実行できます" },
+          { status: 403 }
+        );
+      }
+      if (!isSelf && targetUser.role_type === "pmo" && body.roleType !== undefined && body.roleType !== "pmo") {
+        return NextResponse.json(
+          { error: "他のPMOメンバーの権限ロール降格はシステム管理者（Admin）のみ実行できます" },
           { status: 403 }
         );
       }
@@ -101,15 +131,50 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
 
-    // 本人によるパスワード変更（currentPassword / newPassword 指定時）は現在のパスワードをハッシュ照合
+    // 本人によるパスワード変更（currentPassword / newPassword 指定時）は現在のパスワードをハッシュ照合（レート制限付き）
     let hashedPasswordToUpdate: string | null = null;
     if (body.currentPassword !== undefined || body.newPassword !== undefined) {
+      const clientIp = getClientIp(request);
+      const limitStatus = checkRateLimit(db, {
+        scope: "login",
+        identifier: targetUser.login_id,
+        ipAddress: clientIp,
+      });
+      if (!limitStatus.allowed) {
+        return NextResponse.json(
+          {
+            error: `パスワード照合の失敗回数が上限に達したため一時ロック中です。${formatRetryAfterJa(limitStatus.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+            retryAfterSec: limitStatus.retryAfterSec,
+          },
+          { status: 429, headers: { "Retry-After": String(limitStatus.retryAfterSec) } }
+        );
+      }
+
       if (!body.currentPassword || !verifyPassword(String(body.currentPassword), targetUser.password)) {
+        const nextLimit = recordAuthFailure(db, {
+          scope: "login",
+          identifier: targetUser.login_id,
+          ipAddress: clientIp,
+        });
+        if (!nextLimit.allowed) {
+          return NextResponse.json(
+            {
+              error: `パスワード照合の失敗が規定回数に達したため一時ロックしました。${formatRetryAfterJa(nextLimit.retryAfterSec)}後に再試行してください`,
+              retryAfterSec: nextLimit.retryAfterSec,
+            },
+            { status: 429, headers: { "Retry-After": String(nextLimit.retryAfterSec) } }
+          );
+        }
         return NextResponse.json(
           { error: "現在のパスワードが正しくありません" },
           { status: 400 }
         );
       }
+      resetAuthRateLimit(db, {
+        scope: "login",
+        identifier: targetUser.login_id,
+        ipAddress: clientIp,
+      });
       const nextPw = String(body.newPassword ?? body.password ?? "").trim();
       const pwErr = validatePassword(nextPw, MIN_LENGTHS.PASSWORD_DEFAULT, "新しいパスワード");
       if (pwErr) {
@@ -122,14 +187,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         );
       }
       hashedPasswordToUpdate = hashPassword(nextPw);
-    } else if (canManageMember && body.password !== undefined && String(body.password).trim() !== "") {
-      // AdminまたはPMOによるメンバー管理画面からのパスワード変更
+    } else if (isAdmin && body.password !== undefined && String(body.password).trim() !== "") {
+      // システム管理者（Admin）によるメンバー管理画面からのパスワード変更
       const nextAdminPw = String(body.password).trim();
       const pwErr = validatePassword(nextAdminPw, MIN_LENGTHS.PASSWORD_DEFAULT, "パスワード");
       if (pwErr) {
         return NextResponse.json({ error: pwErr }, { status: 400 });
       }
       hashedPasswordToUpdate = hashPassword(nextAdminPw);
+    } else if (body.password !== undefined && String(body.password).trim() !== "") {
+      return NextResponse.json(
+        { error: "パスワードを変更する場合は現在のパスワードを入力してください" },
+        { status: 400 }
+      );
     }
 
     const updates: string[] = [];
