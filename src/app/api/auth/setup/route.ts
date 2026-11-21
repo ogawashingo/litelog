@@ -7,6 +7,7 @@ import {
   createSessionToken,
   getSessionCookieOptions,
   hashPassword,
+  verifySameOriginRequest,
 } from "@/lib/auth";
 import {
   MAX_LENGTHS,
@@ -19,6 +20,14 @@ import {
 // 初回管理者アカウントの登録
 export async function POST(request: Request) {
   try {
+    // クロスオリジンからの勝手な初期管理者作成（セットアップ乗っ取りCSRF）を遮断
+    if (!verifySameOriginRequest(request)) {
+      return NextResponse.json(
+        { error: "不正なオリジンからのリクエストです" },
+        { status: 403 }
+      );
+    }
+
     const db = getDb();
 
     // 既にユーザーが1人でも存在する場合は初回登録を拒否（セキュリティ対策）
@@ -54,22 +63,47 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: passwordErr }, { status: 400 });
     }
 
-    // パスワードをscryptでハッシュ化して管理者として保存
+    // パスワードをscryptでハッシュ化して管理者としてアトミックに保存（同時リクエスト競合防止）
     const hashedPassword = hashPassword(cleanPassword);
-    const insertUser = db.prepare(`
-      INSERT INTO users (login_id, password, name, role, is_admin, role_type, color)
-      VALUES (?, ?, ?, '管理者', 1, 'admin', '#4f46e5')
-    `);
-    const result = insertUser.run(cleanLoginId, hashedPassword, cleanName);
-    const newUserId = Number(result.lastInsertRowid);
+    let newUserId = 0;
 
-    // 未割当の初期課題やコメントがあれば新管理者に紐付け
-    db.prepare("UPDATE issues SET assignee_id = ?, created_by = ? WHERE created_by IS NULL").run(
-      newUserId,
-      newUserId
-    );
-    db.prepare("UPDATE comments SET user_id = ? WHERE user_id IS NULL").run(newUserId);
-    db.prepare("UPDATE activities SET user_id = ? WHERE user_id IS NULL").run(newUserId);
+    db.exec("BEGIN IMMEDIATE;");
+    try {
+      const recheckCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
+      if (recheckCount.count > 0) {
+        db.exec("ROLLBACK;");
+        return NextResponse.json(
+          { error: "既にユーザーが登録されているため、初回セットアップは利用できません" },
+          { status: 400 }
+        );
+      }
+
+      const insertUser = db.prepare(`
+        INSERT INTO users (login_id, password, name, role, is_admin, role_type, color)
+        VALUES (?, ?, ?, '管理者', 1, 'admin', '#4f46e5')
+      `);
+      const result = insertUser.run(cleanLoginId, hashedPassword, cleanName);
+      newUserId = Number(result.lastInsertRowid);
+
+      // 未割当の初期課題やコメントがあれば新管理者に紐付け
+      db.prepare("UPDATE issues SET assignee_id = ?, created_by = ? WHERE created_by IS NULL").run(
+        newUserId,
+        newUserId
+      );
+      db.prepare("UPDATE comments SET user_id = ? WHERE user_id IS NULL").run(newUserId);
+      db.prepare("UPDATE activities SET user_id = ? WHERE user_id IS NULL").run(newUserId);
+
+      // 初期プロジェクトが存在する場合は作成された管理者をプロジェクトメンバーに登録
+      db.prepare(`
+        INSERT OR IGNORE INTO project_members (project_id, user_id)
+        SELECT id, ? FROM projects
+      `).run(newUserId);
+
+      db.exec("COMMIT;");
+    } catch (txErr) {
+      db.exec("ROLLBACK;");
+      throw txErr;
+    }
 
     const user = {
       id: newUserId,

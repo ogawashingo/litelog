@@ -3564,15 +3564,21 @@ async function runTests() {
       throw new Error("安全な相対パスまたはHTTPS URLが isSafeUrl で拒否されました");
     }
 
-    // 6. CSRF Origin 検証（isSameOriginHeader と同等の検証ロジックおよび auth.ts 組込確認）
-    function testIsSameOriginHeader(originHeader, hostHeader, forwardedHostHeader) {
+    // 6. CSRF Origin & Sec-Fetch-Site 検証（isSameOriginHeader と同等の検証ロジックおよび全状態変更APIへの組込確認）
+    function testIsSameOriginHeader(originHeader, hostHeader, forwardedHostHeader, secFetchSiteHeader) {
+      if (secFetchSiteHeader && String(secFetchSiteHeader).trim().toLowerCase() === "cross-site") {
+        return false;
+      }
       if (!originHeader) return true;
       if (originHeader === "null") return false;
-      const effectiveHost = (forwardedHostHeader || hostHeader || "").split(",")[0].trim().toLowerCase();
-      if (!effectiveHost) return true;
+      const primaryHost = (hostHeader || "").split(",")[0].trim().toLowerCase();
+      const proxyHost = (forwardedHostHeader || "").split(",")[0].trim().toLowerCase();
+      const effectiveHost = proxyHost || primaryHost;
+      if (!effectiveHost) return false;
       try {
         const parsedOrigin = new URL(originHeader.trim());
-        return parsedOrigin.host.toLowerCase() === effectiveHost;
+        const originHost = parsedOrigin.host.toLowerCase();
+        return originHost === effectiveHost || (Boolean(primaryHost) && originHost === primaryHost);
       } catch {
         return false;
       }
@@ -3589,29 +3595,151 @@ async function runTests() {
     if (
       testIsSameOriginHeader("https://evil.example.com", "localhost:3000") ||
       testIsSameOriginHeader("null", "localhost:3000") ||
-      testIsSameOriginHeader("javascript:alert(1)", "localhost:3000")
+      testIsSameOriginHeader("javascript:alert(1)", "localhost:3000") ||
+      testIsSameOriginHeader("https://litelog.example.com", "") ||
+      testIsSameOriginHeader(null, "localhost:3000", null, "cross-site")
     ) {
-      throw new Error("クロスオリジン（CSRF）または不正Originが通過してしまいました");
+      throw new Error("クロスオリジン（CSRF / Sec-Fetch-Site: cross-site）または不正Originが通過してしまいました");
     }
-    if (!authFileSrc.includes("isSameOriginHeader") || !authFileSrc.includes("verifyDummyPassword")) {
-      throw new Error("src/lib/auth.ts に CSRF Origin検証またはタイミング攻撃対策が含まれていません");
+    if (
+      !authFileSrc.includes("isSameOriginHeader") ||
+      !authFileSrc.includes("verifySameOriginRequest") ||
+      !authFileSrc.includes("hashInvitationToken") ||
+      !authFileSrc.includes("verifyDummyPassword")
+    ) {
+      throw new Error("src/lib/auth.ts に CSRF Origin検証・招待トークンハッシュ化・タイミング攻撃対策が含まれていません");
     }
 
-    // 7. PMOによる他メンバーアカウント乗っ取り防止・招待アトミック消費・CSP強化の実装確認
+    // 未認証状態変更エンドポイント（setup, auth, 2fa, invitations/[token]）に verifySameOriginRequest が組み込まれていることを検証
+    for (const relPath of [
+      "src/app/api/auth/setup/route.ts",
+      "src/app/api/auth/route.ts",
+      "src/app/api/auth/2fa/route.ts",
+      "src/app/api/invitations/[token]/route.ts",
+    ]) {
+      const routeSrc = fs.readFileSync(path.join(process.cwd(), relPath), "utf8");
+      if (!routeSrc.includes("verifySameOriginRequest")) {
+        throw new Error(`${relPath} にクロスオリジンCSRF防止（verifySameOriginRequest）が適用されていません`);
+      }
+    }
+
+    // 7. PMOによる他メンバーアカウント乗っ取り防止・Admin強制脱退防止・招待ハッシュ化＆アトミック消費・2FA有効化時パスワード確認・CSP強化の実装確認
     const userIdRouteSrc = fs.readFileSync(path.join(process.cwd(), "src/app/api/users/[id]/route.ts"), "utf8");
     if (
       !userIdRouteSrc.includes("他のメンバーのパスワード強制変更はシステム管理者（Admin）のみ実行できます") ||
-      !userIdRouteSrc.includes("他のメンバーのログインID変更はシステム管理者（Admin）のみ実行できます")
+      !userIdRouteSrc.includes("他のメンバーのログインID変更はシステム管理者（Admin）のみ実行できます") ||
+      !userIdRouteSrc.includes("現在ログイン中のご自身のアカウントは削除できません")
     ) {
-      throw new Error("src/app/api/users/[id]/route.ts にPMOによる他メンバー乗っ取り防止ガードが含まれていません");
+      throw new Error("src/app/api/users/[id]/route.ts にPMO乗っ取り防止または自身削除防止ガードが含まれていません");
+    }
+
+    const projMembersRouteSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/projects/[id]/members/route.ts"),
+      "utf8"
+    );
+    if (!projMembersRouteSrc.includes("currentAdminMembers")) {
+      throw new Error("src/app/api/projects/[id]/members/route.ts にPMOによるAdmin締め出し防止ガードが含まれていません");
+    }
+
+    const invitationsRouteSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/invitations/route.ts"),
+      "utf8"
+    );
+    if (!invitationsRouteSrc.includes("hashInvitationToken")) {
+      throw new Error("src/app/api/invitations/route.ts で招待トークンがSHA-256ハッシュ化されていません");
     }
 
     const inviteTokenRouteSrc = fs.readFileSync(
       path.join(process.cwd(), "src/app/api/invitations/[token]/route.ts"),
       "utf8"
     );
-    if (!inviteTokenRouteSrc.includes("WHERE id = ? AND used_at IS NULL") || !inviteTokenRouteSrc.includes("BEGIN IMMEDIATE")) {
-      throw new Error("招待受諾APIにアトミック消費トランザクションが含まれていません");
+    if (
+      !inviteTokenRouteSrc.includes("WHERE id = ? AND used_at IS NULL") ||
+      !inviteTokenRouteSrc.includes("BEGIN IMMEDIATE") ||
+      !inviteTokenRouteSrc.includes("hashInvitationToken")
+    ) {
+      throw new Error("招待受諾APIにハッシュ照合またはアトミック消費トランザクションが含まれていません");
+    }
+
+    const twoFaRouteSrc = fs.readFileSync(path.join(process.cwd(), "src/app/api/auth/2fa/route.ts"), "utf8");
+    if (!twoFaRouteSrc.includes("2要素認証を有効化するには現在のパスワードを入力してください")) {
+      throw new Error("src/app/api/auth/2fa/route.ts の2FA有効化APIに現在のパスワード必須確認が含まれていません");
+    }
+
+    if (!backupFileSrc.includes("restoredParentMap") || !backupFileSrc.includes("matchedAuth?.password ||")) {
+      throw new Error("src/app/api/backup/route.ts に既存認証情報優先保護または親課題の循環参照チェックが含まれていません");
+    }
+
+    // 8. コメント添付ファイル横取り防止SQLの検証（他人の添付ファイルや課題本文の添付ファイルがコメントに奪われないこと）
+    const attHijackProjId = Number(
+      db.prepare("INSERT INTO projects (key, name, color) VALUES ('ATTSEC', '添付保護検証', '#4f46e5')").run()
+        .lastInsertRowid
+    );
+    const attHijackIssueId = Number(
+      db
+        .prepare(
+          "INSERT INTO issues (project_id, issue_key, issue_number, title, description, status) VALUES (?, 'ATTSEC-1', 1, '添付保護課題', '本文画像 ![img](/api/attachments/1)', 'open')"
+        )
+        .run(attHijackProjId).lastInsertRowid
+    );
+    const otherUserId = Number(
+      db
+        .prepare(
+          "INSERT INTO users (login_id, password, name, role, is_admin, role_type) VALUES ('att_other_u', 'pw', '別ユーザー', 'メンバー', 0, 'member')"
+        )
+        .run().lastInsertRowid
+    );
+    const cmt1Id = Number(
+      db
+        .prepare("INSERT INTO comments (issue_id, user_id, content) VALUES (?, ?, 'コメント1')")
+        .run(attHijackIssueId, secUserId).lastInsertRowid
+    );
+    const cmt2Id = Number(
+      db
+        .prepare("INSERT INTO comments (issue_id, user_id, content) VALUES (?, ?, 'コメント2')")
+        .run(attHijackIssueId, otherUserId).lastInsertRowid
+    );
+    // コメント1に紐づく添付ファイル
+    const cmt1AttId = Number(
+      db
+        .prepare(
+          "INSERT INTO attachments (issue_id, comment_id, user_id, file_name, stored_name, file_size, mime_type) VALUES (?, ?, ?, 'a.png', '1732180001_aaaaaaaa_a.png', 100, 'image/png')"
+        )
+        .run(attHijackIssueId, cmt1Id, secUserId).lastInsertRowid
+    );
+    // 別ユーザー（otherUserId）が自分のコメント2で cmt1AttId を参照して横取りを試行 -> comment_id IS NULL かつ user_id = ? 条件により更新されないこと
+    const hijackRes = db
+      .prepare(`
+        UPDATE attachments
+        SET issue_id = ?, comment_id = ?
+        WHERE id = ?
+          AND user_id = ?
+          AND comment_id IS NULL
+          AND (issue_id IS NULL OR issue_id = ?)
+      `)
+      .run(attHijackIssueId, cmt2Id, cmt1AttId, otherUserId, attHijackIssueId);
+    if (Number(hijackRes.changes) !== 0) {
+      throw new Error("他人のコメントに紐付いた添付ファイルが別コメントに横取りされてしまいました");
+    }
+    db.prepare("DELETE FROM projects WHERE id = ?").run(attHijackProjId);
+    db.prepare("DELETE FROM users WHERE id = ?").run(otherUserId);
+
+    // 9. login_rate_limits の期限切れレコード自動パージ検証（ランダムID/IP大量送信によるDB肥大化防止）
+    db.prepare(`
+      INSERT INTO login_rate_limits (scope, identifier, ip_address, failed_count, first_failed_at, last_failed_at, locked_until)
+      VALUES ('login_ip', '203.0.113.200', '203.0.113.200', 1, '2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.000Z', NULL)
+    `).run();
+    recordAuthFailure(db, {
+      scope: "login_ip",
+      identifier: "203.0.113.201",
+      ipAddress: "203.0.113.201",
+      nowMs: Date.now(),
+    });
+    const staleRowAfterFailure = db
+      .prepare("SELECT id FROM login_rate_limits WHERE identifier = '203.0.113.200'")
+      .get();
+    if (staleRowAfterFailure) {
+      throw new Error("recordAuthFailure 実行時に期限切れの古いレート制限レコードが自動パージされていません");
     }
 
     const nextConfigSrc = fs.readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");

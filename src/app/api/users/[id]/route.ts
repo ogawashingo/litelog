@@ -1,7 +1,12 @@
 // ユーザー（チームメンバー）更新・削除API
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getDb, getUserAccessibleProjectIds, setUserProjects } from "@/lib/db";
+import {
+  getDb,
+  getUserAccessibleProjectIds,
+  setUserProjects,
+  deleteAttachmentFilesOnDisk,
+} from "@/lib/db";
 import {
   SESSION_COOKIE_NAME,
   createSessionToken,
@@ -427,6 +432,15 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     const { id } = await params;
     const targetId = Number(id);
+    if (!targetId || isNaN(targetId)) {
+      return NextResponse.json({ error: "無効なメンバーIDです" }, { status: 400 });
+    }
+    if (targetId === sessionUser.id) {
+      return NextResponse.json(
+        { error: "現在ログイン中のご自身のアカウントは削除できません" },
+        { status: 400 }
+      );
+    }
     const db = getDb();
 
     const totalRow = db.prepare("SELECT COUNT(*) as count FROM users").get() as { count: number };
@@ -454,6 +468,20 @@ export async function DELETE(request: Request, { params }: RouteParams) {
           { status: 400 }
         );
       }
+    }
+
+    // 削除対象ユーザーがアップロードした未紐付け添付ファイル（孤立ファイル）をDBおよびディスクから削除
+    const orphanAttachments = db
+      .prepare(
+        "SELECT id, stored_name FROM attachments WHERE user_id = ? AND issue_id IS NULL AND comment_id IS NULL"
+      )
+      .all(targetId) as { id: number; stored_name: string }[];
+    if (orphanAttachments.length > 0) {
+      const orphanIds = orphanAttachments.map((a) => a.id);
+      db.prepare(`DELETE FROM attachments WHERE id IN (${orphanIds.map(() => "?").join(",")})`).run(
+        ...orphanIds
+      );
+      deleteAttachmentFilesOnDisk(orphanAttachments.map((a) => a.stored_name));
     }
 
     db.prepare("DELETE FROM users WHERE id = ?").run(targetId);

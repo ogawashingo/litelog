@@ -229,6 +229,10 @@ export function checkRateLimit(
   };
 }
 
+// ランダムIP・ランダムID大量送信によるDB肥大化DoSを防ぐためのテーブル保持上限
+const MAX_RATE_LIMIT_RECORDS = 5000;
+const MAX_POLICY_WINDOW_MS = 15 * 60 * 1000;
+
 /**
  * 認証失敗を記録し、しきい値に達した場合はロックを設定します
  */
@@ -240,7 +244,29 @@ export function recordAuthFailure(
   const identifier = normalizeIdentifier(params.identifier);
   const nowMs = params.nowMs ?? Date.now();
   const nowIso = new Date(nowMs).toISOString();
+  const expiredWindowIso = new Date(nowMs - MAX_POLICY_WINDOW_MS).toISOString();
   const policy = RATE_LIMIT_POLICIES[scope];
+
+  // 放置された期限切れレコードを自動パージ（ランダム識別子・偽装IP大量送信によるDB肥大化DoS防止）
+  db.prepare(`
+    DELETE FROM login_rate_limits
+    WHERE (locked_until IS NOT NULL AND locked_until <= ?)
+       OR (locked_until IS NULL AND first_failed_at IS NOT NULL AND first_failed_at < ?)
+  `).run(nowIso, expiredWindowIso);
+
+  const countRow = db
+    .prepare("SELECT COUNT(*) AS count FROM login_rate_limits")
+    .get() as { count: number } | undefined;
+  if (countRow && countRow.count >= MAX_RATE_LIMIT_RECORDS) {
+    db.prepare(`
+      DELETE FROM login_rate_limits
+      WHERE id IN (
+        SELECT id FROM login_rate_limits
+        ORDER BY CASE WHEN locked_until IS NULL THEN 0 ELSE 1 END ASC, last_failed_at ASC
+        LIMIT 500
+      )
+    `).run();
+  }
 
   const row = db
     .prepare(

@@ -7,7 +7,9 @@ import {
   SESSION_COOKIE_NAME,
   createSessionToken,
   getSessionCookieOptions,
+  hashInvitationToken,
   hashPassword,
+  verifySameOriginRequest,
 } from "@/lib/auth";
 import {
   generateTotpSecret,
@@ -54,13 +56,14 @@ export async function GET(request: Request, { params }: RouteParams) {
       );
     }
 
+    const hashedToken = hashInvitationToken(token);
     const row = db.prepare(`
       SELECT i.id, i.token, i.expires_at, i.used_at, i.created_at,
              u.id as user_id, u.login_id, u.name as user_name, u.role as user_role, u.role_type, u.color
       FROM invitations i
       JOIN users u ON i.user_id = u.id
-      WHERE i.token = ?
-    `).get(token) as {
+      WHERE i.token = ? OR i.token = ?
+    `).get(hashedToken, token) as {
       id: number;
       token: string;
       expires_at: string;
@@ -135,6 +138,9 @@ export async function GET(request: Request, { params }: RouteParams) {
  */
 export async function POST(request: Request, { params }: RouteParams) {
   try {
+    if (!verifySameOriginRequest(request)) {
+      return NextResponse.json({ error: "不正なオリジンからのリクエストです" }, { status: 403 });
+    }
     const { token } = await params;
     const body = await request.json();
     const { password, enable2fa, totpSecret, totpCode } = body;
@@ -160,13 +166,14 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
+    const hashedToken = hashInvitationToken(token);
     const row = db.prepare(`
       SELECT i.id, i.user_id, i.expires_at, i.used_at,
              u.login_id, u.name, u.role, u.role_type, u.is_admin, u.color, u.week_start, u.show_holidays, u.created_at
       FROM invitations i
       JOIN users u ON i.user_id = u.id
-      WHERE i.token = ?
-    `).get(token) as {
+      WHERE i.token = ? OR i.token = ?
+    `).get(hashedToken, token) as {
       id: number;
       user_id: number;
       expires_at: string;
@@ -221,6 +228,11 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
       const verifyResult = verifyTotpCodeWithStep(String(totpCode), cleanTotpSecret, 1);
       if (!verifyResult.valid) {
+        recordAuthFailure(db, {
+          scope: "login_ip",
+          identifier: clientIp,
+          ipAddress: clientIp,
+        });
         return NextResponse.json(
           { error: "2要素認証コードが一致しません。スマホアプリに表示されている最新の6桁を入力してください" },
           { status: 400 }

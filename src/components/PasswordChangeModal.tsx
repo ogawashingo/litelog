@@ -45,6 +45,7 @@ export default function PasswordChangeModal({
   const [showTotpSetup, setShowTotpSetup] = useState(false);
   const [totpSetupData, setTotpSetupData] = useState<{ secret: string; uri: string; qrSvg: string } | null>(null);
   const [totpCode, setTotpCode] = useState("");
+  const [totpSetupPassword, setTotpSetupPassword] = useState("");
   const [copiedTotpSecret, setCopiedTotpSecret] = useState(false);
   const [showTotpDisable, setShowTotpDisable] = useState(false);
   const [totpDisablePassword, setTotpDisablePassword] = useState("");
@@ -77,6 +78,10 @@ export default function PasswordChangeModal({
       setErrorMsg("認証アプリに表示されている6桁のコードを入力してください");
       return;
     }
+    if (!totpSetupPassword) {
+      setErrorMsg("2要素認証を有効化するには現在のパスワードを入力してください");
+      return;
+    }
     try {
       setIsTotpLoading(true);
       setErrorMsg("");
@@ -86,6 +91,7 @@ export default function PasswordChangeModal({
         body: JSON.stringify({
           secret: totpSetupData.secret,
           code: totpCode.trim(),
+          password: totpSetupPassword,
         }),
       });
       if (!res.ok) {
@@ -94,6 +100,7 @@ export default function PasswordChangeModal({
       setIs2faEnabled(true);
       setShowTotpSetup(false);
       setTotpCode("");
+      setTotpSetupPassword("");
       setSuccessMsg("2要素認証を有効化しました！次回ログイン時から確認コードが要求されます。");
       if (onSuccess) await onSuccess();
     } catch (err: unknown) {
@@ -148,6 +155,7 @@ export default function PasswordChangeModal({
       setShowTotpSetup(false);
       setShowTotpDisable(false);
       setTotpCode("");
+      setTotpSetupPassword("");
       setTotpDisablePassword("");
       setCurrentPassword("");
       setNewPassword("");
@@ -230,6 +238,7 @@ export default function PasswordChangeModal({
       setShowTotpSetup(false);
       setShowTotpDisable(false);
       setTotpCode("");
+      setTotpSetupPassword("");
       setTotpDisablePassword("");
       setCurrentPassword("");
       setNewPassword("");
@@ -626,39 +635,56 @@ export default function PasswordChangeModal({
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-[11px] font-semibold text-slate-700">
-                        ② アプリに表示された6桁の確認コードを入力してください
-                      </label>
-                      <div className="flex gap-2">
+                    <div className="space-y-2">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          ② 本人確認のため現在のパスワードを入力してください
+                        </label>
                         <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          maxLength={6}
-                          value={totpCode}
-                          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
-                          placeholder="例: 123456"
-                          className="w-36 text-center tracking-widest font-mono font-bold py-1.5 bg-white border border-slate-300 rounded-lg text-sm"
+                          type="password"
+                          value={totpSetupPassword}
+                          onChange={(e) => setTotpSetupPassword(e.target.value)}
+                          placeholder="現在のパスワード"
+                          autoComplete="current-password"
+                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
                         />
-                        <button
-                          type="button"
-                          disabled={isTotpLoading || totpCode.length !== 6}
-                          onClick={handleEnableTotp}
-                          className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-xs"
-                        >
-                          {isTotpLoading ? "検証中..." : "有効化して完了"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowTotpSetup(false);
-                            setTotpCode("");
-                          }}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium cursor-pointer"
-                        >
-                          キャンセル
-                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          ③ アプリに表示された6桁の確認コードを入力してください
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
+                            value={totpCode}
+                            onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, ""))}
+                            placeholder="例: 123456"
+                            className="w-36 text-center tracking-widest font-mono font-bold py-1.5 bg-white border border-slate-300 rounded-lg text-sm"
+                          />
+                          <button
+                            type="button"
+                            disabled={isTotpLoading || totpCode.length !== 6 || !totpSetupPassword}
+                            onClick={handleEnableTotp}
+                            className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50 cursor-pointer shadow-xs"
+                          >
+                            {isTotpLoading ? "検証中..." : "有効化して完了"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowTotpSetup(false);
+                              setTotpCode("");
+                              setTotpSetupPassword("");
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-medium cursor-pointer"
+                          >
+                            キャンセル
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

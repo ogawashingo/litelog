@@ -9,6 +9,7 @@ import {
   getSessionCookieOptions,
   getSessionUser,
   verifyPassword,
+  verifySameOriginRequest,
   verifyTemp2faToken,
 } from "@/lib/auth";
 import {
@@ -31,6 +32,9 @@ import {
  */
 export async function POST(request: Request) {
   try {
+    if (!verifySameOriginRequest(request)) {
+      return NextResponse.json({ error: "不正なオリジンからのリクエストです" }, { status: 403 });
+    }
     const db = getDb();
     const body = await request.json();
     const { tempToken, code } = body;
@@ -226,6 +230,39 @@ export async function PUT(request: Request) {
     }
 
     const db = getDb();
+    const clientIp = getClientIp(request);
+
+    // パスワード照合および2FAコード試行のレート制限チェック
+    const pwLimitStatus = checkRateLimit(db, {
+      scope: "login",
+      identifier: sessionUser.login_id,
+      ipAddress: clientIp,
+    });
+    if (!pwLimitStatus.allowed) {
+      return NextResponse.json(
+        {
+          error: `パスワード照合の失敗回数が上限に達したため一時ロック中です。${formatRetryAfterJa(pwLimitStatus.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+          retryAfterSec: pwLimitStatus.retryAfterSec,
+        },
+        { status: 429, headers: { "Retry-After": String(pwLimitStatus.retryAfterSec) } }
+      );
+    }
+
+    const totpLimitStatus = checkRateLimit(db, {
+      scope: "2fa",
+      identifier: sessionUser.login_id,
+      ipAddress: clientIp,
+    });
+    if (!totpLimitStatus.allowed) {
+      return NextResponse.json(
+        {
+          error: `2要素認証の失敗回数が上限に達したため一時ロック中です。${formatRetryAfterJa(totpLimitStatus.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+          retryAfterSec: totpLimitStatus.retryAfterSec,
+        },
+        { status: 429, headers: { "Retry-After": String(totpLimitStatus.retryAfterSec) } }
+      );
+    }
+
     const currentUserRow = db
       .prepare("SELECT password, COALESCE(totp_enabled, 0) AS totp_enabled FROM users WHERE id = ?")
       .get(sessionUser.id) as { password: string; totp_enabled: number } | undefined;
@@ -234,23 +271,68 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 });
     }
 
-    // 既に2FAが有効な場合は無断上書きを防止（一度解除するか、現在のパスワード照合を必須とする）
-    if (currentUserRow.totp_enabled === 1) {
-      if (!password || !verifyPassword(String(password), currentUserRow.password)) {
+    // 離席中端末での無断2FA設定（ロックアウト攻撃）および既存2FA無断上書きを防ぐため、現在のパスワード照合を必須化
+    if (!password) {
+      return NextResponse.json(
+        {
+          error:
+            currentUserRow.totp_enabled === 1
+              ? "既に2要素認証が有効です。再設定する場合は現在のパスワードを入力してください"
+              : "2要素認証を有効化するには現在のパスワードを入力してください",
+        },
+        { status: 400 }
+      );
+    }
+    if (!verifyPassword(String(password), currentUserRow.password)) {
+      const nextPwLimit = recordAuthFailure(db, {
+        scope: "login",
+        identifier: sessionUser.login_id,
+        ipAddress: clientIp,
+      });
+      if (!nextPwLimit.allowed) {
         return NextResponse.json(
-          { error: "既に2要素認証が有効です。再設定する場合は一度解除してから設定してください" },
-          { status: 400 }
+          {
+            error: `パスワード照合の失敗が規定回数に達したため一時ロックしました。${formatRetryAfterJa(nextPwLimit.retryAfterSec)}後に再試行してください`,
+            retryAfterSec: nextPwLimit.retryAfterSec,
+          },
+          { status: 429, headers: { "Retry-After": String(nextPwLimit.retryAfterSec) } }
         );
       }
+      return NextResponse.json({ error: "現在のパスワードが正しくありません" }, { status: 401 });
     }
 
     const verifyResult = verifyTotpCodeWithStep(String(code), cleanSecret, 1);
     if (!verifyResult.valid) {
+      const nextTotpLimit = recordAuthFailure(db, {
+        scope: "2fa",
+        identifier: sessionUser.login_id,
+        ipAddress: clientIp,
+      });
+      if (!nextTotpLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: `2要素認証コードの失敗が規定回数に達したため一時ロックしました。${formatRetryAfterJa(nextTotpLimit.retryAfterSec)}後に再試行してください`,
+            retryAfterSec: nextTotpLimit.retryAfterSec,
+          },
+          { status: 429, headers: { "Retry-After": String(nextTotpLimit.retryAfterSec) } }
+        );
+      }
       return NextResponse.json(
         { error: "認証コードが一致しません。スマホアプリに表示されている最新の6桁を入力してください" },
         { status: 400 }
       );
     }
+
+    resetAuthRateLimit(db, {
+      scope: "login",
+      identifier: sessionUser.login_id,
+      ipAddress: clientIp,
+    });
+    resetAuthRateLimit(db, {
+      scope: "2fa",
+      identifier: sessionUser.login_id,
+      ipAddress: clientIp,
+    });
 
     db.prepare(`
       UPDATE users

@@ -132,8 +132,24 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "userIds は配列で指定してください" }, { status: 400 });
     }
 
-    // メンバー更新実行（Admin/PMOは常時自動保持）
-    setProjectMembers(db, projectId, userIds);
+    let targetUserIds = userIds.map(Number).filter(Boolean);
+    if (sessionUser.is_admin !== 1) {
+      // PMOによるメンバー変更時は、既に参加しているシステム管理者（Admin）を強制脱退（締め出し）させられないよう保護
+      const currentAdminMembers = db
+        .prepare(`
+          SELECT pm.user_id
+          FROM project_members pm
+          JOIN users u ON pm.user_id = u.id
+          WHERE pm.project_id = ? AND (u.is_admin = 1 OR u.role_type = 'admin')
+        `)
+        .all(projectId) as { user_id: number }[];
+      targetUserIds = Array.from(
+        new Set([...targetUserIds, ...currentAdminMembers.map((m) => Number(m.user_id))])
+      );
+    }
+
+    // メンバー更新実行
+    setProjectMembers(db, projectId, targetUserIds);
 
     const updatedMembers = getProjectMemberUsers(db, projectId);
     return NextResponse.json({

@@ -607,7 +607,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         const updateAttStmt = db.prepare(`
           UPDATE attachments
           SET issue_id = ?
-          WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
+          WHERE id = ? AND ((issue_id IS NULL AND comment_id IS NULL AND user_id = ?) OR issue_id = ?)
         `);
         for (const m of descMatches) {
           if (m[1]) updateAttStmt.run(issueId, Number(m[1]), sessionUser.id, issueId);

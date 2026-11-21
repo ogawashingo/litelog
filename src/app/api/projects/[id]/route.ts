@@ -193,8 +193,8 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
       db.prepare(`
         DELETE FROM activities
         WHERE issue_id IN (SELECT id FROM issues WHERE project_id = ?)
-           OR content LIKE ?
-      `).run(projectId, `%[${existing.key}-%`);
+           OR (issue_id IS NULL AND content LIKE ?)
+      `).run(projectId, `課題 [${existing.key}-%`);
 
       db.prepare("DELETE FROM issues WHERE project_id = ?").run(projectId);
       db.prepare("DELETE FROM projects WHERE id = ?").run(projectId);

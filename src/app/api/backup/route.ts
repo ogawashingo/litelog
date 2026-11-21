@@ -12,7 +12,13 @@ import {
 } from "@/lib/auth";
 import { isSafeStoredAttachmentName } from "@/lib/attachmentPolicy";
 import { isValidTotpSecret } from "@/lib/totp";
+import { validateHexColor } from "@/lib/validation";
 import { isArchivedProject } from "@/types";
+
+const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
+const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
+const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
+const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated", "cannot_reproduce"]);
 
 const PUBLIC_SETTING_KEYS = new Set([
   "timezone",
@@ -194,35 +200,38 @@ export async function POST(request: Request) {
             existingAuthById.get(Number(u.id)) ||
             existingAuthByLoginId.get(loginIdStr);
 
-          // バックアップ内の明示パスワード、または退避した既存パスワードハッシュ、または推測不可能なランダム初期パスワードを設定
+          // 既存ユーザーが存在する場合は退避した既存パスワードハッシュを最優先で保持（細工されたバックアップJSONによる管理者パスワード無断上書きを防止）
           const rawOrExistingPw =
-            (u.password && String(u.password).trim()) ||
             matchedAuth?.password ||
+            (u.password && String(u.password).trim()) ||
             crypto.randomBytes(16).toString("base64url");
           const hashedPw = hashPassword(rawOrExistingPw);
 
-          // 2FA設定の引き継ぎ（バックアップに有効なシークレットが含まれる場合、または既存DBの2FA設定を維持）
+          // 2FA設定の引き継ぎ（既存DBで有効な2FA設定があれば最優先で維持し、インポートJSONによる2FA無効化・秘密鍵差し替えを防止）
           let totpSecret: string | null = null;
           let totpEnabled = 0;
           let totpLastStep: number | null = null;
-          if (u.totp_secret && isValidTotpSecret(u.totp_secret)) {
-            totpSecret = String(u.totp_secret).trim();
-            totpEnabled = u.totp_enabled ? 1 : 0;
-          } else if (matchedAuth && matchedAuth.totp_enabled === 1 && matchedAuth.totp_secret) {
+          if (matchedAuth && matchedAuth.totp_enabled === 1 && matchedAuth.totp_secret) {
             totpSecret = matchedAuth.totp_secret;
             totpEnabled = 1;
             totpLastStep = matchedAuth.totp_last_used_step;
+          } else if (!matchedAuth && u.totp_secret && isValidTotpSecret(u.totp_secret)) {
+            totpSecret = String(u.totp_secret).trim();
+            totpEnabled = u.totp_enabled ? 1 : 0;
           }
+
+          const rawUserColor = u.color ? String(u.color).trim() : "#4f46e5";
+          const safeUserColor = validateHexColor(rawUserColor) === null ? rawUserColor : "#4f46e5";
 
           insertUser.run(
             u.id,
             loginIdStr,
             hashedPw,
-            u.name,
-            u.role || (isAdminVal ? "管理者" : roleTypeVal === "pmo" ? "PMO" : "メンバー"),
+            String(u.name || loginIdStr).slice(0, 100),
+            String(u.role || (isAdminVal ? "管理者" : roleTypeVal === "pmo" ? "PMO" : "メンバー")).slice(0, 50),
             isAdminVal,
             roleTypeVal,
-            u.color || "#4f46e5",
+            safeUserColor,
             u.week_start === "sunday" ? "sunday" : "monday",
             u.show_holidays === 0 || u.show_holidays === false ? 0 : 1,
             totpSecret,
@@ -251,11 +260,12 @@ export async function POST(request: Request) {
         (db.prepare("SELECT id FROM users").all() as { id: number }[]).map((u) => u.id)
       );
 
-      // プロジェクトデータの復元（アーカイブ状態 is_archived も保持）
+      // プロジェクトデータの復元（アーカイブ状態 is_archived も保持・カラーコード検証付き）
       const insertProj = db.prepare(`
         INSERT INTO projects (id, key, name, color, is_archived, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
       `);
+      const validProjectIds = new Set<number>();
       for (const p of projects) {
         const isArchivedVal =
           p.is_archived !== undefined
@@ -265,51 +275,92 @@ export async function POST(request: Request) {
             : isArchivedProject(p)
             ? 1
             : 0;
+        const rawProjColor = p.color ? String(p.color).trim() : "#4f46e5";
+        const safeProjColor = validateHexColor(rawProjColor) === null ? rawProjColor : "#4f46e5";
         insertProj.run(
           p.id,
-          p.key,
-          p.name,
-          p.color || "#4f46e5",
+          String(p.key || `PRJ${p.id}`).trim().toUpperCase().slice(0, 15),
+          String(p.name || "プロジェクト").slice(0, 100),
+          safeProjColor,
           isArchivedVal,
           p.created_at || new Date().toISOString()
         );
+        validProjectIds.add(Number(p.id));
       }
 
-      // 課題データの復元（完了理由 resolution も保持）
+      // 課題データの復元（完了理由 resolution も保持・列挙値および所属プロジェクト整合性検証付き）
       const insertIssue = db.prepare(`
         INSERT INTO issues (id, project_id, assignee_id, created_by, issue_key, issue_number, title, description, issue_type, status, priority, resolution, start_date, due_date, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
+      const issueProjectMap = new Map<number, number>();
       for (const i of issues) {
+        const projIdNum = Number(i.project_id);
+        if (!validProjectIds.has(projIdNum)) {
+          continue;
+        }
         const assigneeId = i.assignee_id && validUserIds.has(i.assignee_id) ? i.assignee_id : null;
         const createdBy = i.created_by && validUserIds.has(i.created_by) ? i.created_by : null;
-        const statusVal = i.status || "open";
-        const resolutionVal = statusVal === "closed" && i.resolution ? i.resolution : null;
+        const statusVal = VALID_STATUSES.has(String(i.status)) ? String(i.status) : "open";
+        const typeVal = VALID_ISSUE_TYPES.has(String(i.issue_type)) ? String(i.issue_type) : "task";
+        const priorityVal = VALID_PRIORITIES.has(String(i.priority)) ? String(i.priority) : "medium";
+        const resolutionVal =
+          statusVal === "closed" && i.resolution && VALID_RESOLUTIONS.has(String(i.resolution))
+            ? String(i.resolution)
+            : null;
         insertIssue.run(
           i.id,
-          i.project_id,
+          projIdNum,
           assigneeId,
           createdBy,
           i.issue_key,
           i.issue_number,
           i.title,
           i.description || "",
-          i.issue_type || "task",
+          typeVal,
           statusVal,
-          i.priority || "medium",
+          priorityVal,
           resolutionVal,
           i.start_date || null,
           i.due_date || null,
           i.created_at || new Date().toISOString(),
           i.updated_at || new Date().toISOString()
         );
+        issueProjectMap.set(Number(i.id), projIdNum);
       }
 
-      // 親子課題（parent_id）の関連性を復元
+      // 親子課題（parent_id）の関連性を復元（同一プロジェクト・実在確認・自己参照および循環参照チェック付き）
       const updateParent = db.prepare("UPDATE issues SET parent_id = ? WHERE id = ?");
+      const restoredParentMap = new Map<number, number>();
       for (const i of issues) {
-        if (i.parent_id) {
-          updateParent.run(i.parent_id, i.id);
+        if (!i.parent_id) continue;
+        const childId = Number(i.id);
+        const parentId = Number(i.parent_id);
+        if (
+          !childId ||
+          !parentId ||
+          childId === parentId ||
+          !issueProjectMap.has(childId) ||
+          !issueProjectMap.has(parentId) ||
+          issueProjectMap.get(childId) !== issueProjectMap.get(parentId)
+        ) {
+          continue;
+        }
+        // 循環参照（A -> B -> A）にならないか検証
+        let cursor: number | undefined = parentId;
+        let hasCycle = false;
+        const visited = new Set<number>([childId]);
+        while (cursor !== undefined) {
+          if (visited.has(cursor)) {
+            hasCycle = true;
+            break;
+          }
+          visited.add(cursor);
+          cursor = restoredParentMap.get(cursor);
+        }
+        if (!hasCycle) {
+          updateParent.run(parentId, childId);
+          restoredParentMap.set(childId, parentId);
         }
       }
 

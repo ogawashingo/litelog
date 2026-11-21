@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         | undefined;
       if (projRow?.key) {
         sql += " AND (i.project_id = ? OR (a.issue_id IS NULL AND a.content LIKE ?))";
-        params.push(pid, `%[${projRow.key}-%`);
+        params.push(pid, `課題 [${projRow.key}-%`);
       } else {
         sql += " AND i.project_id = ?";
         params.push(pid);

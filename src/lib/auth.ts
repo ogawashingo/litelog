@@ -78,30 +78,60 @@ export function verifyDummyPassword(plainPassword: string): false {
 }
 
 /**
- * Origin ヘッダーと Host / X-Forwarded-Host ヘッダーが同一オリジン（ホスト一致）か検証します（CSRF防止）
- * Origin ヘッダーが存在しない場合（同一オリジンGET等）は true を返し、
- * 外部サイトからのクロスオリジン POST / PUT / PATCH / DELETE 等で Origin が不一致の場合は false を返します
+ * Origin ヘッダー・Sec-Fetch-Site ヘッダーと Host / X-Forwarded-Host ヘッダーが同一オリジン（ホスト一致）か検証します（CSRF防止）
+ * Origin ヘッダーが存在しない場合（同一オリジンGET等）かつ Sec-Fetch-Site が cross-site でない場合は true を返し、
+ * 外部サイトからのクロスオリジンリクエスト（Origin 不一致または Sec-Fetch-Site: cross-site）は false を返します
  */
 export function isSameOriginHeader(
   originHeader: string | null | undefined,
   hostHeader: string | null | undefined,
-  forwardedHostHeader?: string | null | undefined
+  forwardedHostHeader?: string | null | undefined,
+  secFetchSiteHeader?: string | null | undefined
 ): boolean {
+  if (secFetchSiteHeader && secFetchSiteHeader.trim().toLowerCase() === "cross-site") {
+    return false;
+  }
   if (!originHeader) return true;
   if (originHeader === "null") return false;
 
-  const effectiveHost = (forwardedHostHeader || hostHeader || "")
-    .split(",")[0]
-    .trim()
-    .toLowerCase();
-  if (!effectiveHost) return true;
+  const primaryHost = (hostHeader || "").split(",")[0].trim().toLowerCase();
+  const proxyHost =
+    process.env.TRUST_PROXY === "false"
+      ? ""
+      : (forwardedHostHeader || "").split(",")[0].trim().toLowerCase();
+  const effectiveHost = proxyHost || primaryHost;
+  if (!effectiveHost) return false;
 
   try {
     const parsedOrigin = new URL(originHeader.trim());
-    return parsedOrigin.host.toLowerCase() === effectiveHost;
+    const originHost = parsedOrigin.host.toLowerCase();
+    return originHost === effectiveHost || (Boolean(primaryHost) && originHost === primaryHost);
   } catch {
     return false;
   }
+}
+
+/**
+ * Request オブジェクトのヘッダーから同一オリジン要求かを検証します（未認証POST/DELETE等のCSRF防御用）
+ */
+export function verifySameOriginRequest(request: Request): boolean {
+  return isSameOriginHeader(
+    request.headers.get("origin"),
+    request.headers.get("host"),
+    request.headers.get("x-forwarded-host"),
+    request.headers.get("sec-fetch-site")
+  );
+}
+
+/**
+ * 招待トークンをDB保存・照合用にSHA-256ハッシュ化します（DB漏洩時の未使用招待トークン悪用防止）
+ * 形式: sha256$<hex>
+ */
+export function hashInvitationToken(rawToken: string): string {
+  const clean = String(rawToken || "").trim();
+  if (!clean) return "";
+  if (clean.startsWith("sha256$")) return clean;
+  return `sha256$${crypto.createHash("sha256").update(clean).digest("hex")}`;
 }
 
 /**
@@ -318,12 +348,14 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const headerStore = await headers();
     const origin = headerStore.get("origin");
+    const secFetchSite = headerStore.get("sec-fetch-site");
     if (
-      origin &&
+      (origin || secFetchSite) &&
       !isSameOriginHeader(
         origin,
         headerStore.get("host"),
-        headerStore.get("x-forwarded-host")
+        headerStore.get("x-forwarded-host"),
+        secFetchSite
       )
     ) {
       return null;

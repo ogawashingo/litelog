@@ -30,13 +30,14 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     // 課題の存在確認（プロジェクトの参加権限・アーカイブ状態も確認）
     const issue = db.prepare(`
-      SELECT i.id, i.project_id, p.is_archived AS project_is_archived, p.name AS project_name, p.key AS project_key
+      SELECT i.id, i.project_id, i.description, p.is_archived AS project_is_archived, p.name AS project_name, p.key AS project_key
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       WHERE ${isNumericIssue ? "i.id = ?" : "i.issue_key = ?"}
     `).get(isNumericIssue ? Number(id) : id) as {
       id: number;
       project_id: number;
+      description?: string | null;
       project_is_archived?: number;
       project_name?: string;
       project_key?: string;
@@ -143,15 +144,27 @@ export async function PUT(request: Request, { params }: RouteParams) {
         WHERE id = ?
       `).run(cleanContent, comment.id);
 
-      // コメント本文内の添付ファイルURLをバインド（他ユーザーの未紐付けファイル横取りを防止）
+      // コメント本文内の添付ファイルURLをバインド（他ユーザーのファイルや既存コメント・課題本文の添付ファイル横取りを防止）
+      const issueDescAttachmentIds = new Set(
+        Array.from(String(issue.description || "").matchAll(/\/api\/attachments\/(\d+)/g), (m) =>
+          Number(m[1])
+        )
+      );
       const commentMatches = cleanContent.matchAll(/\/api\/attachments\/(\d+)/g);
       const updateAttStmt = db.prepare(`
         UPDATE attachments
         SET issue_id = ?, comment_id = ?
-        WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
+        WHERE id = ?
+          AND (
+            (user_id = ? AND comment_id IS NULL AND (issue_id IS NULL OR issue_id = ?))
+            OR (issue_id = ? AND comment_id = ?)
+          )
       `);
       for (const m of commentMatches) {
-        if (m[1]) updateAttStmt.run(issue.id, comment.id, Number(m[1]), sessionUser.id, issue.id);
+        const attId = Number(m[1]);
+        if (attId && !issueDescAttachmentIds.has(attId)) {
+          updateAttStmt.run(issue.id, comment.id, attId, sessionUser.id, issue.id, issue.id, comment.id);
+        }
       }
 
       // 3. 課題の updated_at を更新

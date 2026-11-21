@@ -103,6 +103,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       project_id: number;
       issue_key: string;
       title: string;
+      description?: string | null;
       status: string;
       resolution: string | null;
       assignee_id: number | null;
@@ -269,15 +270,26 @@ export async function POST(request: Request, { params }: RouteParams) {
         const result = insert.run(issueId, resolvedUserId, cleanContent);
         commentId = result.lastInsertRowid;
 
-        // コメント本文内の添付ファイルURLをこの課題およびコメントにバインド（他ユーザーの未紐付けファイル横取りを防止）
+        // コメント本文内の添付ファイルURLをこの課題およびコメントにバインド（他ユーザーのファイルや既存コメント・課題本文の添付ファイル横取りを防止）
+        const issueDescAttachmentIds = new Set(
+          Array.from(String(issue.description || "").matchAll(/\/api\/attachments\/(\d+)/g), (m) =>
+            Number(m[1])
+          )
+        );
         const commentMatches = cleanContent.matchAll(/\/api\/attachments\/(\d+)/g);
         const updateAttStmt = db.prepare(`
           UPDATE attachments
           SET issue_id = ?, comment_id = ?
-          WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
+          WHERE id = ?
+            AND user_id = ?
+            AND comment_id IS NULL
+            AND (issue_id IS NULL OR issue_id = ?)
         `);
         for (const m of commentMatches) {
-          if (m[1]) updateAttStmt.run(issueId, commentId, Number(m[1]), resolvedUserId, issueId);
+          const attId = Number(m[1]);
+          if (attId && !issueDescAttachmentIds.has(attId)) {
+            updateAttStmt.run(issueId, commentId, attId, resolvedUserId, issueId);
+          }
         }
 
         // アクティビティに記録

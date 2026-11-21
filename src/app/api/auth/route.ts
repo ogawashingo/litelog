@@ -12,6 +12,7 @@ import {
   hashPassword,
   verifyDummyPassword,
   verifyPassword,
+  verifySameOriginRequest,
 } from "@/lib/auth";
 import {
   checkRateLimit,
@@ -43,6 +44,9 @@ export async function GET() {
 // ID・パスワードによるWebログイン認証
 export async function POST(request: Request) {
   try {
+    if (!verifySameOriginRequest(request)) {
+      return NextResponse.json({ error: "不正なオリジンからのリクエストです" }, { status: 403 });
+    }
     const db = getDb();
     const body = await request.json();
     const { loginId, password } = body;
@@ -305,8 +309,11 @@ export async function PUT(request: Request) {
 }
 
 // ログアウト処理
-export async function DELETE() {
+export async function DELETE(request: Request) {
   try {
+    if (!verifySameOriginRequest(request)) {
+      return NextResponse.json({ error: "不正なオリジンからのリクエストです" }, { status: 403 });
+    }
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE_NAME, "", getSessionCookieOptions(0));
     cookieStore.delete(SESSION_COOKIE_NAME);

@@ -137,7 +137,8 @@ export async function GET(request: Request) {
       }
     }
 
-    if (querySearch) {
+    const trimmedSearch = querySearch ? querySearch.trim().slice(0, 200) : "";
+    if (trimmedSearch) {
       // 課題件名・課題キー・詳細説明・プロジェクト名・プロジェクトキー、およびコメント本文を横断検索
       sql += ` AND (
         i.title LIKE ? 
@@ -147,7 +148,7 @@ export async function GET(request: Request) {
         OR p.key LIKE ?
         OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = i.id AND c.content LIKE ?)
       )`;
-      const pattern = `%${querySearch}%`;
+      const pattern = `%${trimmedSearch}%`;
       params.push(pattern, pattern, pattern, pattern, pattern, pattern);
     }
 
@@ -375,11 +376,11 @@ export async function POST(request: Request) {
         }
       }
       if (foundAttachmentIds.size > 0) {
-        // 他ユーザーがアップロードした未紐付けファイルの横取りを防ぐため user_id を検証
+        // 他ユーザーがアップロードした未紐付けファイルの横取りを防ぐため user_id および comment_id を検証
         const updateAttStmt = db.prepare(`
           UPDATE attachments
           SET issue_id = ?
-          WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
+          WHERE id = ? AND ((issue_id IS NULL AND comment_id IS NULL AND user_id = ?) OR issue_id = ?)
         `);
         for (const aid of foundAttachmentIds) {
           updateAttStmt.run(issueId, aid, resolvedActorId, issueId);
