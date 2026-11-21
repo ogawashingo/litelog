@@ -12,6 +12,13 @@ import {
   hashPassword,
   verifyPassword,
 } from "@/lib/auth";
+import {
+  checkRateLimit,
+  formatRetryAfterJa,
+  getClientIp,
+  recordAuthFailure,
+  resetAuthRateLimit,
+} from "@/lib/rateLimit";
 import { MIN_LENGTHS, validatePassword } from "@/lib/validation";
 
 // 現在のログインセッション確認（HMAC署名検証付き＆初回セットアップ要否判定）
@@ -47,6 +54,40 @@ export async function POST(request: Request) {
     }
 
     const cleanLoginId = String(loginId).trim();
+    const clientIp = getClientIp(request);
+
+    // レート制限チェック（同一IPからの大量試行、およびログインID×IP単位の連続失敗を防御）
+    const ipLimit = checkRateLimit(db, {
+      scope: "login_ip",
+      identifier: clientIp,
+      ipAddress: clientIp,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `ログイン試行回数が上限に達したため一時ロック中です。${formatRetryAfterJa(ipLimit.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+          retryAfterSec: ipLimit.retryAfterSec,
+          lockedUntil: ipLimit.lockedUntil,
+        },
+        { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSec) } }
+      );
+    }
+
+    const accountLimit = checkRateLimit(db, {
+      scope: "login",
+      identifier: cleanLoginId,
+      ipAddress: clientIp,
+    });
+    if (!accountLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `ログイン試行回数が上限に達したため一時ロック中です。${formatRetryAfterJa(accountLimit.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+          retryAfterSec: accountLimit.retryAfterSec,
+          lockedUntil: accountLimit.lockedUntil,
+        },
+        { status: 429, headers: { "Retry-After": String(accountLimit.retryAfterSec) } }
+      );
+    }
 
     const row = db.prepare(`
       SELECT id, login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays, totp_enabled, created_at
@@ -68,11 +109,41 @@ export async function POST(request: Request) {
     } | undefined;
 
     if (!row || !verifyPassword(String(password), row.password)) {
+      // 認証失敗をアカウント単位・IP単位の両方で記録
+      const nextAccountLimit = recordAuthFailure(db, {
+        scope: "login",
+        identifier: cleanLoginId,
+        ipAddress: clientIp,
+      });
+      const nextIpLimit = recordAuthFailure(db, {
+        scope: "login_ip",
+        identifier: clientIp,
+        ipAddress: clientIp,
+      });
+
+      if (!nextAccountLimit.allowed || !nextIpLimit.allowed) {
+        const retryAfterSec = Math.max(nextAccountLimit.retryAfterSec, nextIpLimit.retryAfterSec);
+        return NextResponse.json(
+          {
+            error: `ログイン失敗が規定回数に達したため一時ロックしました。${formatRetryAfterJa(retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+            retryAfterSec,
+          },
+          { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+        );
+      }
+
       return NextResponse.json(
         { error: "ログインIDまたはパスワードが正しくありません" },
         { status: 401 }
       );
     }
+
+    // パスワード認証成功：ログインの失敗カウントをリセット
+    resetAuthRateLimit(db, {
+      scope: "login",
+      identifier: cleanLoginId,
+      ipAddress: clientIp,
+    });
 
     // 2要素認証（TOTP）が有効化されている場合、一時トークンを返し認証コード入力を要求
     if (row.totp_enabled === 1) {

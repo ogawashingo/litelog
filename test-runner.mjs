@@ -15,6 +15,14 @@ import { AVATAR_COLORS, AVATAR_COLOR_VALUES, getAvatarColorLabel } from "./src/l
 import { parseMarkdown, parseInline, isSafeUrl } from "./src/lib/markdownUtils.ts";
 import { extendAncestorDueDatesIfNeeded } from "./src/lib/parentDueDate.ts";
 import {
+  checkRateLimit,
+  recordAuthFailure,
+  resetAuthRateLimit,
+  listRateLimitStatuses,
+  unlockRateLimitById,
+  unlockAllRateLimits,
+} from "./src/lib/rateLimit.ts";
+import {
   MAX_ATTACHMENT_FILE_SIZE,
   MAX_FILES_PER_UPLOAD,
   MAX_TOTAL_UPLOAD_SIZE,
@@ -23,6 +31,11 @@ import {
   validateAttachmentBatchMeta,
   validateFileSignature,
 } from "./src/lib/attachmentPolicy.ts";
+import {
+  UserFacingError,
+  createApiError,
+  getSafeErrorMessage,
+} from "./src/lib/clientError.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -3108,6 +3121,172 @@ async function runTests() {
     }
 
     console.log("✓ 添付ファイルアップロードポリシー（種類・サイズ・件数・シグネチャ検証）テスト成功");
+  }
+
+  // エラー表示安全化（内部例外メッセージ遮断・非JSONレスポンス耐性・カスタムエラー画面配置）検証
+  {
+    if (getSafeErrorMessage(new UserFacingError("入力内容を確認してください"), "フォールバック") !== "入力内容を確認してください") {
+      throw new Error("UserFacingError のメッセージが正しく返却されませんでした");
+    }
+    if (getSafeErrorMessage(new Error("SQLITE_ERROR: no such table: users"), "取得に失敗しました") !== "取得に失敗しました") {
+      throw new Error("内部エラーメッセージが遮断されませんでした");
+    }
+    if (getSafeErrorMessage(new SyntaxError("Unexpected token < in JSON"), "読み込みに失敗しました") !== "読み込みに失敗しました") {
+      throw new Error("構文エラーメッセージが遮断されませんでした");
+    }
+    if (getSafeErrorMessage(new TypeError("Failed to fetch"), "通信に失敗しました") !== "通信に失敗しました") {
+      throw new Error("ネットワークエラーメッセージが遮断されませんでした");
+    }
+
+    const jsonErrRes = new Response(JSON.stringify({ error: "権限がありません" }), { status: 403 });
+    const parsedApiErr = await createApiError(jsonErrRes, "処理に失敗しました");
+    if (!(parsedApiErr instanceof UserFacingError) || parsedApiErr.message !== "権限がありません") {
+      throw new Error("APIエラーレスポンスからのメッセージ抽出に失敗しました");
+    }
+
+    const htmlErrRes = new Response("<!DOCTYPE html><html><body>502 Bad Gateway</body></html>", { status: 502 });
+    const fallbackApiErr = await createApiError(htmlErrRes, "サーバー通信に失敗しました");
+    if (!(fallbackApiErr instanceof UserFacingError) || fallbackApiErr.message !== "サーバー通信に失敗しました") {
+      throw new Error("非JSONレスポンス時のフォールバック処理に失敗しました");
+    }
+
+    // カスタムエラー画面が配置され、error.message / error.stack を描画していないことを確認
+    for (const relPath of ["src/app/error.tsx", "src/app/global-error.tsx", "src/app/not-found.tsx"]) {
+      const fullPath = path.join(process.cwd(), relPath);
+      if (!fs.existsSync(fullPath)) {
+        throw new Error(`カスタムエラー画面が存在しません: ${relPath}`);
+      }
+      const src = fs.readFileSync(fullPath, "utf8");
+      if (src.includes("error.message") || src.includes("error.stack")) {
+        throw new Error(`カスタムエラー画面に内部エラー詳細の参照が含まれています: ${relPath}`);
+      }
+    }
+
+    console.log("✓ エラー表示安全化（内部情報遮断・非JSON耐性・カスタムエラー画面）テスト成功");
+  }
+
+  // =========================================================================
+  // ログイン・2FA試行レート制限＆管理者ロック確認・手動解除テスト
+  // =========================================================================
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS login_rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        scope TEXT NOT NULL,
+        identifier TEXT NOT NULL,
+        ip_address TEXT NOT NULL,
+        failed_count INTEGER NOT NULL DEFAULT 0,
+        first_failed_at TEXT,
+        last_failed_at TEXT,
+        locked_until TEXT,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(scope, identifier, ip_address)
+      );
+    `);
+    unlockAllRateLimits(db);
+
+    const rlUser = Number(
+      db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, role_type) VALUES ('rl_user', 'pw', 'レート制限テスト', 'メンバー', 0, 'member')").run().lastInsertRowid
+    );
+    const baseTime = Date.now();
+    const testIp = "192.168.10.50";
+
+    // 1. 4回失敗まではロックされず、5回目でロック発動
+    for (let i = 1; i <= 4; i++) {
+      const res = recordAuthFailure(db, {
+        scope: "login",
+        identifier: "RL_USER",
+        ipAddress: testIp,
+        nowMs: baseTime + i * 1000,
+      });
+      if (!res.allowed || res.failedCount !== i) {
+        throw new Error(`ログイン失敗${i}回目の判定が不正です: allowed=${res.allowed}, count=${res.failedCount}`);
+      }
+    }
+    const fifth = recordAuthFailure(db, {
+      scope: "login",
+      identifier: "rl_user",
+      ipAddress: testIp,
+      nowMs: baseTime + 5000,
+    });
+    if (fifth.allowed || fifth.retryAfterSec <= 0) {
+      throw new Error("5回目の失敗でロックが発動していません");
+    }
+
+    // 2. ロック中の確認と管理画面一覧取得（ユーザー名結合）
+    const blocked = checkRateLimit(db, {
+      scope: "login",
+      identifier: "rl_user",
+      ipAddress: testIp,
+      nowMs: baseTime + 10000,
+    });
+    if (blocked.allowed) {
+      throw new Error("ロック中のログイン試行が許可されてしまいました");
+    }
+
+    const list = listRateLimitStatuses(db, baseTime + 10000);
+    const targetItem = list.find((item) => item.identifier === "rl_user" && item.scope === "login");
+    if (!targetItem || !targetItem.is_locked || targetItem.user_name !== "レート制限テスト") {
+      throw new Error("管理画面用のロック一覧にユーザー情報付きで表示されていません");
+    }
+
+    // 3. 管理者による手動ロック解除
+    const unlocked = unlockRateLimitById(db, targetItem.id);
+    if (!unlocked) {
+      throw new Error("管理者による手動ロック解除に失敗しました");
+    }
+    const afterUnlock = checkRateLimit(db, {
+      scope: "login",
+      identifier: "rl_user",
+      ipAddress: testIp,
+      nowMs: baseTime + 15000,
+    });
+    if (!afterUnlock.allowed || afterUnlock.failedCount !== 0) {
+      throw new Error("手動解除後にログインが許可されていません");
+    }
+
+    // 4. 2FAロックと時間経過による自動解除、および成功時リセットの検証
+    for (let i = 1; i <= 5; i++) {
+      recordAuthFailure(db, {
+        scope: "2fa",
+        identifier: "rl_user",
+        ipAddress: testIp,
+        nowMs: baseTime + i * 1000,
+      });
+    }
+    const twoFaLocked = checkRateLimit(db, {
+      scope: "2fa",
+      identifier: "rl_user",
+      ipAddress: testIp,
+      nowMs: baseTime + 10000,
+    });
+    if (twoFaLocked.allowed) {
+      throw new Error("2FAが5回失敗してもロックされていません");
+    }
+    // 15分＋1秒後には自動解除されること
+    const twoFaAutoExpired = checkRateLimit(db, {
+      scope: "2fa",
+      identifier: "rl_user",
+      ipAddress: testIp,
+      nowMs: baseTime + 5000 + 15 * 60 * 1000 + 1000,
+    });
+    if (!twoFaAutoExpired.allowed) {
+      throw new Error("15分経過後にロックが自動解除されていません");
+    }
+
+    // 成功時リセットの検証
+    recordAuthFailure(db, { scope: "login", identifier: "rl_user", ipAddress: testIp, nowMs: baseTime });
+    resetAuthRateLimit(db, { scope: "login", identifier: "rl_user", ipAddress: testIp });
+    const afterReset = checkRateLimit(db, { scope: "login", identifier: "rl_user", ipAddress: testIp, nowMs: baseTime + 1000 });
+    if (afterReset.failedCount !== 0) {
+      throw new Error("認証成功時のレート制限リセットが機能していません");
+    }
+
+    // 後始末
+    unlockAllRateLimits(db);
+    db.prepare("DELETE FROM users WHERE id = ?").run(rlUser);
+
+    console.log("✓ ログイン・2FA試行レート制限＆管理者ロック確認・手動解除テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

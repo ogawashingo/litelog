@@ -18,6 +18,13 @@ import {
   verifyTotpCode,
 } from "@/lib/totp";
 import { generateQrCodeSvg } from "@/lib/qrcode";
+import {
+  checkRateLimit,
+  formatRetryAfterJa,
+  getClientIp,
+  recordAuthFailure,
+  resetAuthRateLimit,
+} from "@/lib/rateLimit";
 
 /**
  * ログイン時の2FA検証（ID・パスワード照合後に発行された一時トークンと6桁コードの照合）
@@ -69,14 +76,54 @@ export async function POST(request: Request) {
       );
     }
 
+    const clientIp = getClientIp(request);
+
+    // 2FAコードの総当たり防止レート制限チェック
+    const limitStatus = checkRateLimit(db, {
+      scope: "2fa",
+      identifier: userRow.login_id,
+      ipAddress: clientIp,
+    });
+    if (!limitStatus.allowed) {
+      return NextResponse.json(
+        {
+          error: `2要素認証の失敗回数が上限に達したため一時ロック中です。${formatRetryAfterJa(limitStatus.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+          retryAfterSec: limitStatus.retryAfterSec,
+          lockedUntil: limitStatus.lockedUntil,
+        },
+        { status: 429, headers: { "Retry-After": String(limitStatus.retryAfterSec) } }
+      );
+    }
+
     // TOTPコードの検証（前後30秒の時刻ズレ許容）
     const isValid = verifyTotpCode(String(code), userRow.totp_secret, 1);
     if (!isValid) {
+      const nextLimit = recordAuthFailure(db, {
+        scope: "2fa",
+        identifier: userRow.login_id,
+        ipAddress: clientIp,
+      });
+      if (!nextLimit.allowed) {
+        return NextResponse.json(
+          {
+            error: `2要素認証コードの失敗が規定回数に達したため一時ロックしました。${formatRetryAfterJa(nextLimit.retryAfterSec)}後に再試行するか、管理者へロック解除をご依頼ください`,
+            retryAfterSec: nextLimit.retryAfterSec,
+          },
+          { status: 429, headers: { "Retry-After": String(nextLimit.retryAfterSec) } }
+        );
+      }
       return NextResponse.json(
         { error: "2要素認証コードが正しくありません。スマホの認証アプリをご確認ください" },
         { status: 401 }
       );
     }
+
+    // 2FA検証成功：該当ユーザーの失敗カウントをリセット
+    resetAuthRateLimit(db, {
+      scope: "2fa",
+      identifier: userRow.login_id,
+      ipAddress: clientIp,
+    });
 
     const user = {
       id: userRow.id,

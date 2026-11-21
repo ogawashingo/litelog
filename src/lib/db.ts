@@ -2,7 +2,6 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
-import { hashPassword, isPasswordHashed } from "@/lib/auth";
 
 // データベースファイルの保存先パス（環境変数 LITELOG_DB_PATH または BACKLOG_DB_PATH で切り替え可能）
 const DB_DIR = path.join(process.cwd(), "data");
@@ -50,7 +49,7 @@ function initDb(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       login_id TEXT UNIQUE,
-      password TEXT NOT NULL DEFAULT 'pass123',
+      password TEXT NOT NULL,
       name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'メンバー',
       is_admin INTEGER NOT NULL DEFAULT 0,
@@ -76,7 +75,7 @@ function initDb(db: DatabaseSync) {
       db.exec("ALTER TABLE users ADD COLUMN login_id TEXT;");
     }
     if (!userCols.some((col) => col.name === "password")) {
-      db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT 'pass123';");
+      db.exec("ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT '';");
     }
     if (!userCols.some((col) => col.name === "week_start")) {
       db.exec("ALTER TABLE users ADD COLUMN week_start TEXT NOT NULL DEFAULT 'monday';");
@@ -114,17 +113,6 @@ function initDb(db: DatabaseSync) {
       }
     } catch (demoErr) {
       console.error("デモアカウント削除マイグレーションエラー:", demoErr);
-    }
-
-    // 平文パスワードが保存されている場合は自動的にソルト付きscryptハッシュへ移行
-    const existingUsers = db
-      .prepare("SELECT id, password FROM users")
-      .all() as { id: number; password: string }[];
-    const updatePwStmt = db.prepare("UPDATE users SET password = ? WHERE id = ?");
-    for (const u of existingUsers) {
-      if (u.password && !isPasswordHashed(u.password)) {
-        updatePwStmt.run(hashPassword(u.password), u.id);
-      }
     }
   } catch (migErr) {
     console.error("users テーブルのマイグレーション確認エラー:", migErr);
@@ -384,6 +372,24 @@ function initDb(db: DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
     CREATE INDEX IF NOT EXISTS idx_invitations_user_id ON invitations(user_id);
+  `);
+
+  // ログイン・2FA試行レート制限テーブル（総当たり攻撃対策・管理画面からのロック確認/解除用）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS login_rate_limits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope TEXT NOT NULL,
+      identifier TEXT NOT NULL,
+      ip_address TEXT NOT NULL,
+      failed_count INTEGER NOT NULL DEFAULT 0,
+      first_failed_at TEXT,
+      last_failed_at TEXT,
+      locked_until TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(scope, identifier, ip_address)
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_rate_limits_locked_until ON login_rate_limits(locked_until);
+    CREATE INDEX IF NOT EXISTS idx_login_rate_limits_updated_at ON login_rate_limits(updated_at DESC);
   `);
 
   // project_members の初期データ移行（初回のみ1回だけ実行。ユーザーによる脱退操作を勝手に上書き・再登録しないようにガード）

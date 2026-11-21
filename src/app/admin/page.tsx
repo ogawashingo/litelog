@@ -31,10 +31,12 @@ import {
   KeyRound,
 } from "lucide-react";
 import Header from "@/components/Header";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
 import ProjectMembersModal from "@/components/ProjectMembersModal";
+import LoginRateLimitPanel from "@/components/LoginRateLimitPanel";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
 import { getAvatarColorLabel } from "@/lib/avatarColors";
@@ -163,7 +165,7 @@ export default function AdminPage() {
       setAnnouncementSaveMessage("一言通知を保存・更新しました！全メンバーへ表示されます");
       setTimeout(() => setAnnouncementSaveMessage(null), 5000);
     } catch (err: unknown) {
-      setAnnouncementSaveMessage(err instanceof Error ? err.message : "保存に失敗しました");
+      setAnnouncementSaveMessage(getSafeErrorMessage(err, "保存に失敗しました"));
     } finally {
       setIsSavingAnnouncement(false);
     }
@@ -220,12 +222,11 @@ export default function AdminPage() {
         body: JSON.stringify({ projectIds: nextIds }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "脱退処理に失敗しました");
+        throw await createApiError(res, "脱退処理に失敗しました");
       }
       await refreshUsers();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "脱退エラーが発生しました");
+      alert(getSafeErrorMessage(err, "脱退エラーが発生しました"));
     }
   };
 
@@ -250,8 +251,11 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    // 認証確認完了後、管理権限（AdminまたはPMO）を持つユーザーのみプロジェクト一覧を取得
+    if (isAuthReady && currentUser && canManageIssues(currentUser)) {
+      fetchProjects();
+    }
+  }, [isAuthReady, currentUser, fetchProjects]);
 
   // プロジェクト名変更の開始（AdminまたはPMO）
   const handleStartEditProject = (proj: Project) => {
@@ -290,8 +294,7 @@ export default function AdminPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "プロジェクト名の変更に失敗しました");
+        throw await createApiError(res, "プロジェクト名の変更に失敗しました");
       }
 
       setEditingProjectId(null);
@@ -300,7 +303,7 @@ export default function AdminPage() {
       setSaveMessage(`プロジェクト名を「${editProjectName.trim()}」に変更しました！`);
       setTimeout(() => setSaveMessage(null), 4000);
     } catch (err: unknown) {
-      setProjectErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
+      setProjectErrorMsg(getSafeErrorMessage(err, "エラーが発生しました"));
     } finally {
       setIsUpdatingProject(false);
     }
@@ -341,8 +344,7 @@ export default function AdminPage() {
       );
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "プロジェクトの削除に失敗しました");
+        throw await createApiError(res, "プロジェクトの削除に失敗しました");
       }
 
       setDeletingProjectId(null);
@@ -351,7 +353,7 @@ export default function AdminPage() {
       setSaveMessage(`プロジェクト [${proj.key}] 「${proj.name}」を削除しました！`);
       setTimeout(() => setSaveMessage(null), 4000);
     } catch (err: unknown) {
-      setProjectErrorMsg(err instanceof Error ? err.message : "削除エラーが発生しました");
+      setProjectErrorMsg(getSafeErrorMessage(err, "削除エラーが発生しました"));
     } finally {
       setIsDeletingProject(false);
     }
@@ -380,8 +382,7 @@ export default function AdminPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || `プロジェクトの${actionLabel}に失敗しました`);
+        throw await createApiError(res, `プロジェクトの${actionLabel}に失敗しました`);
       }
 
       await fetchProjects();
@@ -392,7 +393,7 @@ export default function AdminPage() {
       );
       setTimeout(() => setSaveMessage(null), 4000);
     } catch (err: unknown) {
-      setProjectErrorMsg(err instanceof Error ? err.message : "ステータス変更エラーが発生しました");
+      setProjectErrorMsg(getSafeErrorMessage(err, "ステータス変更エラーが発生しました"));
     } finally {
       setIsUpdatingArchiveId(null);
     }
@@ -499,6 +500,15 @@ export default function AdminPage() {
       desc: "例: 5分前（※マウスホバーで日時を表示）",
     },
   ];
+
+  // 認証判定中または管理権限（Admin・PMO）がない場合は、リダイレクト完了まで管理画面本体を描画しない
+  if (!isAuthReady || !currentUser || !canManageIssues(currentUser)) {
+    return (
+      <div className="min-h-screen bg-transparent flex items-center justify-center font-sans">
+        <div className="text-slate-500 text-sm animate-pulse">読み込み中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
@@ -2040,6 +2050,9 @@ export default function AdminPage() {
             </button>
           </div>
         </div>
+
+        {/* システム管理者（Admin）専用：ログイン試行レート制限・ロック管理 */}
+        {isAdminUser(currentUser) && <LoginRateLimitPanel settings={settings} />}
 
         {/* ページ下部 バージョン表記 */}
         <div className="text-center pt-2 pb-4">
