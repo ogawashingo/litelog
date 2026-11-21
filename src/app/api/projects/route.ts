@@ -15,6 +15,10 @@ export async function GET(request: Request) {
     const isAdmin = sessionUser && (sessionUser.is_admin === 1 || sessionUser.role_type === "admin");
     const limitToUser = isAdmin && forceAll ? null : (sessionUser ? sessionUser.id : null);
 
+    // ログインユーザーのピン留め情報を結合して取得し、ピン留め済みプロジェクトを先頭に並べる
+    const currentUserId = sessionUser ? sessionUser.id : null;
+    const params: (number | string)[] = [];
+
     let query = `
       SELECT 
         p.id,
@@ -22,6 +26,8 @@ export async function GET(request: Request) {
         p.name,
         p.color,
         COALESCE(p.is_archived, 0) AS is_archived,
+        ${currentUserId !== null ? "MAX(COALESCE(my_pm.is_pinned, 0))" : "0"} AS is_pinned,
+        ${currentUserId !== null ? "MAX(my_pm.pinned_at)" : "NULL"} AS pinned_at,
         p.created_at,
         COUNT(DISTINCT i.id) AS total_issues,
         -- project_membersとの結合による重複カウントを防ぐため、DISTINCTでユニーク課題IDを集計
@@ -32,7 +38,13 @@ export async function GET(request: Request) {
       LEFT JOIN project_members pm ON p.id = pm.project_id
     `;
 
-    const params: (number | string)[] = [];
+    if (currentUserId !== null) {
+      query += `
+        LEFT JOIN project_members my_pm ON p.id = my_pm.project_id AND my_pm.user_id = ?
+      `;
+      params.push(currentUserId);
+    }
+
     if (limitToUser) {
       query += `
         WHERE p.id IN (
@@ -44,7 +56,7 @@ export async function GET(request: Request) {
 
     query += `
       GROUP BY p.id
-      ORDER BY p.is_archived ASC, p.created_at ASC
+      ORDER BY p.is_archived ASC, is_pinned DESC, pinned_at ASC, p.created_at ASC
     `;
 
     const rawProjects = db.prepare(query).all(...params) as {
@@ -53,6 +65,8 @@ export async function GET(request: Request) {
       name: string;
       color: string;
       is_archived: number;
+      is_pinned: number;
+      pinned_at: string | null;
       created_at: string;
       total_issues: number;
       active_issues: number;

@@ -297,12 +297,21 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     CREATE TABLE IF NOT EXISTS project_members (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      is_pinned INTEGER NOT NULL DEFAULT 0,
+      pinned_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (project_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
   `);
+  const pmCols = db.prepare("PRAGMA table_info(project_members)").all();
+  if (!pmCols.some((col) => col.name === "is_pinned")) {
+    db.exec("ALTER TABLE project_members ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;");
+  }
+  if (!pmCols.some((col) => col.name === "pinned_at")) {
+    db.exec("ALTER TABLE project_members ADD COLUMN pinned_at DATETIME;");
+  }
   // 招待トークンテーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS invitations (
@@ -2844,6 +2853,75 @@ async function runTests() {
     db.prepare("DELETE FROM issues WHERE id IN (?, ?, ?, ?)").run(cId, pId, gpId, nullParentId);
 
     console.log("✓ 子課題の期限延長に伴う親課題（祖先課題）期限日連動延長テスト成功");
+  }
+
+  // ------------------------------------------------------------------
+  // プロジェクトの個人別ピン留め機能テスト
+  // ------------------------------------------------------------------
+  {
+    const pinUserA = Number(
+      db.prepare("INSERT INTO users (login_id, name, role, is_admin, role_type) VALUES ('pin_user_a', 'ピンA', 'メンバー', 0, 'member')").run().lastInsertRowid
+    );
+    const pinUserB = Number(
+      db.prepare("INSERT INTO users (login_id, name, role, is_admin, role_type) VALUES ('pin_user_b', 'ピンB', 'メンバー', 0, 'member')").run().lastInsertRowid
+    );
+    const p1 = Number(
+      db.prepare("INSERT INTO projects (key, name, color, is_archived, created_at) VALUES ('PIN1', 'プロジェクト1', '#4f46e5', 0, '2026-01-01 00:00:00')").run().lastInsertRowid
+    );
+    const p2 = Number(
+      db.prepare("INSERT INTO projects (key, name, color, is_archived, created_at) VALUES ('PIN2', 'プロジェクト2', '#059669', 0, '2026-01-02 00:00:00')").run().lastInsertRowid
+    );
+    const p3 = Number(
+      db.prepare("INSERT INTO projects (key, name, color, is_archived, created_at) VALUES ('PIN3', 'プロジェクト3', '#d97706', 0, '2026-01-03 00:00:00')").run().lastInsertRowid
+    );
+
+    const insPm = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
+    for (const pid of [p1, p2, p3]) {
+      insPm.run(pid, pinUserA);
+      insPm.run(pid, pinUserB);
+    }
+
+    // ユーザーAは PIN3 → PIN2 の順でピン留め、ユーザーBは未ピン留めのまま
+    db.prepare("UPDATE project_members SET is_pinned = 1, pinned_at = '2026-02-01 10:00:00' WHERE project_id = ? AND user_id = ?").run(p3, pinUserA);
+    db.prepare("UPDATE project_members SET is_pinned = 1, pinned_at = '2026-02-01 10:05:00' WHERE project_id = ? AND user_id = ?").run(p2, pinUserA);
+
+    const fetchOrdered = (uid) =>
+      db.prepare(`
+        SELECT
+          p.key,
+          MAX(COALESCE(my_pm.is_pinned, 0)) AS is_pinned,
+          MAX(my_pm.pinned_at) AS pinned_at
+        FROM projects p
+        LEFT JOIN project_members pm ON p.id = pm.project_id
+        LEFT JOIN project_members my_pm ON p.id = my_pm.project_id AND my_pm.user_id = ?
+        WHERE p.id IN (SELECT project_id FROM project_members WHERE user_id = ?)
+        GROUP BY p.id
+        ORDER BY p.is_archived ASC, is_pinned DESC, pinned_at ASC, p.created_at ASC
+      `).all(uid, uid);
+
+    const orderA = fetchOrdered(pinUserA);
+    const orderB = fetchOrdered(pinUserB);
+
+    if (orderA.map((r) => r.key).join(",") !== "PIN3,PIN2,PIN1") {
+      throw new Error(`ユーザーAのピン留め並び順が不正です: ${orderA.map((r) => r.key).join(",")}`);
+    }
+    if (orderB.map((r) => r.key).join(",") !== "PIN1,PIN2,PIN3") {
+      throw new Error(`ユーザーBの並び順がAのピン留めの影響を受けています: ${orderB.map((r) => r.key).join(",")}`);
+    }
+
+    // メンバー差分同期（setProjectMembers相当）を行っても継続メンバーのピン留めが消えないことを確認
+    db.prepare("DELETE FROM project_members WHERE project_id = ? AND user_id NOT IN (?, ?)").run(p3, pinUserA, pinUserB);
+    db.prepare("INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)").run(p3, pinUserA);
+    const keptPin = db.prepare("SELECT is_pinned, pinned_at FROM project_members WHERE project_id = ? AND user_id = ?").get(p3, pinUserA);
+    if (!keptPin || keptPin.is_pinned !== 1 || keptPin.pinned_at !== "2026-02-01 10:00:00") {
+      throw new Error("メンバー同期後に継続メンバーのピン留め状態が消失しました");
+    }
+
+    // 後始末
+    db.prepare("DELETE FROM projects WHERE id IN (?, ?, ?)").run(p1, p2, p3);
+    db.prepare("DELETE FROM users WHERE id IN (?, ?)").run(pinUserA, pinUserB);
+
+    console.log("✓ プロジェクトの個人別ピン留め・独立ソート・メンバー同期保持テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

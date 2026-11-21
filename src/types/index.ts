@@ -87,6 +87,8 @@ export interface Project {
   name: string;      // プロジェクト名
   color: string;     // テーマカラー（16進数カラーコード）
   is_archived?: number; // アーカイブ状態（1: アーカイブ済み・読み取り専用, 0: アクティブ）
+  is_pinned?: number;   // ログインユーザーのピン留め状態（1: ピン留め, 0: 通常）
+  pinned_at?: string | null; // ピン留め日時
   created_at: string;
   members?: User[];  // 参加メンバー一覧
   member_count?: number; // 参加メンバー総数

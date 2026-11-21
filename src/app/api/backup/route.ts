@@ -363,15 +363,21 @@ export async function POST(request: Request) {
         }
       }
 
-      // プロジェクト参加メンバーの復元
+      // プロジェクト参加メンバーの復元（ピン留め設定も含めて復元）
       if (Array.isArray(projectMembers) && projectMembers.length > 0) {
         const insertPm = db.prepare(`
-          INSERT OR IGNORE INTO project_members (project_id, user_id, created_at)
-          VALUES (?, ?, ?)
+          INSERT OR IGNORE INTO project_members (project_id, user_id, is_pinned, pinned_at, created_at)
+          VALUES (?, ?, ?, ?, ?)
         `);
         for (const pm of projectMembers) {
           if (validUserIds.has(pm.user_id)) {
-            insertPm.run(pm.project_id, pm.user_id, pm.created_at || new Date().toISOString());
+            insertPm.run(
+              pm.project_id,
+              pm.user_id,
+              pm.is_pinned ? 1 : 0,
+              pm.pinned_at || null,
+              pm.created_at || new Date().toISOString()
+            );
           }
         }
       } else {

@@ -350,12 +350,27 @@ function initDb(db: DatabaseSync) {
     CREATE TABLE IF NOT EXISTS project_members (
       project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      is_pinned INTEGER NOT NULL DEFAULT 0,
+      pinned_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (project_id, user_id)
     );
     CREATE INDEX IF NOT EXISTS idx_project_members_user_id ON project_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_members_project_id ON project_members(project_id);
   `);
+
+  // project_members テーブルのマイグレーション（個人別ピン留めカラム追加）
+  try {
+    const pmCols = db.prepare("PRAGMA table_info(project_members)").all() as { name: string }[];
+    if (!pmCols.some((col) => col.name === "is_pinned")) {
+      db.exec("ALTER TABLE project_members ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0;");
+    }
+    if (!pmCols.some((col) => col.name === "pinned_at")) {
+      db.exec("ALTER TABLE project_members ADD COLUMN pinned_at DATETIME;");
+    }
+  } catch (pmMigErr) {
+    console.error("project_members テーブルのマイグレーション確認エラー:", pmMigErr);
+  }
 
   // 招待トークンテーブル（新規メンバーの初期パスワード手動手渡し解消・ワンタイム招待リンク）
   db.exec(`
@@ -738,16 +753,27 @@ export function getProjectMemberUsers(db: DatabaseSync, projectId: number) {
     .all(projectId);
 }
 
-// プロジェクトの参加メンバーを更新（選択されたメンバーID一覧で正確に同期・脱退）
+// プロジェクトの参加メンバーを更新（選択されたメンバーID一覧で正確に同期・脱退。継続メンバーのピン留め状態は保持）
 export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: number[]) {
   const uniqueIds = Array.from(new Set(userIds.map(Number))).filter(Boolean);
 
   db.exec("BEGIN IMMEDIATE;");
   try {
-    db.prepare("DELETE FROM project_members WHERE project_id = ?").run(projectId);
-    const insertStmt = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
-    for (const uid of uniqueIds) {
-      insertStmt.run(projectId, uid);
+    if (uniqueIds.length === 0) {
+      db.prepare("DELETE FROM project_members WHERE project_id = ?").run(projectId);
+    } else {
+      // 選択から外れたメンバーのみ削除し、既存メンバーの is_pinned / pinned_at / created_at を維持する
+      const placeholders = uniqueIds.map(() => "?").join(", ");
+      db.prepare(
+        `DELETE FROM project_members WHERE project_id = ? AND user_id NOT IN (${placeholders})`
+      ).run(projectId, ...uniqueIds);
+
+      const insertStmt = db.prepare(
+        "INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)"
+      );
+      for (const uid of uniqueIds) {
+        insertStmt.run(projectId, uid);
+      }
     }
     db.exec("COMMIT;");
   } catch (err) {
@@ -756,16 +782,27 @@ export function setProjectMembers(db: DatabaseSync, projectId: number, userIds: 
   }
 }
 
-// ユーザーの所属プロジェクト一覧を更新（選択されたプロジェクトID一覧で正確に同期・脱退）
+// ユーザーの所属プロジェクト一覧を更新（選択されたプロジェクトID一覧で正確に同期・脱退。継続プロジェクトのピン留め状態は保持）
 export function setUserProjects(db: DatabaseSync, userId: number, projectIds: number[]) {
   const uniqueProjectIds = Array.from(new Set(projectIds.map(Number))).filter(Boolean);
 
   db.exec("BEGIN IMMEDIATE;");
   try {
-    db.prepare("DELETE FROM project_members WHERE user_id = ?").run(userId);
-    const insertStmt = db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)");
-    for (const pid of uniqueProjectIds) {
-      insertStmt.run(pid, userId);
+    if (uniqueProjectIds.length === 0) {
+      db.prepare("DELETE FROM project_members WHERE user_id = ?").run(userId);
+    } else {
+      // 選択から外れたプロジェクトのみ削除し、既存プロジェクトの is_pinned / pinned_at / created_at を維持する
+      const placeholders = uniqueProjectIds.map(() => "?").join(", ");
+      db.prepare(
+        `DELETE FROM project_members WHERE user_id = ? AND project_id NOT IN (${placeholders})`
+      ).run(userId, ...uniqueProjectIds);
+
+      const insertStmt = db.prepare(
+        "INSERT OR IGNORE INTO project_members (project_id, user_id) VALUES (?, ?)"
+      );
+      for (const pid of uniqueProjectIds) {
+        insertStmt.run(pid, userId);
+      }
     }
     db.exec("COMMIT;");
   } catch (err) {

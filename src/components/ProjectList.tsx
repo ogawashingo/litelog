@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive } from "lucide-react";
+import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive, Pin } from "lucide-react";
 import { Project, isArchivedProject, canManageIssues } from "@/types";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -41,6 +41,9 @@ export default function ProjectList({
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // ピン留め切り替え中のプロジェクトID（連打防止）
+  const [pinningProjectId, setPinningProjectId] = useState<number | null>(null);
 
   // アーカイブ済みプロジェクトの表示トグル
   const [showArchived, setShowArchived] = useState(false);
@@ -158,6 +161,33 @@ export default function ProjectList({
     }
   };
 
+  // プロジェクトの個人別ピン留めトグル
+  const togglePinProject = async (e: React.MouseEvent, proj: ExtendedProject) => {
+    e.stopPropagation();
+    if (!currentUser || pinningProjectId !== null) return;
+
+    const nextPinned = !Boolean(proj.is_pinned);
+    try {
+      setPinningProjectId(proj.id);
+      const res = await fetch(`/api/projects/${proj.id}/pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: nextPinned }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "ピン留めの更新に失敗しました");
+      }
+
+      onUpdated?.();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "ピン留めの更新に失敗しました");
+    } finally {
+      setPinningProjectId(null);
+    }
+  };
+
   return (
     <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 p-4">
       <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
@@ -230,6 +260,8 @@ export default function ProjectList({
           const isEditingThis = editingProjectId === proj.id;
           const isDeletingThis = deletingProjectId === proj.id;
           const isArchived = isArchivedProject(proj);
+          const isPinned = Boolean(proj.is_pinned);
+          const isPinningThis = pinningProjectId === proj.id;
 
           return (
             <div
@@ -244,6 +276,8 @@ export default function ProjectList({
                   ? "bg-indigo-50/70 border-indigo-400 ring-1 ring-indigo-300 shadow-2xs"
                   : isArchived
                   ? "bg-slate-50/60 border-slate-200 hover:border-slate-300 opacity-80"
+                  : isPinned
+                  ? "bg-amber-50/35 border-amber-200/90 hover:border-amber-300 hover:bg-amber-50/60"
                   : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50/70"
               }`}
             >
@@ -337,9 +371,28 @@ export default function ProjectList({
                       </div>
                     )}
                   </div>
-                  <span className="text-[11px] font-bold text-indigo-600 shrink-0">
-                    {progressPercent}%
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {(!isArchived || isPinned) && currentUser && (
+                      <button
+                        type="button"
+                        onClick={(e) => togglePinProject(e, proj)}
+                        disabled={pinningProjectId !== null}
+                        title={isPinned ? "ピン留めを解除" : "上部にピン留め"}
+                        aria-label={isPinned ? `${proj.name}のピン留めを解除` : `${proj.name}を上部にピン留め`}
+                        aria-pressed={isPinned}
+                        className={`p-1 rounded-md transition-colors cursor-pointer disabled:opacity-50 ${
+                          isPinned
+                            ? "text-amber-500 hover:text-amber-600 hover:bg-amber-100/70"
+                            : "text-slate-300 hover:text-amber-500 hover:bg-amber-50"
+                        } ${isPinningThis ? "animate-pulse" : ""}`}
+                      >
+                        <Pin className={`w-3.5 h-3.5 ${isPinned ? "fill-amber-400" : ""}`} />
+                      </button>
+                    )}
+                    <span className="text-[11px] font-bold text-indigo-600">
+                      {progressPercent}%
+                    </span>
+                  </div>
                 </div>
               )}
 
