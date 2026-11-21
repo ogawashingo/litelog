@@ -16,7 +16,7 @@ import { setStoredProjectId } from "@/lib/projectStorage";
 export default function ProjectBoardPage() {
   const params = useParams();
   const router = useRouter();
-  const { currentUser } = useUser();
+  const { currentUser, isAuthReady } = useUser();
   const projectKey = (params?.projectKey as string) || "";
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -76,6 +76,7 @@ export default function ProjectBoardPage() {
 
   // 初回読み込み
   useEffect(() => {
+    if (!isAuthReady || !currentUser) return;
     const init = async () => {
       setIsLoading(true);
       const projs = await fetchProjects();
@@ -92,7 +93,7 @@ export default function ProjectBoardPage() {
       setIsLoading(false);
     };
     init();
-  }, [fetchProjects, fetchIssues, projectKey]);
+  }, [isAuthReady, currentUser, fetchProjects, fetchIssues, projectKey]);
 
   // 課題ステータスの更新処理（ドラッグ＆ドロップまたはモーダルから実行、完了理由の同時指定にも対応）
   const handleUpdateStatus = async (
@@ -152,6 +153,15 @@ export default function ProjectBoardPage() {
       router.push(`/board/${encodeURIComponent(newKey)}`);
     }
   };
+
+  // 認証確定待ち・未ログイン時は描画をスキップ
+  if (!isAuthReady || !currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">

@@ -237,30 +237,41 @@ export default function BoardView({
     due.setHours(0, 0, 0, 0);
 
     const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    // 日付表記を月/日形式（例: 11/20）にしてコンパクトに表示
+    const shortDate = dueDateStr.length >= 10 ? dueDateStr.slice(5) : dueDateStr;
 
     if (isClosed) {
-      return { label: dueDateStr, color: "text-gray-500", isOverdue: false, isToday: false };
+      return {
+        label: shortDate,
+        fullDate: dueDateStr,
+        color: "text-slate-500 whitespace-nowrap",
+        isOverdue: false,
+        isToday: false,
+      };
     }
 
     if (diffDays < 0) {
       return {
-        label: `${dueDateStr} (${Math.abs(diffDays)}日超過)`,
-        color: "text-red-600 font-semibold bg-red-50 px-1.5 py-0.5 rounded border border-red-200",
+        label: `${shortDate} (${Math.abs(diffDays)}日超過)`,
+        fullDate: `${dueDateStr} (${Math.abs(diffDays)}日超過)`,
+        color: "text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 whitespace-nowrap",
         isOverdue: true,
         isToday: false,
       };
     }
     if (diffDays === 0) {
       return {
-        label: `${dueDateStr} (今日期限)`,
-        color: "text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200",
+        label: `${shortDate} (今日)`,
+        fullDate: `${dueDateStr} (今日期限)`,
+        color: "text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap",
         isOverdue: false,
         isToday: true,
       };
     }
     return {
-      label: dueDateStr,
-      color: "text-gray-600",
+      label: shortDate,
+      fullDate: dueDateStr,
+      color: "text-slate-600 whitespace-nowrap",
       isOverdue: false,
       isToday: false,
     };
@@ -614,11 +625,11 @@ export default function BoardView({
                                       setIsDetailOpen(true);
                                     }
                                   }}
-                                  className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-slate-400 hover:text-indigo-600 hover:underline cursor-pointer truncate max-w-[105px]"
+                                  className="inline-flex items-center gap-0.5 font-mono text-xs font-semibold text-slate-400 hover:text-indigo-600 hover:underline cursor-pointer truncate max-w-[130px] shrink-0"
                                   title={`親課題: ${issue.parent_issue_key || parentIssue?.issue_key || ""} ${issue.parent_title || parentIssue?.title || ""}`}
                                 >
                                   <CornerDownRight className="w-3 h-3 text-indigo-500 shrink-0" />
-                                  <span>{issue.parent_issue_key || parentIssue?.issue_key}</span>
+                                  <span className="truncate">{issue.parent_issue_key || parentIssue?.issue_key}</span>
                                 </button>
                               )}
                             </div>
@@ -632,22 +643,25 @@ export default function BoardView({
                         </h4>
 
                         {/* カード下部: 期限日・担当者アバター */}
-                        <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
+                        <div className="flex items-center justify-between gap-1.5 text-xs pt-2 border-t border-slate-100 text-slate-500">
                           {/* 期限日 ＆ コメントバッジ */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
                             {dueInfo ? (
-                              <span className={`flex items-center gap-1 ${dueInfo.color}`}>
+                              <span
+                                className={`flex items-center gap-1 shrink-0 ${dueInfo.color}`}
+                                title={dueInfo.fullDate}
+                              >
                                 {dueInfo.isOverdue ? (
-                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                                 ) : dueInfo.isToday ? (
-                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                  <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                                 ) : (
-                                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 )}
-                                <span>{dueInfo.label}</span>
+                                <span className="whitespace-nowrap">{dueInfo.label}</span>
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-xs">期日なし</span>
+                              <span className="text-slate-400 text-xs shrink-0 whitespace-nowrap">期日なし</span>
                             )}
 
                             {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}
@@ -672,10 +686,10 @@ export default function BoardView({
                             {/* 添付ファイル件数バッジ */}
                             {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
                               <span
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200 shrink-0"
                                 title={`添付ファイル ${issue.attachment_count}件`}
                               >
-                                <Paperclip className="w-3 h-3 text-slate-500" />
+                                <Paperclip className="w-3 h-3 text-slate-500 shrink-0" />
                                 <span>{issue.attachment_count}</span>
                               </span>
                             )}
@@ -683,7 +697,7 @@ export default function BoardView({
 
                           {/* 担当者アイコン・表示名 */}
                           <div
-                            className="flex items-center gap-1.5"
+                            className="flex items-center gap-1 shrink-0 ml-auto"
                             title={issue.assignee_name ? `担当者: ${issue.assignee_name}` : "担当者: 未割当"}
                           >
                             <div
@@ -696,7 +710,7 @@ export default function BoardView({
                             >
                               {getUserInitials(issue.assignee_name)}
                             </div>
-                            <span className="text-xs text-slate-600 font-medium max-w-[85px] truncate">
+                            <span className="text-xs text-slate-600 font-medium max-w-[65px] truncate hidden 2xl:inline">
                               {issue.assignee_name || "未割当"}
                             </span>
                           </div>

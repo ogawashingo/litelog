@@ -8,10 +8,12 @@ import GanttChart from "@/components/GanttChart";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { Project, Issue } from "@/types";
+import { useUser } from "@/components/UserContext";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 function GanttIndexContent() {
   const router = useRouter();
+  const { currentUser, isAuthReady } = useUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -63,6 +65,7 @@ function GanttIndexContent() {
   }, [router]);
 
   useEffect(() => {
+    if (!isAuthReady || !currentUser) return;
     let active = true;
     (async () => {
       if (active) {
@@ -72,7 +75,16 @@ function GanttIndexContent() {
     return () => {
       active = false;
     };
-  }, [fetchData]);
+  }, [isAuthReady, currentUser, fetchData]);
+
+  // 認証確定待ち・未ログイン時は描画をスキップ
+  if (!isAuthReady || !currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">

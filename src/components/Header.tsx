@@ -265,6 +265,7 @@ export default function Header({
               {/* ダッシュボードタブ */}
               <Link
                 href={dashboardHref}
+                title="ダッシュボード"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isDashboard
                     ? "app-nav-active text-white font-semibold shadow-2xs"
@@ -272,12 +273,13 @@ export default function Header({
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5 app-nav-indicator" />
-                <span>ダッシュボード</span>
+                <span className="hidden xl:inline">ダッシュボード</span>
               </Link>
 
               {/* ボードタブ */}
               <Link
                 href={boardHref}
+                title="ボード"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isBoard
                     ? "app-nav-active text-white font-semibold shadow-2xs"
@@ -285,12 +287,13 @@ export default function Header({
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5 app-nav-indicator" />
-                <span>ボード</span>
+                <span className="hidden xl:inline">ボード</span>
               </Link>
 
               {/* ガントチャートタブ */}
               <Link
                 href={ganttHref}
+                title="ガントチャート"
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   isGantt
                     ? "app-nav-active text-white font-semibold shadow-2xs"
@@ -298,7 +301,7 @@ export default function Header({
                 }`}
               >
                 <ChartGantt className="w-3.5 h-3.5 app-nav-indicator" />
-                <span>ガントチャート</span>
+                <span className="hidden xl:inline">ガントチャート</span>
               </Link>
 
 
@@ -306,6 +309,7 @@ export default function Header({
               {canManageIssues(currentUser) && (
                 <Link
                   href="/admin"
+                  title="管理ページ"
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                     isAdmin
                       ? "app-nav-active text-white font-semibold shadow-2xs"
@@ -313,7 +317,7 @@ export default function Header({
                   }`}
                 >
                   <Settings className="w-3.5 h-3.5 app-nav-indicator" />
-                  <span>管理ページ</span>
+                  <span className="hidden xl:inline">管理ページ</span>
                 </Link>
               )}
 
@@ -323,7 +327,7 @@ export default function Header({
                 <select
                   value={selectedProjectId || ""}
                   onChange={(e) => onSelectProject(e.target.value ? Number(e.target.value) : null)}
-                  className="app-header-select hover:bg-white/10 text-white text-xs rounded-lg pl-7 pr-3 py-1.5 max-w-[160px] lg:max-w-[200px] truncate focus:outline-hidden focus:ring-2 focus:ring-amber-400/50 transition-colors cursor-pointer"
+                  className="app-header-select hover:bg-white/10 text-white text-xs rounded-lg pl-7 pr-3 py-1.5 max-w-[120px] md:max-w-[130px] lg:max-w-[160px] xl:max-w-[200px] truncate focus:outline-hidden focus:ring-2 focus:ring-amber-400/50 transition-colors cursor-pointer"
                 >
                   <option value="" className="text-slate-900 bg-white">
                     {isBoard || isGantt ? "すべてのプロジェクト" : "すべての課題"}
@@ -549,7 +553,7 @@ export default function Header({
                       </span>
                     )}
                   </div>
-                  <div className="hidden sm:flex flex-col leading-tight whitespace-nowrap">
+                  <div className="hidden lg:flex flex-col leading-tight whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <span className="text-xs font-bold text-white group-hover:text-amber-200 transition-colors whitespace-nowrap">
                         {currentUser.name}

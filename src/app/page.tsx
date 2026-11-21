@@ -24,7 +24,7 @@ import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { users, currentUser, refreshUsers } = useUser();
+  const { users, currentUser, isAuthReady, refreshUsers } = useUser();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -154,19 +154,21 @@ function DashboardContent() {
 
   // selectedProjectIdが更新されたら対象プロジェクトの課題・アクティビティを取得
   useEffect(() => {
+    if (!isAuthReady || !currentUser) return;
     fetchIssues(selectedProjectId);
     fetchActivities(selectedProjectId);
-  }, [selectedProjectId, fetchIssues, fetchActivities]);
+  }, [isAuthReady, currentUser, selectedProjectId, fetchIssues, fetchActivities]);
 
   // 初回データ取得
   useEffect(() => {
+    if (!isAuthReady || !currentUser) return;
     const init = async () => {
       setIsLoading(true);
       await Promise.all([fetchProjects(), refreshUsers()]);
       setIsLoading(false);
     };
     init();
-  }, [fetchProjects, refreshUsers]);
+  }, [isAuthReady, currentUser, fetchProjects, refreshUsers]);
 
   // プロジェクト選択切り替え（ローカルストレージおよびURL同期）
   const handleSelectProject = useCallback(
@@ -427,6 +429,15 @@ function DashboardContent() {
     setIsDetailOpen(false);
     setSelectedIssue(null);
   }, []);
+
+  // 認証状態の確定待ち、または未ログイン時は不要な描画・APIコールを行わず待機
+  if (!isAuthReady || !currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">

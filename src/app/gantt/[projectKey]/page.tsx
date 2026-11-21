@@ -10,11 +10,13 @@ import GanttChart from "@/components/GanttChart";
 import CreateIssueModal from "@/components/CreateIssueModal";
 import BackupModal from "@/components/BackupModal";
 import { Project, Issue } from "@/types";
+import { useUser } from "@/components/UserContext";
 import { setStoredProjectId } from "@/lib/projectStorage";
 
 function ProjectGanttContent() {
   const params = useParams();
   const router = useRouter();
+  const { currentUser, isAuthReady } = useUser();
   const projectKey = (params?.projectKey as string) || "";
 
   const [projects, setProjects] = useState<Project[]>([]);
@@ -73,6 +75,7 @@ function ProjectGanttContent() {
 
   // 初回読み込み
   useEffect(() => {
+    if (!isAuthReady || !currentUser) return;
     const init = async () => {
       setIsLoading(true);
       const projs = await fetchProjects();
@@ -88,7 +91,7 @@ function ProjectGanttContent() {
       setIsLoading(false);
     };
     init();
-  }, [fetchProjects, fetchIssues, projectKey]);
+  }, [isAuthReady, currentUser, fetchProjects, fetchIssues, projectKey]);
 
   // プロジェクト選択時のルーティング遷移（現在のクエリパラメータを保持）
   const handleSelectProjectKey = (newKey: string) => {
@@ -104,6 +107,15 @@ function ProjectGanttContent() {
       router.push(`/gantt/${encodeURIComponent(newKey)}${search}`);
     }
   };
+
+  // 認証確定待ち・未ログイン時は描画をスキップ
+  if (!isAuthReady || !currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">

@@ -13,7 +13,7 @@ import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 export default function BoardIndexPage() {
   const router = useRouter();
-  const { currentUser } = useUser();
+  const { currentUser, isAuthReady } = useUser();
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -65,8 +65,9 @@ export default function BoardIndexPage() {
   }, [router]);
 
   useEffect(() => {
+    if (!isAuthReady || !currentUser) return;
     fetchData();
-  }, [fetchData]);
+  }, [isAuthReady, currentUser, fetchData]);
 
   // ステータス更新処理
   const handleUpdateStatus = async (
@@ -110,6 +111,15 @@ export default function BoardIndexPage() {
       console.error("ステータス更新失敗:", err);
     }
   };
+
+  // 認証確定待ち・未ログイン時は描画をスキップ
+  if (!isAuthReady || !currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-50/50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col font-sans">
