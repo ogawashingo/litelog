@@ -62,13 +62,15 @@ test.describe("基本機能 E2E テスト", () => {
     await expect(descriptionTextarea).toHaveValue(testDesc);
 
     // 「追加する」ボタンを押して送信
-    await page.click('button:has-text("追加する")');
+    const submitBtn = page.locator('button[type="submit"]:has-text("追加する")');
+    await submitBtn.scrollIntoViewIfNeeded();
+    await submitBtn.click();
 
-    // モーダルが正常に閉じることを確認
-    await expect(modalHeading).not.toBeVisible({ timeout: 5000 });
+    // モーダルが正常に閉じることを確認（初回ビルド・通信遅延を考慮して15秒待機）
+    await expect(modalHeading).not.toBeVisible({ timeout: 15000 });
 
     // 作成した課題が画面上の一覧に反映されていることを確認（レスポンシブで表示中の要素を検証）
     const createdItem = page.locator(`text=${testTitle}`).filter({ visible: true }).first();
-    await expect(createdItem).toBeVisible({ timeout: 5000 });
+    await expect(createdItem).toBeVisible({ timeout: 15000 });
   });
 });
