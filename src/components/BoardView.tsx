@@ -15,6 +15,7 @@ import {
   Archive,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject, canManageIssues } from "@/types";
+import { createApiError } from "@/lib/clientError";
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
@@ -212,8 +213,7 @@ export default function BoardView({
       }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "レビュー依頼の送信に失敗しました");
+      throw await createApiError(res, "レビュー依頼の送信に失敗しました");
     }
     setReviewTargetIssue(null);
     await onRefresh();

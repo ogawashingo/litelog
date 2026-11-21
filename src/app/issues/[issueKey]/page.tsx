@@ -28,6 +28,7 @@ import BackupModal from "@/components/BackupModal";
 import CommentHistoryModal from "@/components/CommentHistoryModal";
 import IssueHistoryModal from "@/components/IssueHistoryModal";
 import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "@/components/IssueBadge";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { DatePicker } from "@/components/DatePicker";
 import { useUser } from "@/components/UserContext";
 import { getUserInitials } from "@/components/UserManageModal";
@@ -329,8 +330,7 @@ export default function IssueDetailPage() {
       }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "レビュー依頼の送信に失敗しました");
+      throw await createApiError(res, "レビュー依頼の送信に失敗しました");
     }
     // 課題詳細とコメント一覧を再取得
     await fetchIssueDetail();
@@ -613,8 +613,7 @@ export default function IssueDetailPage() {
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "子課題の作成に失敗しました");
+        throw await createApiError(res, "子課題の作成に失敗しました");
       }
 
       // 入力欄をクリアして子課題一覧を再取得（フォームは開いたままにして連続追加可能に）
@@ -623,7 +622,7 @@ export default function IssueDetailPage() {
       await refreshUsers();
     } catch (err: unknown) {
       console.error("子課題作成エラー:", err);
-      setChildError(err instanceof Error ? err.message : "子課題の作成に失敗しました");
+      setChildError(getSafeErrorMessage(err, "子課題の作成に失敗しました"));
     } finally {
       setIsSubmittingChild(false);
     }

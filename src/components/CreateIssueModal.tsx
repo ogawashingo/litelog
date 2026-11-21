@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft, AlertTriangle } from "lucide-react";
 import { Project, Issue, IssueType, IssueStatus, IssuePriority, IssueResolution } from "@/types";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
 import MentionTextarea from "./MentionTextarea";
@@ -155,8 +156,7 @@ export default function CreateIssueModal({
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "課題の作成に失敗しました");
+        throw await createApiError(res, "課題の作成に失敗しました");
       }
 
       // 成功時
@@ -172,11 +172,7 @@ export default function CreateIssueModal({
       onCreated();
       onClose();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message);
-      } else {
-        setErrorMessage("課題の作成中にエラーが発生しました");
-      }
+      setErrorMessage(getSafeErrorMessage(err, "課題の作成中にエラーが発生しました"));
     } finally {
       setIsSubmitting(false);
     }
@@ -186,6 +182,10 @@ export default function CreateIssueModal({
     e.preventDefault();
     if (!title.trim()) {
       setErrorMessage("件名を入力してください");
+      return;
+    }
+    if (startDate && dueDate && startDate > dueDate) {
+      setErrorMessage("開始日は期限日以前の日付を指定してください");
       return;
     }
 

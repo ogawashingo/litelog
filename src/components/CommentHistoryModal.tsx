@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, History, Clock } from "lucide-react";
 import { formatTimestamp } from "@/lib/dateUtils";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { Comment, CommentHistory, SystemSettings, User } from "@/types";
 import MentionText from "./MentionText";
 
@@ -51,8 +52,7 @@ export default function CommentHistoryModal({
     fetch(`/api/issues/${issueId}/comments/${commentId}/history`)
       .then(async (res) => {
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "履歴の取得に失敗しました");
+          throw await createApiError(res, "履歴の取得に失敗しました");
         }
         return res.json();
       })
@@ -65,7 +65,7 @@ export default function CommentHistoryModal({
       })
       .catch((err) => {
         if (isMounted) {
-          setError(err.message || "履歴の取得に失敗しました");
+          setError(getSafeErrorMessage(err, "履歴の取得に失敗しました"));
           setLoading(false);
         }
       });

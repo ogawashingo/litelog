@@ -8,6 +8,13 @@ import { TypeBadge, StatusBadge, PriorityBadge, ResolutionBadge } from "./IssueB
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { formatTimestamp } from "@/lib/dateUtils";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
+import {
+  ATTACHMENT_ACCEPT_ATTR,
+  ATTACHMENT_POLICY_HINT,
+  isInlineImageMimeType,
+  validateAttachmentBatchMeta,
+} from "@/lib/attachmentPolicy";
 import MentionTextarea from "./MentionTextarea";
 import MentionText from "./MentionText";
 import { DatePicker } from "./DatePicker";
@@ -573,8 +580,7 @@ export default function IssueDetailModal({
       }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "レビュー依頼の送信に失敗しました");
+      throw await createApiError(res, "レビュー依頼の送信に失敗しました");
     }
 
     // 課題詳細とコメントを再取得
@@ -648,11 +654,26 @@ export default function IssueDetailModal({
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const fileList = Array.from(files);
+    // 送信前にクライアント側で件数・サイズ・拡張子・MIMEタイプを検証
+    const preCheck = validateAttachmentBatchMeta(
+      fileList.map((file) => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      }))
+    );
+    if (!preCheck.ok) {
+      alert(preCheck.error);
+      e.target.value = "";
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append("issueId", String(activeIssue.id));
-      for (let i = 0; i < files.length; i++) {
-        formData.append("file", files[i]);
+      for (const file of fileList) {
+        formData.append("file", file);
       }
 
       const res = await fetch("/api/attachments", {
@@ -976,8 +997,7 @@ export default function IssueDetailModal({
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "子課題の作成に失敗しました");
+        throw await createApiError(res, "子課題の作成に失敗しました");
       }
 
       // 入力欄をクリアして子課題一覧・最新情報を同期
@@ -987,7 +1007,7 @@ export default function IssueDetailModal({
       onUpdated();
     } catch (err: unknown) {
       console.error("子課題作成エラー:", err);
-      setChildError(err instanceof Error ? err.message : "子課題の作成に失敗しました");
+      setChildError(getSafeErrorMessage(err, "子課題の作成に失敗しました"));
     } finally {
       setIsSubmittingChild(false);
     }
@@ -1632,12 +1652,16 @@ export default function IssueDetailModal({
                     <span>添付ファイル ({attachments.length})</span>
                   </h4>
                   {!isProjectArchived && (
-                    <label className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors cursor-pointer">
+                    <label
+                      title={ATTACHMENT_POLICY_HINT}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors cursor-pointer"
+                    >
                       <Plus className="w-3 h-3" />
                       <span>ファイルを追加</span>
                       <input
                         type="file"
                         className="hidden"
+                        accept={ATTACHMENT_ACCEPT_ATTR}
                         multiple
                         onChange={handleDirectFileUpload}
                       />
@@ -1648,7 +1672,7 @@ export default function IssueDetailModal({
                 {attachments.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                     {attachments.map((att) => {
-                      const isImg = att.mime_type.startsWith("image/");
+                      const isImg = isInlineImageMimeType(att.mime_type);
                       const canDelete =
                         currentUser?.is_admin === 1 || att.user_id === currentUser?.id;
                       const fileUrl = att.url || `/api/attachments/${att.id}`;

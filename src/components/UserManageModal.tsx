@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck, Search, Mail, Copy, ExternalLink, Send } from "lucide-react";
 import { User, WeekStartDay, UserRoleType, getUserRoleType, isAdminUser, canManageIssues } from "@/types";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import AvatarColorPicker from "./AvatarColorPicker";
 
 interface UserManageModalProps {
@@ -218,10 +219,10 @@ export default function UserManageModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, hoursValid: 24 }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "招待リンクの発行に失敗しました");
+        throw await createApiError(res, "招待リンクの発行に失敗しました");
       }
+      const data = await res.json();
       setInviteResult({
         url: data.inviteUrl,
         userName,
@@ -234,7 +235,7 @@ export default function UserManageModal({
         setTimeout(() => setCopiedInvite(false), 3000);
       }
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "エラーが発生しました"));
     } finally {
       setIsGeneratingInvite(false);
     }
@@ -352,8 +353,7 @@ export default function UserManageModal({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "メンバーの追加に失敗しました");
+        throw await createApiError(res, "メンバーの追加に失敗しました");
       }
 
       setNewLoginId("");
@@ -362,7 +362,7 @@ export default function UserManageModal({
       setNewRole("メンバー");
       await onUpdated();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "エラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "エラーが発生しました"));
     } finally {
       setIsSubmitting(false);
     }
@@ -408,14 +408,13 @@ export default function UserManageModal({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "更新に失敗しました");
+        throw await createApiError(res, "更新に失敗しました");
       }
 
       setEditingId(null);
       await onUpdated();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "更新エラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "更新エラーが発生しました"));
     } finally {
       setIsSubmitting(false);
     }
@@ -441,13 +440,12 @@ export default function UserManageModal({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "脱退処理に失敗しました");
+        throw await createApiError(res, "脱退処理に失敗しました");
       }
 
       await onUpdated();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "脱退エラーが発生しました");
+      alert(getSafeErrorMessage(err, "脱退エラーが発生しました"));
     }
   };
 
@@ -474,13 +472,12 @@ export default function UserManageModal({
       setErrorMsg("");
       const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "削除に失敗しました");
+        throw await createApiError(res, "削除に失敗しました");
       }
       setEditingId(null);
       await onUpdated();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "削除エラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "削除エラーが発生しました"));
     }
   };
 

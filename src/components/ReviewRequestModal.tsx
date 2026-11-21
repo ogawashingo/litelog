@@ -10,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { User } from "@/types";
+import { getSafeErrorMessage } from "@/lib/clientError";
 
 interface ReviewRequestModalProps {
   isOpen: boolean;
@@ -116,7 +117,7 @@ export default function ReviewRequestModal({
       });
       onClose();
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "送信に失敗しました");
+      setErrorMessage(getSafeErrorMessage(err, "送信に失敗しました"));
     } finally {
       setIsSubmitting(false);
     }

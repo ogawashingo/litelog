@@ -3,6 +3,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { X, Download, Upload, Database, CheckCircle, AlertTriangle } from "lucide-react";
+import { UserFacingError, createApiError, getSafeErrorMessage } from "@/lib/clientError";
 
 interface BackupModalProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       setMessage(null);
 
       const res = await fetch("/api/backup");
-      if (!res.ok) throw new Error("バックアップデータの取得に失敗しました");
+      if (!res.ok) throw await createApiError(res, "バックアップデータの取得に失敗しました");
 
       const data = await res.json();
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -70,7 +71,7 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       setMessage({ text: "バックアップファイルをダウンロードしました", isError: false });
     } catch (err: unknown) {
       setMessage({
-        text: err instanceof Error ? err.message : "エクスポートに失敗しました",
+        text: getSafeErrorMessage(err, "エクスポートに失敗しました"),
         isError: true,
       });
     } finally {
@@ -93,7 +94,12 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       setMessage(null);
 
       const text = await file.text();
-      const json = JSON.parse(text);
+      let json: unknown;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new UserFacingError("有効なJSON形式のバックアップファイルを選択してください");
+      }
 
       const res = await fetch("/api/backup", {
         method: "POST",
@@ -102,8 +108,7 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "インポートに失敗しました");
+        throw await createApiError(res, "インポートに失敗しました");
       }
 
       setMessage({ text: "データを正常に復元しました！", isError: false });
@@ -113,7 +118,7 @@ export default function BackupModal({ isOpen, onClose, onRestored }: BackupModal
       }, 1000);
     } catch (err: unknown) {
       setMessage({
-        text: err instanceof Error ? err.message : "ファイルの読み込みまたは復元に失敗しました",
+        text: getSafeErrorMessage(err, "ファイルの読み込みまたは復元に失敗しました"),
         isError: true,
       });
     } finally {

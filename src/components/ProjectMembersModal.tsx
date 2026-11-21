@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Users, X, Check, Shield, Crown, ClipboardCheck, AlertCircle, Search } from "lucide-react";
 import { Project, User, canManageIssues } from "@/types";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 
@@ -44,8 +45,7 @@ export default function ProjectMembersModal({
     try {
       const res = await fetch(`/api/projects/${project.id}/members`);
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "メンバー情報の取得に失敗しました");
+        throw await createApiError(res, "メンバー情報の取得に失敗しました");
       }
       const data = await res.json();
       setAllUsers(data.allUsers || []);
@@ -59,7 +59,7 @@ export default function ProjectMembersModal({
       }
       setSelectedUserIds(memberIds);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "読み込みエラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "読み込みエラーが発生しました"));
     } finally {
       setIsLoading(false);
     }
@@ -125,8 +125,7 @@ export default function ProjectMembersModal({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "メンバー更新に失敗しました");
+        throw await createApiError(res, "メンバー更新に失敗しました");
       }
 
       setSuccessMsg("参加メンバーを保存しました！");
@@ -135,7 +134,7 @@ export default function ProjectMembersModal({
         onClose();
       }, 700);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "保存エラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "保存エラーが発生しました"));
     } finally {
       setIsSaving(false);
     }

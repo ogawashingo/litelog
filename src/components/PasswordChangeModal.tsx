@@ -6,6 +6,7 @@ import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, U
 import { User, WeekStartDay, getUserRoleType } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import AvatarColorPicker from "./AvatarColorPicker";
 
 interface PasswordChangeModalProps {
@@ -55,15 +56,15 @@ export default function PasswordChangeModal({
       setIsTotpLoading(true);
       setErrorMsg("");
       const res = await fetch("/api/auth/2fa");
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "2FA情報の生成に失敗しました");
+        throw await createApiError(res, "2FA情報の生成に失敗しました");
       }
+      const data = await res.json();
       setTotpSetupData(data);
       setShowTotpSetup(true);
       setShowTotpDisable(false);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "2FA設定の開始に失敗しました");
+      setErrorMsg(getSafeErrorMessage(err, "2FA設定の開始に失敗しました"));
     } finally {
       setIsTotpLoading(false);
     }
@@ -87,9 +88,8 @@ export default function PasswordChangeModal({
           code: totpCode.trim(),
         }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "2要素認証の有効化に失敗しました");
+        throw await createApiError(res, "2要素認証の有効化に失敗しました");
       }
       setIs2faEnabled(true);
       setShowTotpSetup(false);
@@ -97,7 +97,7 @@ export default function PasswordChangeModal({
       setSuccessMsg("2要素認証を有効化しました！次回ログイン時から確認コードが要求されます。");
       if (onSuccess) await onSuccess();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "有効化エラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "有効化エラーが発生しました"));
     } finally {
       setIsTotpLoading(false);
     }
@@ -118,9 +118,8 @@ export default function PasswordChangeModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: totpDisablePassword }),
       });
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "2要素認証の解除に失敗しました");
+        throw await createApiError(res, "2要素認証の解除に失敗しました");
       }
       setIs2faEnabled(false);
       setShowTotpDisable(false);
@@ -128,7 +127,7 @@ export default function PasswordChangeModal({
       setSuccessMsg("2要素認証を解除しました。");
       if (onSuccess) await onSuccess();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "解除エラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "解除エラーが発生しました"));
     } finally {
       setIsTotpLoading(false);
     }
@@ -218,9 +217,8 @@ export default function PasswordChangeModal({
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "設定の更新に失敗しました");
+        throw await createApiError(res, "設定の更新に失敗しました");
       }
 
       setSuccessMsg(
@@ -240,7 +238,7 @@ export default function PasswordChangeModal({
         await onSuccess();
       }
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "更新中にエラーが発生しました");
+      setErrorMsg(getSafeErrorMessage(err, "更新中にエラーが発生しました"));
     } finally {
       setIsSubmitting(false);
     }

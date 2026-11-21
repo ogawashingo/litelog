@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { X, FolderPlus, Users } from "lucide-react";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 
 interface CreateProjectModalProps {
   isOpen: boolean;
@@ -68,8 +69,7 @@ export default function CreateProjectModal({
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "プロジェクトの作成に失敗しました");
+        throw await createApiError(res, "プロジェクトの作成に失敗しました");
       }
 
       setKey("");
@@ -77,11 +77,7 @@ export default function CreateProjectModal({
       onCreated();
       onClose();
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message);
-      } else {
-        setErrorMessage("エラーが発生しました");
-      }
+      setErrorMessage(getSafeErrorMessage(err, "エラーが発生しました"));
     } finally {
       setIsSubmitting(false);
     }
@@ -136,7 +132,7 @@ export default function CreateProjectModal({
               placeholder="例: BLOG, WORK, DEV"
               value={key}
               onChange={(e) => setKey(e.target.value.toUpperCase())}
-              maxLength={10}
+              maxLength={15}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 font-mono uppercase focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               required
             />

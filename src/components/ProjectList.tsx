@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive, Pin } from "lucide-react";
 import { Project, isArchivedProject, canManageIssues } from "@/types";
+import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 
@@ -92,15 +93,14 @@ export default function ProjectList({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "プロジェクト名の変更に失敗しました");
+        throw await createApiError(res, "プロジェクト名の変更に失敗しました");
       }
 
       setEditingProjectId(null);
       setEditName("");
       onUpdated?.();
     } catch (err: unknown) {
-      setEditError(err instanceof Error ? err.message : "エラーが発生しました");
+      setEditError(getSafeErrorMessage(err, "エラーが発生しました"));
     } finally {
       setIsSaving(false);
     }
@@ -145,8 +145,7 @@ export default function ProjectList({
       );
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "プロジェクトの削除に失敗しました");
+        throw await createApiError(res, "プロジェクトの削除に失敗しました");
       }
 
       setDeletingProjectId(null);
@@ -155,7 +154,7 @@ export default function ProjectList({
       }
       onUpdated?.();
     } catch (err: unknown) {
-      setDeleteError(err instanceof Error ? err.message : "削除エラーが発生しました");
+      setDeleteError(getSafeErrorMessage(err, "削除エラーが発生しました"));
     } finally {
       setIsDeleting(false);
     }
@@ -176,13 +175,12 @@ export default function ProjectList({
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "ピン留めの更新に失敗しました");
+        throw await createApiError(res, "ピン留めの更新に失敗しました");
       }
 
       onUpdated?.();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "ピン留めの更新に失敗しました");
+      alert(getSafeErrorMessage(err, "ピン留めの更新に失敗しました"));
     } finally {
       setPinningProjectId(null);
     }
