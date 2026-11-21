@@ -168,3 +168,40 @@ export function validateInvitationHours(hoursValid: unknown): string | null {
   }
   return null;
 }
+
+/**
+ * 「処理済み」変更時のレビュー・確認依頼コメントを検証する
+ * メンション（@[表示名], @表示名, @login_id）を除いた実質的な依頼本文が1文字以上あるかチェック
+ */
+export function validateReviewRequestComment(
+  content: string,
+  knownUserNames: string[] = []
+): string | null {
+  const trimmed = content.trim();
+  if (!trimmed) {
+    return "「処理済み」に変更する際は、相手に何を確認してほしいか依頼メッセージを入力してください";
+  }
+
+  let bodyWithoutMentions = trimmed;
+  // @[表示名] 形式のメンションを除去
+  bodyWithoutMentions = bodyWithoutMentions.replace(/@\[[^\]]+\]/g, " ");
+
+  // 既知のユーザー表示名（スペース含む場合あり）に一致する @表示名 を長い順に除去
+  const sortedNames = [...knownUserNames]
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  for (const name of sortedNames) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    bodyWithoutMentions = bodyWithoutMentions.replace(new RegExp(`@${escaped}(?=[\\s　,、。!！?？]|$)`, "g"), " ");
+  }
+
+  // @login_id や一般の @単語 形式のメンションを除去
+  bodyWithoutMentions = bodyWithoutMentions.replace(/@[^\s　]+/g, " ");
+
+  if (!bodyWithoutMentions.trim()) {
+    return "「処理済み」に変更する際は、相手に何を確認してほしいか依頼メッセージを入力してください（メンションのみは不可）";
+  }
+
+  return null;
+}

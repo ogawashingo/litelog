@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft, AlertTriangle } from "lucide-react";
-import { Project, Issue, IssueType, IssueStatus, IssuePriority, IssueResolution } from "@/types";
+import { Project, Issue, IssueType, IssueStatus, IssuePriority, IssueResolution, canManageIssues } from "@/types";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
@@ -73,7 +73,7 @@ export default function CreateIssueModal({
       }
       setParentId(defaultParentId ? String(defaultParentId) : "");
       setAssigneeId(currentUser ? String(currentUser.id) : "");
-      setStatus(defaultStatus);
+      setStatus(defaultStatus === "resolved" && !canManageIssues(currentUser) ? "open" : defaultStatus);
       setTitle(defaultTitle || "");
       setDescription("");
       setStartDate("");
@@ -392,7 +392,13 @@ export default function CreateIssueModal({
               >
                 <option value="open">未対応</option>
                 <option value="in_progress">処理中</option>
-                <option value="resolved">処理済み</option>
+                <option
+                  value="resolved"
+                  disabled={!canManageIssues(currentUser)}
+                  title={!canManageIssues(currentUser) ? "作業完了後にレビュー依頼コメントを添えて変更してください" : undefined}
+                >
+                  処理済み{!canManageIssues(currentUser) ? " (作成後のレビュー依頼のみ)" : ""}
+                </option>
                 <option value="closed">完了</option>
               </select>
             </div>

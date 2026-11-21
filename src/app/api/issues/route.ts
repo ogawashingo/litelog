@@ -231,6 +231,14 @@ export async function POST(request: Request) {
     if (!VALID_STATUSES.has(String(status))) {
       return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
     }
+    // 一般メンバーによる「処理済み」状態での直接起票を禁止（レビュー依頼なしの放置防止、Admin/PMOは許可）
+    const isManager = sessionUser.is_admin === 1 || sessionUser.role_type === "pmo";
+    if (String(status) === "resolved" && !isManager) {
+      return NextResponse.json(
+        { error: "「処理済み」状態での直接起票はできません。作業完了後にレビュー依頼コメントを添えて「処理済み」へ変更してください" },
+        { status: 400 }
+      );
+    }
     if (!VALID_PRIORITIES.has(String(priority))) {
       return NextResponse.json({ error: "無効な優先度です" }, { status: 400 });
     }

@@ -21,10 +21,11 @@ import {
   LayoutDashboard,
   Kanban,
 } from "lucide-react";
-import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject } from "@/types";
+import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject, canManageIssues } from "@/types";
 import { TypeBadge } from "./IssueBadge";
 import IssueDetailModal from "./IssueDetailModal";
 import CreateIssueModal from "./CreateIssueModal";
+import ReviewRequestModal from "./ReviewRequestModal";
 import ParentDueDateConfirmModal, {
   ParentDueDateWarningInfo,
   isExceedingParentDueDate,
@@ -283,6 +284,7 @@ export default function GanttChart({
   const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set());
 
   const { users, currentUser, settings, effectiveWeekStart, effectiveShowHolidays } = useUser();
+  const [reviewTargetIssue, setReviewTargetIssue] = useState<Issue | null>(null);
   const weekStart = effectiveWeekStart || settings.weekStart || "monday";
   const showHolidays = effectiveShowHolidays;
 
@@ -460,6 +462,17 @@ export default function GanttChart({
   // 課題の状態即時変更
   const handleQuickStatusChange = async (issueId: number, newStatus: IssueStatus) => {
     if (currentProject?.is_archived) return;
+    const targetIssue = issues.find((i) => i.id === issueId);
+    // 一般メンバーが「処理済み」に変更する場合はレビュー依頼モーダルを起動（Admin/PMOはスキップ許可）
+    if (
+      newStatus === "resolved" &&
+      targetIssue &&
+      targetIssue.status !== "resolved" &&
+      !canManageIssues(currentUser)
+    ) {
+      setReviewTargetIssue(targetIssue);
+      return;
+    }
     if (newStatus === "closed") {
       const unclosedChildren = issues.filter(
         (i) => i.parent_id === issueId && i.status !== "closed"
@@ -1645,6 +1658,41 @@ export default function GanttChart({
         }}
         onSelectIssue={(issue) => setDetailIssue(issue)}
       />
+
+      {/* レビュー・確認依頼モーダル（ガントチャートから「処理済み」変更時） */}
+      {reviewTargetIssue && (
+        <ReviewRequestModal
+          isOpen={true}
+          issueKey={reviewTargetIssue.issue_key}
+          issueTitle={reviewTargetIssue.title}
+          reporterId={reviewTargetIssue.created_by}
+          currentAssigneeId={reviewTargetIssue.assignee_id}
+          users={users}
+          currentUserId={currentUser?.id}
+          onClose={() => setReviewTargetIssue(null)}
+          onSubmit={async (data) => {
+            const res = await fetch(`/api/issues/${reviewTargetIssue.id}/comments`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content: data.comment,
+                status: "resolved",
+                resolution: null,
+                ...(data.changeAssignee ? { assigneeId: data.reviewerId } : {}),
+              }),
+            });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || "レビュー依頼の送信に失敗しました");
+            }
+            setReviewTargetIssue(null);
+            onRefresh();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("litelog:notifications-updated"));
+            }
+          }}
+        />
+      )}
 
       {/* 子課題の期限延長に伴う親課題期限延長の確認モーダル */}
       <ParentDueDateConfirmModal

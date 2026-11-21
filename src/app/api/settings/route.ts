@@ -12,6 +12,7 @@ import {
 } from "@/types";
 import { DEFAULT_SYSTEM_SETTINGS } from "@/lib/dateUtils";
 import { THEME_LIST } from "@/lib/themeConfig";
+import { MAX_LENGTHS, validateMaxLength, validateTimezone } from "@/lib/validation";
 
 const VALID_FORMATS: DateTimeFormatType[] = [
   "slash_sec",
@@ -113,6 +114,10 @@ export async function PUT(request: Request) {
     `);
 
     if (typeof body.timezone === "string" && body.timezone.trim()) {
+      const tzErr = validateTimezone(body.timezone);
+      if (tzErr) {
+        return NextResponse.json({ error: tzErr }, { status: 400 });
+      }
       upsert.run("timezone", body.timezone.trim());
     }
 
@@ -166,6 +171,14 @@ export async function PUT(request: Request) {
     }
 
     if (typeof body.announcementMessage === "string") {
+      const msgErr = validateMaxLength(
+        body.announcementMessage,
+        MAX_LENGTHS.ANNOUNCEMENT_MESSAGE,
+        "一言通知メッセージ"
+      );
+      if (msgErr) {
+        return NextResponse.json({ error: msgErr }, { status: 400 });
+      }
       upsert.run("announcementMessage", body.announcementMessage);
       isAnnouncementUpdated = true;
     }

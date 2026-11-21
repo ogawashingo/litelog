@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { getDb } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { validateInvitationHours } from "@/lib/validation";
 
 // 招待リンク発行 (Admin限定)
 export async function POST(request: Request) {
@@ -18,6 +19,10 @@ export async function POST(request: Request) {
 
     if (!userId) {
       return NextResponse.json({ error: "招待対象のユーザーIDが必要です" }, { status: 400 });
+    }
+    const hoursErr = validateInvitationHours(hoursValid);
+    if (hoursErr) {
+      return NextResponse.json({ error: hoursErr }, { status: 400 });
     }
 
     const db = getDb();

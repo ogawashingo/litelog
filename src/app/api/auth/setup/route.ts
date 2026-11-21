@@ -8,6 +8,13 @@ import {
   getSessionCookieOptions,
   hashPassword,
 } from "@/lib/auth";
+import {
+  MAX_LENGTHS,
+  MIN_LENGTHS,
+  validateLoginId,
+  validateMaxLength,
+  validatePassword,
+} from "@/lib/validation";
 
 // 初回管理者アカウントの登録
 export async function POST(request: Request) {
@@ -34,23 +41,17 @@ export async function POST(request: Request) {
     if (!cleanName) {
       return NextResponse.json({ error: "お名前を入力してください" }, { status: 400 });
     }
-    if (!cleanLoginId || cleanLoginId.length < 2) {
-      return NextResponse.json(
-        { error: "ログインIDは2文字以上で入力してください" },
-        { status: 400 }
-      );
+    const nameLengthErr = validateMaxLength(cleanName, MAX_LENGTHS.USER_NAME, "お名前");
+    if (nameLengthErr) {
+      return NextResponse.json({ error: nameLengthErr }, { status: 400 });
     }
-    if (!/^[a-zA-Z0-9_\-]+$/.test(cleanLoginId)) {
-      return NextResponse.json(
-        { error: "ログインIDは半角英数字、ハイフン、アンダースコアのみ使用できます" },
-        { status: 400 }
-      );
+    const loginIdErr = validateLoginId(cleanLoginId);
+    if (loginIdErr) {
+      return NextResponse.json({ error: loginIdErr }, { status: 400 });
     }
-    if (!cleanPassword || cleanPassword.length < 4) {
-      return NextResponse.json(
-        { error: "パスワードは4文字以上で入力してください" },
-        { status: 400 }
-      );
+    const passwordErr = validatePassword(cleanPassword, MIN_LENGTHS.PASSWORD_DEFAULT);
+    if (passwordErr) {
+      return NextResponse.json({ error: passwordErr }, { status: 400 });
     }
 
     // パスワードをscryptでハッシュ化して管理者として保存

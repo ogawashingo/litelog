@@ -288,6 +288,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
       }
 
+      // 一般メンバーがコメントなしで「処理済み」へ変更することを禁止（Admin/PMOはスキップ許可）
+      const isManager = sessionUser.is_admin === 1 || sessionUser.role_type === "pmo";
+      if (body.status === "resolved" && currentIssue.status !== "resolved" && !isManager) {
+        return NextResponse.json(
+          { error: "「処理済み」に変更する際は、レビュー・確認依頼コメントを添えて更新してください" },
+          { status: 400 }
+        );
+      }
+
       // 課題を完了（closed）にできるのは、課題の起票者・PMO・または管理者のみ
       if (body.status === "closed" && currentIssue.status !== "closed") {
         const canClose = Boolean(

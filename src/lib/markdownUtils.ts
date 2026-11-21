@@ -377,8 +377,8 @@ export function isSafeUrl(url: string, allowDataImage = false): boolean {
     return true;
   }
 
-  // 画像ノードにおいて安全な data:image/ のみ許可する場合
-  if (allowDataImage && /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,/i.test(trimmed)) {
+  // 画像ノードにおいて安全なラスター画像の data:image/ のみ許可（SVGはスクリプトを含み得るため除外）
+  if (allowDataImage && /^data:image\/(png|jpe?g|gif|webp);base64,/i.test(trimmed)) {
     return true;
   }
 

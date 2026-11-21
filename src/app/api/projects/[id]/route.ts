@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getDb, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { MAX_LENGTHS, validateHexColor, validateMaxLength } from "@/lib/validation";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -61,13 +62,26 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     // 更新項目の決定
     let nextName = existing.name;
     if (name !== undefined) {
-      if (!String(name).trim()) {
+      const trimmedName = String(name).trim();
+      if (!trimmedName) {
         return NextResponse.json({ error: "プロジェクト名は空にできません" }, { status: 400 });
       }
-      nextName = String(name).trim();
+      const nameLengthErr = validateMaxLength(trimmedName, MAX_LENGTHS.PROJECT_NAME, "プロジェクト名");
+      if (nameLengthErr) {
+        return NextResponse.json({ error: nameLengthErr }, { status: 400 });
+      }
+      nextName = trimmedName;
     }
 
-    const nextColor = color && String(color).trim() ? String(color).trim() : existing.color;
+    let nextColor = existing.color;
+    if (color !== undefined && String(color).trim()) {
+      const trimmedColor = String(color).trim();
+      const colorErr = validateHexColor(trimmedColor);
+      if (colorErr) {
+        return NextResponse.json({ error: colorErr }, { status: 400 });
+      }
+      nextColor = trimmedColor;
+    }
     const nextArchived = is_archived !== undefined ? (is_archived ? 1 : 0) : (existing.is_archived || 0);
 
     db.prepare("UPDATE projects SET name = ?, color = ?, is_archived = ? WHERE id = ?").run(

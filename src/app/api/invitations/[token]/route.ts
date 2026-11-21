@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth";
 import { generateTotpSecret, getTotpUri, verifyTotpCode } from "@/lib/totp";
 import { generateQrCodeSvg } from "@/lib/qrcode";
+import { MIN_LENGTHS, validatePassword } from "@/lib/validation";
 
 interface RouteParams {
   params: Promise<{ token: string }>;
@@ -107,11 +108,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     const body = await request.json();
     const { password, enable2fa, totpSecret, totpCode } = body;
 
-    if (!password || String(password).length < 6) {
-      return NextResponse.json(
-        { error: "パスワードは6文字以上で設定してください" },
-        { status: 400 }
-      );
+    const passwordErr = validatePassword(String(password || ""), MIN_LENGTHS.PASSWORD_INVITE);
+    if (passwordErr) {
+      return NextResponse.json({ error: passwordErr }, { status: 400 });
     }
 
     const db = getDb();

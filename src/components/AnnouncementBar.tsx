@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useUser } from "./UserContext";
 import { AnnouncementType, User } from "@/types";
-import { parseInline, InlineNode } from "@/lib/markdownUtils";
+import { parseInline, InlineNode, isSafeUrl } from "@/lib/markdownUtils";
 
 // 通知種別ごとのスタイルおよびバッジ・アイコン定義（鮮やかで高コントラストなグラデーション背景）
 interface AnnouncementConfig {
@@ -107,19 +107,25 @@ function renderAnnouncementInline(
           {node.value}
         </code>
       );
-    case "link":
+    case "link": {
+      // 危険なスキーム（javascript:, data: 等）を遮断してXSSを防止
+      if (!isSafeUrl(node.url)) {
+        return <span key={index}>{node.text}</span>;
+      }
+      const isExternal = /^https?:\/\//i.test(node.url);
       return (
         <a
           key={index}
           href={node.url}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
           className="underline decoration-white/70 hover:decoration-white font-bold inline-flex items-center gap-0.5 hover:opacity-90 transition-opacity"
         >
           <span>{node.text}</span>
-          <ExternalLink className="w-3 h-3 inline-block" />
+          {isExternal && <ExternalLink className="w-3 h-3 inline-block" />}
         </a>
       );
+    }
     case "issue_key":
       return (
         <Link

@@ -12,18 +12,19 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import IssueDetailModal from "@/components/IssueDetailModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
+import ReviewRequestModal from "@/components/ReviewRequestModal";
 import ParentDueDateConfirmModal, {
   ParentDueDateWarningInfo,
   isExceedingParentDueDate,
 } from "@/components/ParentDueDateConfirmModal";
 import { useUser } from "@/components/UserContext";
-import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType, IssueResolution } from "@/types";
+import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType, IssueResolution, canManageIssues } from "@/types";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
 
 function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { currentUser, refreshUsers } = useUser();
+  const { users, currentUser, refreshUsers } = useUser();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
@@ -43,6 +44,7 @@ function DashboardContent() {
   // モーダル開閉ステート
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [reviewTargetIssue, setReviewTargetIssue] = useState<Issue | null>(null);
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [, setIsLoading] = useState(true);
@@ -183,6 +185,18 @@ function DashboardContent() {
     newStatus: IssueStatus,
     resolution?: IssueResolution | null
   ) => {
+    const targetIssue = issues.find((i) => i.id === issueId);
+    // 一般メンバーが「処理済み」に変更する場合はレビュー依頼モーダルを起動（Admin/PMOはスキップ許可）
+    if (
+      newStatus === "resolved" &&
+      targetIssue &&
+      targetIssue.status !== "resolved" &&
+      !canManageIssues(currentUser)
+    ) {
+      setReviewTargetIssue(targetIssue);
+      return;
+    }
+
     try {
       // 楽観的UI更新
       setIssues((prev) =>
@@ -508,6 +522,41 @@ function DashboardContent() {
         onClose={() => setIsBackupOpen(false)}
         onRestored={refreshAll}
       />
+
+      {/* レビュー・確認依頼モーダル（一覧から「処理済み」変更時） */}
+      {reviewTargetIssue && (
+        <ReviewRequestModal
+          isOpen={true}
+          issueKey={reviewTargetIssue.issue_key}
+          issueTitle={reviewTargetIssue.title}
+          reporterId={reviewTargetIssue.created_by}
+          currentAssigneeId={reviewTargetIssue.assignee_id}
+          users={users}
+          currentUserId={currentUser?.id}
+          onClose={() => setReviewTargetIssue(null)}
+          onSubmit={async (data) => {
+            const res = await fetch(`/api/issues/${reviewTargetIssue.id}/comments`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                content: data.comment,
+                status: "resolved",
+                resolution: null,
+                ...(data.changeAssignee ? { assigneeId: data.reviewerId } : {}),
+              }),
+            });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({}));
+              throw new Error(errData.error || "レビュー依頼の送信に失敗しました");
+            }
+            setReviewTargetIssue(null);
+            await refreshAll();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("litelog:notifications-updated"));
+            }
+          }}
+        />
+      )}
 
       {/* 子課題の期限延長に伴う親課題期限延長の確認モーダル */}
       <ParentDueDateConfirmModal

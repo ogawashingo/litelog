@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb, attachReactionsToComments, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createCommentNotifications, createIssueUpdatedNotifications } from "@/lib/notificationUtils";
-import { MAX_LENGTHS, validateMaxLength } from "@/lib/validation";
+import { MAX_LENGTHS, validateMaxLength, validateReviewRequestComment } from "@/lib/validation";
 
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
 const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated", "cannot_reproduce"]);
@@ -171,6 +171,15 @@ export async function POST(request: Request, { params }: RouteParams) {
     // ステータス更新バリデーション
     if (nextStatus !== undefined && !VALID_STATUSES.has(nextStatus)) {
       return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
+    }
+    // 一般メンバーが「処理済み」へ変更する際は、メンション以外の依頼メッセージ本文を必須とする（Admin/PMOはスキップ許可）
+    const isManager = sessionUser.is_admin === 1 || sessionUser.role_type === "pmo";
+    if (nextStatus === "resolved" && issue.status !== "resolved" && !isManager) {
+      const userNames = (db.prepare("SELECT name FROM users").all() as { name: string }[]).map((u) => u.name);
+      const reviewCommentErr = validateReviewRequestComment(cleanContent, userNames);
+      if (reviewCommentErr) {
+        return NextResponse.json({ error: reviewCommentErr }, { status: 400 });
+      }
     }
     // 完了理由バリデーション
     if (nextResolution !== undefined && nextResolution !== null && !VALID_RESOLUTIONS.has(nextResolution)) {
