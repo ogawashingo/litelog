@@ -6,6 +6,7 @@ import { getDb, ATTACHMENTS_DIR, attachReactionsToComments, canUserAccessProject
 import { getSessionUser } from "@/lib/auth";
 import { createIssueUpdatedNotifications } from "@/lib/notificationUtils";
 import { extendAncestorDueDatesIfNeeded } from "@/lib/parentDueDate";
+import { MAX_LENGTHS, validateDateRange, validateMaxLength } from "@/lib/validation";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
@@ -16,9 +17,14 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// 課題詳細の取得（コメント一覧含む、数値IDまたは課題キーに対応）
+// 課題詳細の取得（要ログインセッション・コメント一覧含む、数値IDまたは課題キーに対応）
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+
     const { id } = await params;
     const db = getDb();
     const isNumeric = /^\d+$/.test(id);
@@ -65,9 +71,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     // プロジェクトアクセス権チェック
-    const sessionUser = await getSessionUser();
     if (
-      sessionUser &&
       !canUserAccessProject(
         db,
         sessionUser.id,
@@ -223,6 +227,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       if (!cleanTitle) {
         return NextResponse.json({ error: "課題名は空にできません" }, { status: 400 });
       }
+      const titleLengthErr = validateMaxLength(cleanTitle, MAX_LENGTHS.ISSUE_TITLE, "課題名");
+      if (titleLengthErr) {
+        return NextResponse.json({ error: titleLengthErr }, { status: 400 });
+      }
       updates.push("title = ?");
       values.push(cleanTitle);
 
@@ -237,6 +245,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
     if (body.description !== undefined) {
       const cleanDesc = String(body.description).trim();
+      const descLengthErr = validateMaxLength(cleanDesc, MAX_LENGTHS.ISSUE_DESCRIPTION, "詳細説明");
+      if (descLengthErr) {
+        return NextResponse.json({ error: descLengthErr }, { status: 400 });
+      }
       const currentDesc = (currentIssue.description || "").trim();
       updates.push("description = ?");
       values.push(cleanDesc);
@@ -388,16 +400,42 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
     if (body.assigneeId !== undefined) {
       const targetAssigneeId = body.assigneeId ? Number(body.assigneeId) : null;
+      let targetAssigneeName = "不明";
+      if (targetAssigneeId !== null) {
+        if (!Number.isInteger(targetAssigneeId) || targetAssigneeId <= 0) {
+          return NextResponse.json({ error: "無効な担当者IDです" }, { status: 400 });
+        }
+        const targetUser = db
+          .prepare("SELECT id, name, role_type, is_admin FROM users WHERE id = ?")
+          .get(targetAssigneeId) as
+          | { id: number; name: string; role_type?: string; is_admin?: number }
+          | undefined;
+        if (!targetUser) {
+          return NextResponse.json({ error: "指定された担当者が見つかりません" }, { status: 400 });
+        }
+        const canAssigneeAccess = canUserAccessProject(
+          db,
+          targetUser.id,
+          Number(currentIssue.project_id),
+          targetUser.role_type,
+          targetUser.is_admin
+        );
+        if (!canAssigneeAccess) {
+          return NextResponse.json(
+            { error: "指定された担当者はこのプロジェクトのメンバーではありません" },
+            { status: 400 }
+          );
+        }
+        targetAssigneeName = targetUser.name;
+      }
       updates.push("assignee_id = ?");
       values.push(targetAssigneeId);
 
       if (currentIssue.assignee_id !== targetAssigneeId) {
         if (targetAssigneeId) {
-          const targetUser = db.prepare("SELECT name FROM users WHERE id = ?").get(targetAssigneeId) as { name: string } | undefined;
-          const targetName = targetUser?.name || "不明";
           activityLogs.push({
             type: "updated",
-            msg: `課題 [${currentIssue.issue_key}] の担当者を「${targetName}」に設定しました`,
+            msg: `課題 [${currentIssue.issue_key}] の担当者を「${targetAssigneeName}」に設定しました`,
           });
         } else {
           activityLogs.push({
@@ -412,8 +450,22 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       if (targetParentId === issueId) {
         return NextResponse.json({ error: "自分自身を親課題に設定することはできません" }, { status: 400 });
       }
-      // 親子課題の循環参照チェック（A -> B -> A の防止）
+      // 親課題の存在および同一プロジェクト検証（他プロジェクト課題への不正紐付け・期限改ざん防止）
       if (targetParentId) {
+        const targetParentRow = db
+          .prepare("SELECT id, project_id FROM issues WHERE id = ?")
+          .get(targetParentId) as { id: number; project_id: number } | undefined;
+        if (!targetParentRow) {
+          return NextResponse.json({ error: "指定された親課題が見つかりません" }, { status: 404 });
+        }
+        if (Number(targetParentRow.project_id) !== Number(currentIssue.project_id)) {
+          return NextResponse.json(
+            { error: "異なるプロジェクトの課題を親課題に設定することはできません" },
+            { status: 403 }
+          );
+        }
+
+        // 親子課題の循環参照チェック（A -> B -> A の防止）
         let cursorId: number | null = targetParentId;
         const visited = new Set<number>([issueId]);
         const getParentStmt = db.prepare("SELECT parent_id FROM issues WHERE id = ?");
@@ -432,8 +484,28 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       updates.push("parent_id = ?");
       values.push(targetParentId);
     }
+    // 開始日・期限日のフォーマットおよび前後関係チェック（変更後の値同士で検証）
+    const nextStartDateForCheck =
+      body.startDate !== undefined
+        ? body.startDate
+          ? String(body.startDate).trim()
+          : null
+        : currentIssue.start_date || null;
+    const nextDueDateForCheck =
+      body.dueDate !== undefined
+        ? body.dueDate
+          ? String(body.dueDate).trim()
+          : null
+        : currentIssue.due_date || null;
+    if (body.startDate !== undefined || body.dueDate !== undefined) {
+      const dateRangeErr = validateDateRange(nextStartDateForCheck, nextDueDateForCheck);
+      if (dateRangeErr) {
+        return NextResponse.json({ error: dateRangeErr }, { status: 400 });
+      }
+    }
+
     if (body.startDate !== undefined) {
-      const nextStart = body.startDate || null;
+      const nextStart = nextStartDateForCheck;
       updates.push("start_date = ?");
       values.push(nextStart);
 
@@ -443,7 +515,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       }
     }
     if (body.dueDate !== undefined) {
-      const nextDue = body.dueDate || null;
+      const nextDue = nextDueDateForCheck;
       updates.push("due_date = ?");
       values.push(nextDue);
 
@@ -517,16 +589,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         }
       }
 
-      // 本文中の添付ファイルURLをこの課題にバインド
+      // 本文中の添付ファイルURLをこの課題にバインド（他ユーザーの未紐付けファイル横取りを防止）
       if (body.description !== undefined) {
         const descMatches = String(body.description).matchAll(/\/api\/attachments\/(\d+)/g);
         const updateAttStmt = db.prepare(`
           UPDATE attachments
           SET issue_id = ?
-          WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+          WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
         `);
         for (const m of descMatches) {
-          if (m[1]) updateAttStmt.run(issueId, Number(m[1]), issueId);
+          if (m[1]) updateAttStmt.run(issueId, Number(m[1]), sessionUser.id, issueId);
         }
       }
 

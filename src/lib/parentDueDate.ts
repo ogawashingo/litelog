@@ -32,7 +32,7 @@ export function extendAncestorDueDatesIfNeeded(
   let cursorId: number | null = startParentId;
 
   const selectParentStmt = db.prepare(`
-    SELECT id, parent_id, issue_key, due_date
+    SELECT id, project_id, parent_id, issue_key, due_date
     FROM issues
     WHERE id = ?
   `);
@@ -50,13 +50,27 @@ export function extendAncestorDueDatesIfNeeded(
     VALUES (?, ?, 'updated', ?)
   `);
 
+  let expectedProjectId: number | null = null;
+
   while (cursorId && !visited.has(cursorId)) {
     visited.add(cursorId);
     const parentRow = selectParentStmt.get(cursorId) as
-      | { id: number; parent_id: number | null; issue_key: string; due_date: string | null }
+      | {
+          id: number;
+          project_id: number;
+          parent_id: number | null;
+          issue_key: string;
+          due_date: string | null;
+        }
       | undefined;
 
     if (!parentRow) break;
+    // 別プロジェクトへの意図しない波及を防止
+    if (expectedProjectId === null) {
+      expectedProjectId = parentRow.project_id;
+    } else if (parentRow.project_id !== expectedProjectId) {
+      break;
+    }
 
     // 親課題に期限日が設定されており、子課題の新しい期限日より前の場合のみ延長する
     if (parentRow.due_date && parentRow.due_date < newDueDate) {

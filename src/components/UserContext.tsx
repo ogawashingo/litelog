@@ -179,19 +179,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     [settings]
   );
 
-  // メンバー一覧とログインセッションの同期
+  // メンバー一覧とログインセッションの同期（未ログイン時は /api/users を呼ばない）
   const refreshUsers = useCallback(async () => {
     try {
-      const [usersRes, authRes] = await Promise.all([
-        fetch("/api/users", { cache: "no-store" }),
-        fetch("/api/auth", { cache: "no-store" }),
-      ]);
-
-      let usersData: User[] = [];
-      if (usersRes.ok) {
-        usersData = await usersRes.json();
-        setUsers(usersData);
-      }
+      const authRes = await fetch("/api/auth", { cache: "no-store" });
 
       if (authRes.ok) {
         const authData = await authRes.json();
@@ -200,12 +191,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           if (typeof window !== "undefined") {
             localStorage.setItem(STORAGE_KEY, String(authData.user.id));
           }
+          const usersRes = await fetch("/api/users", { cache: "no-store" });
+          if (usersRes.ok) {
+            const usersData: User[] = await usersRes.json();
+            setUsers(usersData);
+          }
           setIsAuthReady(true);
           return;
         }
       }
 
       // サーバー側の署名付きセッションCookieが存在しない・無効な場合は未ログイン状態とする
+      setUsers([]);
       setCurrentUserId(null);
       if (typeof window !== "undefined") {
         localStorage.removeItem(STORAGE_KEY);

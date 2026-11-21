@@ -1,14 +1,35 @@
 // 最近のアクティビティ取得API
 import { NextResponse } from "next/server";
-import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
+import { getDb, canUserAccessProject, getUserAccessibleProjectIds } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
     const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
     const db = getDb();
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
+
+    // プロジェクト指定がある場合はアクセス権を厳密にチェック
+    if (projectId) {
+      const pid = Number(projectId);
+      const canAccess = canUserAccessProject(
+        db,
+        sessionUser.id,
+        pid,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (!canAccess) {
+        return NextResponse.json(
+          { error: "このプロジェクトのアクティビティを閲覧する権限がありません" },
+          { status: 403 }
+        );
+      }
+    }
 
     let sql = `
       SELECT 

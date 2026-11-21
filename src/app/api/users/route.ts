@@ -1,12 +1,33 @@
 // ユーザー（チームメンバー）一覧取得および新規追加API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
 import { getSessionUser, hashPassword } from "@/lib/auth";
+import {
+  MAX_LENGTHS,
+  MIN_LENGTHS,
+  validateHexColor,
+  validateLoginId,
+  validateMaxLength,
+  validatePassword,
+} from "@/lib/validation";
 
-// メンバー一覧の取得（担当課題数の集計および所属プロジェクト情報付き・パスワードは除外）
+// メンバー一覧の取得（要ログインセッション・担当課題数の集計および所属プロジェクト情報付き・パスワードは除外）
 export async function GET() {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+
     const db = getDb();
+    const accessibleProjectIds = getUserAccessibleProjectIds(
+      db,
+      sessionUser.id,
+      sessionUser.role_type,
+      sessionUser.is_admin
+    );
+    const accessibleSet = accessibleProjectIds === null ? null : new Set(accessibleProjectIds);
+
     const rawUsers = db.prepare(`
       SELECT 
         u.id,
@@ -28,7 +49,7 @@ export async function GET() {
       ORDER BY u.id ASC
     `).all() as any[];
 
-    // 各ユーザーの所属プロジェクト一覧を取得してマッピング
+    // 各ユーザーの所属プロジェクト一覧を取得してマッピング（Admin以外は自身が閲覧可能なプロジェクトのみ公開）
     const userProjectsStmt = db.prepare(`
       SELECT p.id, p.key, p.name, p.color, COALESCE(p.is_archived, 0) AS is_archived
       FROM project_members pm
@@ -38,11 +59,15 @@ export async function GET() {
     `);
 
     const users = rawUsers.map((u) => {
-      const userProjects = userProjectsStmt.all(u.id);
+      const allUserProjects = userProjectsStmt.all(u.id) as { id: number }[];
+      const visibleProjects =
+        accessibleSet === null
+          ? allUserProjects
+          : allUserProjects.filter((p) => accessibleSet.has(Number(p.id)));
       return {
         ...u,
-        projects: userProjects,
-        project_count: userProjects.length,
+        projects: visibleProjects,
+        project_count: visibleProjects.length,
       };
     });
 
@@ -92,13 +117,43 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!name || !name.trim()) {
+    // PMOが指定できる所属プロジェクトは、PMO自身が参加しているプロジェクトのみに制限
+    if (!isAdmin && Array.isArray(projectIds) && projectIds.length > 0) {
+      const accessibleIds = getUserAccessibleProjectIds(
+        db,
+        sessionUser.id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      const accessibleSet = new Set(accessibleIds || []);
+      const unauthorizedProjectId = projectIds
+        .map(Number)
+        .filter(Boolean)
+        .find((pid) => !accessibleSet.has(pid));
+      if (unauthorizedProjectId !== undefined) {
+        return NextResponse.json(
+          { error: "参加していないプロジェクトへメンバーを追加する権限はありません" },
+          { status: 403 }
+        );
+      }
+    }
+
+    if (!name || !String(name).trim()) {
       return NextResponse.json({ error: "メンバー名は必須です" }, { status: 400 });
+    }
+    const cleanName = String(name).trim();
+    const nameLengthErr = validateMaxLength(cleanName, MAX_LENGTHS.USER_NAME, "メンバー名");
+    if (nameLengthErr) {
+      return NextResponse.json({ error: nameLengthErr }, { status: 400 });
     }
 
     const cleanLoginId = loginId && String(loginId).trim()
       ? String(loginId).trim().toLowerCase()
       : `user_${Date.now()}`;
+    const loginIdErr = validateLoginId(cleanLoginId);
+    if (loginIdErr) {
+      return NextResponse.json({ error: loginIdErr }, { status: 400 });
+    }
 
     // ログインIDの重複チェック
     const existing = db
@@ -112,7 +167,17 @@ export async function POST(request: Request) {
     }
 
     const rawPassword = String(password).trim() || "pass123";
+    const passwordErr = validatePassword(rawPassword, MIN_LENGTHS.PASSWORD_DEFAULT);
+    if (passwordErr) {
+      return NextResponse.json({ error: passwordErr }, { status: 400 });
+    }
     const hashedPassword = hashPassword(rawPassword);
+
+    const cleanColor = color ? String(color).trim() : "#4f46e5";
+    const colorErr = validateHexColor(cleanColor);
+    if (colorErr) {
+      return NextResponse.json({ error: colorErr }, { status: 400 });
+    }
 
     const cleanWeekStart = weekStart === "sunday" ? "sunday" : "monday";
     const cleanShowHolidays = showHolidays === false || showHolidays === 0 ? 0 : 1;
@@ -132,6 +197,12 @@ export async function POST(request: Request) {
         ? "PMO"
         : "メンバー";
 
+    const cleanRole = (role ? String(role) : defaultRoleLabel).trim() || defaultRoleLabel;
+    const roleLengthErr = validateMaxLength(cleanRole, MAX_LENGTHS.USER_ROLE, "役割");
+    if (roleLengthErr) {
+      return NextResponse.json({ error: roleLengthErr }, { status: 400 });
+    }
+
     const insert = db.prepare(`
       INSERT INTO users (login_id, password, name, role, is_admin, role_type, color, week_start, show_holidays)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -139,11 +210,11 @@ export async function POST(request: Request) {
     const result = insert.run(
       cleanLoginId,
       hashedPassword,
-      name.trim(),
-      (role || defaultRoleLabel).trim(),
+      cleanName,
+      cleanRole,
       effectiveIsAdmin,
       effectiveRoleType,
-      color || "#4f46e5",
+      cleanColor,
       cleanWeekStart,
       cleanShowHolidays
     );

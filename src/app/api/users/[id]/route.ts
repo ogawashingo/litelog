@@ -1,7 +1,15 @@
 // ユーザー（チームメンバー）更新・削除API
 import { NextResponse } from "next/server";
-import { getDb, setUserProjects } from "@/lib/db";
+import { getDb, getUserAccessibleProjectIds, setUserProjects } from "@/lib/db";
 import { getSessionUser, hashPassword, verifyPassword } from "@/lib/auth";
+import {
+  MAX_LENGTHS,
+  MIN_LENGTHS,
+  validateHexColor,
+  validateLoginId,
+  validateMaxLength,
+  validatePassword,
+} from "@/lib/validation";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -49,7 +57,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     // PMOはシステム管理者（Admin）アカウントの編集や、Admin権限の付与は不可
     if (isPmo && !isAdmin) {
-      if (targetUser.is_admin === 1) {
+      if (targetUser.is_admin === 1 || targetUser.role_type === "admin") {
         return NextResponse.json(
           { error: "システム管理者（Admin）のアカウント情報は変更できません" },
           { status: 403 }
@@ -95,17 +103,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         );
       }
       const nextPw = String(body.newPassword ?? body.password ?? "").trim();
-      if (!nextPw) {
-        return NextResponse.json(
-          { error: "新しいパスワードを入力してください" },
-          { status: 400 }
-        );
-      }
-      if (nextPw.length < 4) {
-        return NextResponse.json(
-          { error: "新しいパスワードは4文字以上で入力してください" },
-          { status: 400 }
-        );
+      const pwErr = validatePassword(nextPw, MIN_LENGTHS.PASSWORD_DEFAULT, "新しいパスワード");
+      if (pwErr) {
+        return NextResponse.json({ error: pwErr }, { status: 400 });
       }
       if (verifyPassword(nextPw, targetUser.password)) {
         return NextResponse.json(
@@ -116,7 +116,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       hashedPasswordToUpdate = hashPassword(nextPw);
     } else if (canManageMember && body.password !== undefined && String(body.password).trim() !== "") {
       // AdminまたはPMOによるメンバー管理画面からのパスワード変更
-      hashedPasswordToUpdate = hashPassword(String(body.password).trim());
+      const nextAdminPw = String(body.password).trim();
+      const pwErr = validatePassword(nextAdminPw, MIN_LENGTHS.PASSWORD_DEFAULT, "パスワード");
+      if (pwErr) {
+        return NextResponse.json({ error: pwErr }, { status: 400 });
+      }
+      hashedPasswordToUpdate = hashPassword(nextAdminPw);
     }
 
     const updates: string[] = [];
@@ -126,6 +131,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       const cleanLoginId = String(body.loginId).trim().toLowerCase();
       if (!cleanLoginId) {
         return NextResponse.json({ error: "ログインIDは空にできません" }, { status: 400 });
+      }
+      const loginIdErr = validateLoginId(cleanLoginId);
+      if (loginIdErr) {
+        return NextResponse.json({ error: loginIdErr }, { status: 400 });
       }
       const dup = db
         .prepare("SELECT id FROM users WHERE LOWER(login_id) = LOWER(?) AND id != ?")
@@ -144,15 +153,25 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       values.push(hashedPasswordToUpdate);
     }
     if (body.name !== undefined) {
-      if (!body.name.trim()) {
+      const cleanName = String(body.name).trim();
+      if (!cleanName) {
         return NextResponse.json({ error: "メンバー名は空にできません" }, { status: 400 });
       }
+      const nameLengthErr = validateMaxLength(cleanName, MAX_LENGTHS.USER_NAME, "メンバー名");
+      if (nameLengthErr) {
+        return NextResponse.json({ error: nameLengthErr }, { status: 400 });
+      }
       updates.push("name = ?");
-      values.push(body.name.trim());
+      values.push(cleanName);
     }
     if (canManageMember && body.role !== undefined) {
+      const cleanRole = String(body.role).trim() || "メンバー";
+      const roleLengthErr = validateMaxLength(cleanRole, MAX_LENGTHS.USER_ROLE, "役割");
+      if (roleLengthErr) {
+        return NextResponse.json({ error: roleLengthErr }, { status: 400 });
+      }
       updates.push("role = ?");
-      values.push(body.role.trim() || "メンバー");
+      values.push(cleanRole);
     }
     if (canManageMember && (body.roleType !== undefined || body.isAdmin !== undefined)) {
       let nextRoleType: string;
@@ -188,8 +207,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       values.push(nextRoleType);
     }
     if (body.color !== undefined) {
+      const cleanColor = String(body.color).trim();
+      const colorErr = validateHexColor(cleanColor);
+      if (colorErr) {
+        return NextResponse.json({ error: colorErr }, { status: 400 });
+      }
       updates.push("color = ?");
-      values.push(body.color);
+      values.push(cleanColor);
     }
     const incomingWeekStart = body.weekStart ?? body.week_start;
     if (incomingWeekStart !== undefined) {
@@ -208,9 +232,45 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       db.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`).run(...values);
     }
 
-    // 所属プロジェクトの更新（Admin/PMOのみ変更可能。指定されたprojectIdsで正確に同期し、脱退・参加を反映）
+    // 所属プロジェクトの更新（Adminは全プロジェクト同期可能。PMOは自身が参加しているプロジェクトの範囲内のみ変更可能）
     if (canManageMember && Array.isArray(body.projectIds)) {
-      setUserProjects(db, targetId, body.projectIds.map(Number));
+      const requestedProjectIds: number[] = Array.from(
+        new Set<number>(body.projectIds.map((pid: unknown) => Number(pid)))
+      ).filter(Boolean);
+      if (isAdmin) {
+        setUserProjects(db, targetId, requestedProjectIds);
+      } else {
+        // PMO自身がアクセス可能なプロジェクトID一覧と、対象ユーザーの現在の所属プロジェクトを取得
+        const pmoAccessibleIds = getUserAccessibleProjectIds(
+          db,
+          sessionUser.id,
+          sessionUser.role_type,
+          sessionUser.is_admin
+        );
+        const pmoAccessibleSet = new Set(pmoAccessibleIds || []);
+        const currentTargetProjectIds = (
+          db.prepare("SELECT project_id FROM project_members WHERE user_id = ?").all(targetId) as {
+            project_id: number;
+          }[]
+        ).map((r) => Number(r.project_id));
+        const currentTargetSet = new Set(currentTargetProjectIds);
+
+        // PMOが参加していないプロジェクトへ新たに追加しようとした場合は拒否（権限昇格防止）
+        const unauthorizedAddition = requestedProjectIds.find(
+          (pid) => !pmoAccessibleSet.has(pid) && !currentTargetSet.has(pid)
+        );
+        if (unauthorizedAddition !== undefined) {
+          return NextResponse.json(
+            { error: "参加していないプロジェクトへメンバーを追加する権限はありません" },
+            { status: 403 }
+          );
+        }
+
+        // PMOから見えない既存の所属プロジェクトはそのまま保持し、PMO参加プロジェクト分のみ同期
+        const preservedHiddenIds = currentTargetProjectIds.filter((pid) => !pmoAccessibleSet.has(pid));
+        const allowedRequestedIds = requestedProjectIds.filter((pid) => pmoAccessibleSet.has(pid));
+        setUserProjects(db, targetId, [...preservedHiddenIds, ...allowedRequestedIds]);
+      }
     }
 
     const updated = db.prepare(`
@@ -235,13 +295,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     `).get(targetId) as any;
 
     if (updated) {
-      updated.projects = db.prepare(`
+      const accessibleIds = getUserAccessibleProjectIds(
+        db,
+        sessionUser.id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      const accessibleSet = accessibleIds === null ? null : new Set(accessibleIds);
+      const allProjects = db.prepare(`
         SELECT p.id, p.key, p.name, p.color, COALESCE(p.is_archived, 0) AS is_archived
         FROM project_members pm
         JOIN projects p ON pm.project_id = p.id
         WHERE pm.user_id = ?
         ORDER BY p.is_archived ASC, p.id ASC
-      `).all(targetId);
+      `).all(targetId) as { id: number }[];
+      updated.projects =
+        accessibleSet === null
+          ? allProjects
+          : allProjects.filter((p) => accessibleSet.has(Number(p.id)));
       updated.project_count = updated.projects.length;
     }
 

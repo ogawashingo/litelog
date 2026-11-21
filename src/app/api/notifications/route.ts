@@ -1,9 +1,9 @@
 // 通知一覧取得・既読化・削除API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
-// 通知一覧および未読件数の取得（要ログインセッション）
+// 通知一覧および未読件数の取得（要ログインセッション・アクセス可能プロジェクトの通知のみ返却）
 export async function GET(request: Request) {
   try {
     const sessionUser = await getSessionUser();
@@ -16,16 +16,33 @@ export async function GET(request: Request) {
     const unreadOnly = searchParams.get("unreadOnly") === "true";
 
     const db = getDb();
+    const accessibleProjectIds = getUserAccessibleProjectIds(
+      db,
+      sessionUser.id,
+      sessionUser.role_type,
+      sessionUser.is_admin
+    );
 
-    // 未読通知総数を取得
+    if (accessibleProjectIds !== null && accessibleProjectIds.length === 0) {
+      return NextResponse.json({ notifications: [], unreadCount: 0 });
+    }
+
+    const projectFilterClause =
+      accessibleProjectIds === null
+        ? ""
+        : ` AND i.project_id IN (${accessibleProjectIds.map(() => "?").join(",")})`;
+    const projectFilterParams = accessibleProjectIds === null ? [] : accessibleProjectIds;
+
+    // 未読通知総数を取得（参加中プロジェクトの課題に紐づく通知のみ集計）
     const countRow = db.prepare(`
       SELECT COUNT(*) AS unread_count 
-      FROM notifications 
-      WHERE user_id = ? AND is_read = 0
-    `).get(sessionUser.id) as { unread_count: number } | undefined;
+      FROM notifications n
+      JOIN issues i ON n.issue_id = i.id
+      WHERE n.user_id = ? AND n.is_read = 0${projectFilterClause}
+    `).get(sessionUser.id, ...projectFilterParams) as { unread_count: number } | undefined;
     const unreadCount = countRow ? countRow.unread_count : 0;
 
-    // 通知一覧を取得（課題情報・送信者情報を結合）
+    // 通知一覧を取得（課題情報・送信者情報を結合・アクセス可能プロジェクトのみ）
     let sql = `
       SELECT 
         n.*,
@@ -39,7 +56,7 @@ export async function GET(request: Request) {
       LEFT JOIN users sender ON n.sender_id = sender.id
       JOIN issues i ON n.issue_id = i.id
       JOIN projects p ON i.project_id = p.id
-      WHERE n.user_id = ?
+      WHERE n.user_id = ?${projectFilterClause}
     `;
 
     if (unreadOnly) {
@@ -48,7 +65,7 @@ export async function GET(request: Request) {
 
     sql += " ORDER BY n.created_at DESC LIMIT ?";
 
-    const notifications = db.prepare(sql).all(sessionUser.id, limit);
+    const notifications = db.prepare(sql).all(sessionUser.id, ...projectFilterParams, limit);
 
     return NextResponse.json({
       notifications,

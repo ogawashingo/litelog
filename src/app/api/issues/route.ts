@@ -4,16 +4,20 @@ import { getDb, canUserAccessProject, getUserAccessibleProjectIds } from "@/lib/
 import { getSessionUser } from "@/lib/auth";
 import { createIssueCreatedNotifications } from "@/lib/notificationUtils";
 import { extendAncestorDueDatesIfNeeded } from "@/lib/parentDueDate";
+import { MAX_LENGTHS, validateDateRange, validateMaxLength } from "@/lib/validation";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
 const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
 const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated", "cannot_reproduce"]);
 
-// 課題一覧取得
+// 課題一覧取得（要ログインセッション）
 export async function GET(request: Request) {
   try {
     const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
     const db = getDb();
     const { searchParams } = new URL(request.url);
 
@@ -26,7 +30,7 @@ export async function GET(request: Request) {
     const querySearch = searchParams.get("q");
 
     // プロジェクトアクセス権のチェック
-    if (projectId && sessionUser) {
+    if (projectId) {
       const canAccess = canUserAccessProject(
         db,
         sessionUser.id,
@@ -186,6 +190,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "プロジェクトと課題名は必須です" }, { status: 400 });
     }
 
+    const cleanTitle = String(title).trim();
+    const cleanDescription = String(description || "").trim();
+
+    // 文字数上限チェック
+    const titleLengthErr = validateMaxLength(cleanTitle, MAX_LENGTHS.ISSUE_TITLE, "課題名");
+    if (titleLengthErr) {
+      return NextResponse.json({ error: titleLengthErr }, { status: 400 });
+    }
+    const descLengthErr = validateMaxLength(cleanDescription, MAX_LENGTHS.ISSUE_DESCRIPTION, "詳細説明");
+    if (descLengthErr) {
+      return NextResponse.json({ error: descLengthErr }, { status: 400 });
+    }
+
+    // 開始日・期限日のフォーマットおよび前後関係チェック
+    const cleanStartDate = startDate ? String(startDate).trim() : null;
+    const cleanDueDate = dueDate ? String(dueDate).trim() : null;
+    const dateRangeErr = validateDateRange(cleanStartDate, cleanDueDate);
+    if (dateRangeErr) {
+      return NextResponse.json({ error: dateRangeErr }, { status: 400 });
+    }
+
     // プロジェクト参加権限の検証（Admin/PMOまたは参加メンバー）
     const canAccess = canUserAccessProject(
       db,
@@ -243,6 +268,50 @@ export async function POST(request: Request) {
     }
 
     const resolvedAssigneeId = assigneeId ? Number(assigneeId) : null;
+    if (resolvedAssigneeId !== null) {
+      if (!Number.isInteger(resolvedAssigneeId) || resolvedAssigneeId <= 0) {
+        return NextResponse.json({ error: "無効な担当者IDです" }, { status: 400 });
+      }
+      const assigneeUser = db
+        .prepare("SELECT id, role_type, is_admin FROM users WHERE id = ?")
+        .get(resolvedAssigneeId) as { id: number; role_type?: string; is_admin?: number } | undefined;
+      if (!assigneeUser) {
+        return NextResponse.json({ error: "指定された担当者が見つかりません" }, { status: 400 });
+      }
+      const canAssigneeAccess = canUserAccessProject(
+        db,
+        assigneeUser.id,
+        Number(projectId),
+        assigneeUser.role_type,
+        assigneeUser.is_admin
+      );
+      if (!canAssigneeAccess) {
+        return NextResponse.json(
+          { error: "指定された担当者はこのプロジェクトのメンバーではありません" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const resolvedParentId = parentId ? Number(parentId) : null;
+    if (resolvedParentId !== null) {
+      if (!Number.isInteger(resolvedParentId) || resolvedParentId <= 0) {
+        return NextResponse.json({ error: "無効な親課題IDです" }, { status: 400 });
+      }
+      const parentIssue = db
+        .prepare("SELECT id, project_id FROM issues WHERE id = ?")
+        .get(resolvedParentId) as { id: number; project_id: number } | undefined;
+      if (!parentIssue) {
+        return NextResponse.json({ error: "指定された親課題が見つかりません" }, { status: 400 });
+      }
+      if (parentIssue.project_id !== Number(projectId)) {
+        return NextResponse.json(
+          { error: "別プロジェクトの課題を親課題に設定することはできません" },
+          { status: 400 }
+        );
+      }
+    }
+
     // 操作者はサーバー側セッションユーザーを信頼源とする
     const resolvedActorId = sessionUser.id;
 
@@ -267,19 +336,19 @@ export async function POST(request: Request) {
 
       const result = insert.run(
         projectId,
-        parentId || null,
+        resolvedParentId,
         resolvedAssigneeId,
         resolvedActorId,
         issueKey,
         nextNum,
-        String(title).trim(),
-        String(description || "").trim(),
+        cleanTitle,
+        cleanDescription,
         issueType,
         status,
         priority,
         cleanResolution,
-        startDate || null,
-        dueDate || null
+        cleanStartDate,
+        cleanDueDate
       );
 
       issueId = result.lastInsertRowid;
@@ -298,13 +367,14 @@ export async function POST(request: Request) {
         }
       }
       if (foundAttachmentIds.size > 0) {
+        // 他ユーザーがアップロードした未紐付けファイルの横取りを防ぐため user_id を検証
         const updateAttStmt = db.prepare(`
           UPDATE attachments
           SET issue_id = ?
-          WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+          WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
         `);
         for (const aid of foundAttachmentIds) {
-          updateAttStmt.run(issueId, aid, issueId);
+          updateAttStmt.run(issueId, aid, resolvedActorId, issueId);
         }
       }
 

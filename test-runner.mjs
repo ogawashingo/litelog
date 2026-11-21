@@ -14,6 +14,15 @@ import {
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES, getAvatarColorLabel } from "./src/lib/avatarColors.ts";
 import { parseMarkdown, parseInline, isSafeUrl } from "./src/lib/markdownUtils.ts";
 import { extendAncestorDueDatesIfNeeded } from "./src/lib/parentDueDate.ts";
+import {
+  MAX_ATTACHMENT_FILE_SIZE,
+  MAX_FILES_PER_UPLOAD,
+  MAX_TOTAL_UPLOAD_SIZE,
+  isInlineImageMimeType,
+  validateAttachmentMeta,
+  validateAttachmentBatchMeta,
+  validateFileSignature,
+} from "./src/lib/attachmentPolicy.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -1662,11 +1671,24 @@ async function runTests() {
   if (
     isSafeUrl("javascript:alert(1)") ||
     isSafeUrl("data:text/html,<script>alert(1)</script>") ||
-    isSafeUrl("vbscript:msgbox")
+    isSafeUrl("vbscript:msgbox") ||
+    isSafeUrl("data:image/svg+xml;base64,PHN2Zy8+", true)
   ) {
     throw new Error("危険なURLスキームが安全と誤判定されました");
   }
-  console.log("✓ Markdown・外部リンク安全性検証（XSS・危険スキーム遮断）成功");
+  if (!isSafeUrl("data:image/png;base64,iVBORw0KGgo=", true)) {
+    throw new Error("安全なラスター画像data URLの判定に失敗しました");
+  }
+  // 生HTMLタグがテキストノードとして扱われることを検証
+  const xssInline = parseInline("<script>alert(1)</script><img src=x onerror=alert(1)>", []);
+  if (
+    xssInline.length !== 1 ||
+    xssInline[0].type !== "text" ||
+    xssInline[0].value !== "<script>alert(1)</script><img src=x onerror=alert(1)>"
+  ) {
+    throw new Error("HTML/scriptタグがプレーンテキストとして保持されませんでした");
+  }
+  console.log("✓ Markdown・外部リンク安全性検証（XSS・危険スキーム・SVG data URL遮断）成功");
 
   // 8-2. ブロック要素検証（見出し・リスト・タスクリスト・引用・コードブロック・テーブル）
   const markdownSample = [
@@ -2922,6 +2944,170 @@ async function runTests() {
     db.prepare("DELETE FROM users WHERE id IN (?, ?)").run(pinUserA, pinUserB);
 
     console.log("✓ プロジェクトの個人別ピン留め・独立ソート・メンバー同期保持テスト成功");
+  }
+
+  // =========================================================================
+  // セキュリティ回帰テスト（認証バイパス防止・非参加プロジェクト通知遮断・他プロジェクト親課題延長遮断）
+  // =========================================================================
+  {
+    // 1. src/lib/auth.ts に旧形式数値のみCookieの無検証フォールバックが存在しないことを確認
+    const authSource = fs.readFileSync(path.join(process.cwd(), "src/lib/auth.ts"), "utf8");
+    if (authSource.includes("/^\\d+$/.test(rawCookie)")) {
+      throw new Error("auth.ts に危険な数値のみCookieフォールバックが残存しています");
+    }
+
+    // 2. 非参加プロジェクトのメンバーへのメンション通知が送られないことを検証
+    const secProjA = Number(
+      db.prepare("INSERT INTO projects (key, name, color) VALUES ('SECA', '機密プロジェクトA', '#4f46e5')").run().lastInsertRowid
+    );
+    const secProjB = Number(
+      db.prepare("INSERT INTO projects (key, name, color) VALUES ('SECB', '別プロジェクトB', '#ec4899')").run().lastInsertRowid
+    );
+    const secMemberA = Number(
+      db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, role_type) VALUES ('sec_a', 'pw', '機密Aメンバー', 'メンバー', 0, 'member')").run().lastInsertRowid
+    );
+    const secMemberB = Number(
+      db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, role_type) VALUES ('sec_b', 'pw', '外部Bメンバー', 'メンバー', 0, 'member')").run().lastInsertRowid
+    );
+    db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)").run(secProjA, secMemberA);
+    db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)").run(secProjB, secMemberB);
+
+    const secIssueA = Number(
+      db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, due_date) VALUES (?, 'SECA-1', 1, '機密課題A', '2026-12-01')").run(secProjA).lastInsertRowid
+    );
+    const secIssueB = Number(
+      db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, due_date) VALUES (?, 'SECB-1', 1, '別課題B', '2026-11-20')").run(secProjB).lastInsertRowid
+    );
+
+    // 機密プロジェクトAの課題で外部Bメンバーをメンションしても通知が生成されないこと
+    const leakedNotifs = createMentionNotifications(db, {
+      issueId: secIssueA,
+      senderId: secMemberA,
+      text: "確認してください @sec_b",
+    });
+    if (leakedNotifs.length !== 0) {
+      throw new Error(`非参加プロジェクトのメンバーへメンション通知が送信されました: ${leakedNotifs.length} 件`);
+    }
+
+    // 3. 万が一別プロジェクトの課題が親に紐づいていた場合でも、extendAncestorDueDatesIfNeeded がプロジェクトを跨いで延長しないこと
+    db.prepare("UPDATE issues SET parent_id = ? WHERE id = ?").run(secIssueA, secIssueB);
+    const crossExtended = extendAncestorDueDatesIfNeeded(db, {
+      startParentId: secIssueB,
+      newDueDate: "2027-01-15",
+      childIssueKey: "SECB-2",
+      actorId: secMemberB,
+    });
+    const afterIssueA = db.prepare("SELECT due_date FROM issues WHERE id = ?").get(secIssueA);
+    if (crossExtended.some((e) => e.id === secIssueA) || afterIssueA.due_date !== "2026-12-01") {
+      throw new Error("別プロジェクトの祖先課題の期限日が誤って延長されました");
+    }
+
+    // 後始末
+    db.prepare("DELETE FROM projects WHERE id IN (?, ?)").run(secProjA, secProjB);
+    db.prepare("DELETE FROM users WHERE id IN (?, ?)").run(secMemberA, secMemberB);
+
+    console.log("✓ セキュリティ回帰テスト（認証バイパス防止・非参加通知遮断・他プロジェクト期限延長遮断）成功");
+  }
+
+  // =========================================================================
+  // 添付ファイルアップロードポリシー（種類・サイズ・件数・マジックバイト検証）テスト
+  // =========================================================================
+  {
+    // 1. 許可されたファイル形式の正常系
+    const okPng = validateAttachmentMeta({ name: "screenshot.png", size: 1024, type: "image/png" });
+    if (!okPng.ok || okPng.data.rule.canonicalMime !== "image/png" || !okPng.data.rule.isInlineImage) {
+      throw new Error("PNGファイルの許可検証に失敗しました");
+    }
+    const okPdf = validateAttachmentMeta({ name: "spec.PDF", size: 2048, type: "application/pdf" });
+    if (!okPdf.ok || okPdf.data.ext !== ".pdf" || okPdf.data.rule.isInlineImage) {
+      throw new Error("大文字拡張子PDFファイルの許可検証に失敗しました");
+    }
+    const okMd = validateAttachmentMeta({ name: "notes.md", size: 512, type: "" });
+    if (!okMd.ok || okMd.data.rule.canonicalMime !== "text/markdown") {
+      throw new Error("MIME未指定Markdownファイルの許可検証に失敗しました");
+    }
+    const okDocx = validateAttachmentMeta({
+      name: "report.docx",
+      size: 4096,
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    if (!okDocx.ok) {
+      throw new Error("DOCXファイルの許可検証に失敗しました");
+    }
+
+    // 2. 禁止された拡張子の拒否（SVG・HTML・実行ファイル・拡張子なし）
+    for (const badName of ["xss.svg", "page.html", "malware.exe", "script.sh", "app.js", "noext"]) {
+      const res = validateAttachmentMeta({ name: badName, size: 100, type: "application/octet-stream" });
+      if (res.ok) {
+        throw new Error(`許可すべきでないファイル形式が通過しました: ${badName}`);
+      }
+    }
+
+    // 3. 0バイト・個別サイズ超過の拒否
+    if (validateAttachmentMeta({ name: "empty.txt", size: 0, type: "text/plain" }).ok) {
+      throw new Error("0バイトファイルが拒否されませんでした");
+    }
+    if (validateAttachmentMeta({ name: "huge.png", size: MAX_ATTACHMENT_FILE_SIZE + 1, type: "image/png" }).ok) {
+      throw new Error("10MB超過ファイルが拒否されませんでした");
+    }
+    if (!validateAttachmentMeta({ name: "just10mb.png", size: MAX_ATTACHMENT_FILE_SIZE, type: "image/png" }).ok) {
+      throw new Error("ちょうど10MBのファイルが拒否されました");
+    }
+
+    // 4. 拡張子とMIMEタイプの不整合（偽装）拒否
+    if (validateAttachmentMeta({ name: "fake.png", size: 100, type: "text/html" }).ok) {
+      throw new Error("MIME偽装（.png かつ text/html）が拒否されませんでした");
+    }
+
+    // 5. 一括アップロードの件数上限・合計サイズ上限チェック
+    const tooManyFiles = Array.from({ length: MAX_FILES_PER_UPLOAD + 1 }, (_, i) => ({
+      name: `img_${i}.png`,
+      size: 1024,
+      type: "image/png",
+    }));
+    if (validateAttachmentBatchMeta(tooManyFiles).ok) {
+      throw new Error("同時アップロード件数上限超過が拒否されませんでした");
+    }
+    const tooLargeTotal = [
+      { name: "a.pdf", size: MAX_ATTACHMENT_FILE_SIZE, type: "application/pdf" },
+      { name: "b.pdf", size: MAX_ATTACHMENT_FILE_SIZE, type: "application/pdf" },
+      { name: "c.pdf", size: MAX_ATTACHMENT_FILE_SIZE, type: "application/pdf" },
+      { name: "d.pdf", size: 1, type: "application/pdf" },
+    ];
+    if (MAX_TOTAL_UPLOAD_SIZE < MAX_ATTACHMENT_FILE_SIZE * 4 && validateAttachmentBatchMeta(tooLargeTotal).ok) {
+      throw new Error("合計アップロードサイズ上限超過が拒否されませんでした");
+    }
+
+    // 6. マジックバイト（ファイルシグネチャ）検証
+    const validPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+    const validJpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+    const validGif = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+    const validWebp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]);
+    const validPdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
+    const validZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0x14, 0x00]);
+    const validText = new TextEncoder().encode("hello world\n日本語テスト");
+    const fakeHtmlBytes = new TextEncoder().encode("<html><script>alert(1)</script></html>");
+    const binaryWithNul = new Uint8Array([0x41, 0x42, 0x00, 0x43]);
+
+    if (!validateFileSignature(validPng, "png")) throw new Error("正常なPNGシグネチャが拒否されました");
+    if (!validateFileSignature(validJpeg, "jpeg")) throw new Error("正常なJPEGシグネチャが拒否されました");
+    if (!validateFileSignature(validGif, "gif")) throw new Error("正常なGIFシグネチャが拒否されました");
+    if (!validateFileSignature(validWebp, "webp")) throw new Error("正常なWebPシグネチャが拒否されました");
+    if (!validateFileSignature(validPdf, "pdf")) throw new Error("正常なPDFシグネチャが拒否されました");
+    if (!validateFileSignature(validZip, "zip")) throw new Error("正常なZIPシグネチャが拒否されました");
+    if (!validateFileSignature(validText, "text")) throw new Error("正常なテキストが拒否されました");
+
+    if (validateFileSignature(fakeHtmlBytes, "png")) throw new Error("HTML偽装PNGが通過しました");
+    if (validateFileSignature(fakeHtmlBytes, "pdf")) throw new Error("HTML偽装PDFが通過しました");
+    if (validateFileSignature(fakeHtmlBytes, "zip")) throw new Error("HTML偽装ZIPが通過しました");
+    if (validateFileSignature(binaryWithNul, "text")) throw new Error("NULバイト混入テキストが通過しました");
+
+    // 7. インライン表示画像判定（SVGはfalseであること）
+    if (!isInlineImageMimeType("image/png") || isInlineImageMimeType("image/svg+xml")) {
+      throw new Error("インライン画像MIME判定が不正です");
+    }
+
+    console.log("✓ 添付ファイルアップロードポリシー（種類・サイズ・件数・シグネチャ検証）テスト成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

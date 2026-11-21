@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDb, attachReactionsToComments, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createCommentNotifications, createIssueUpdatedNotifications } from "@/lib/notificationUtils";
+import { MAX_LENGTHS, validateMaxLength } from "@/lib/validation";
 
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
 const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated", "cannot_reproduce"]);
@@ -11,10 +12,14 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// コメント一覧取得（数値IDまたは課題キーに対応）
+// コメント一覧取得（要ログインセッション・数値IDまたは課題キーに対応）
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
     const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
+
     const { id } = await params;
     const db = getDb();
     const isNumeric = /^\d+$/.test(id);
@@ -28,24 +33,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     // プロジェクトアクセス権チェック
-    if (sessionUser) {
-      const canAccess = canUserAccessProject(
-        db,
-        sessionUser.id,
-        issue.project_id,
-        sessionUser.role_type,
-        sessionUser.is_admin
-      );
-      if (!canAccess) {
-        return NextResponse.json(
-          { error: "この課題のコメントを閲覧する権限がありません（プロジェクトメンバーではありません）" },
-          { status: 403 }
-        );
-      }
-    }
-
     if (
-      sessionUser &&
       !canUserAccessProject(
         db,
         sessionUser.id,
@@ -55,7 +43,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       )
     ) {
       return NextResponse.json(
-        { error: "この課題のコメントを閲覧する権限がありません" },
+        { error: "この課題のコメントを閲覧する権限がありません（プロジェクトメンバーではありません）" },
         { status: 403 }
       );
     }
@@ -95,6 +83,14 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     if (!content || !String(content).trim()) {
       return NextResponse.json({ error: "コメント内容は必須です" }, { status: 400 });
+    }
+    const contentLengthErr = validateMaxLength(
+      String(content).trim(),
+      MAX_LENGTHS.COMMENT_CONTENT,
+      "コメント内容"
+    );
+    if (contentLengthErr) {
+      return NextResponse.json({ error: contentLengthErr }, { status: 400 });
     }
 
     const issue = db.prepare(`
@@ -180,6 +176,31 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (nextResolution !== undefined && nextResolution !== null && !VALID_RESOLUTIONS.has(nextResolution)) {
       return NextResponse.json({ error: "無効な完了理由です" }, { status: 400 });
     }
+    // 担当者バリデーション（実在かつプロジェクトメンバーであること）
+    if (nextAssigneeId !== undefined && nextAssigneeId !== null) {
+      if (!Number.isInteger(nextAssigneeId) || nextAssigneeId <= 0) {
+        return NextResponse.json({ error: "無効な担当者IDです" }, { status: 400 });
+      }
+      const assigneeUser = db
+        .prepare("SELECT id, role_type, is_admin FROM users WHERE id = ?")
+        .get(nextAssigneeId) as { id: number; role_type?: string; is_admin?: number } | undefined;
+      if (!assigneeUser) {
+        return NextResponse.json({ error: "指定された担当者が見つかりません" }, { status: 400 });
+      }
+      const canAssigneeAccess = canUserAccessProject(
+        db,
+        assigneeUser.id,
+        issue.project_id,
+        assigneeUser.role_type,
+        assigneeUser.is_admin
+      );
+      if (!canAssigneeAccess) {
+        return NextResponse.json(
+          { error: "指定された担当者はこのプロジェクトのメンバーではありません" },
+          { status: 400 }
+        );
+      }
+    }
 
     // 課題を完了（closed）にできるのは、課題の起票者・PMO・または管理者のみ
     if (nextStatus === "closed" && issue.status !== "closed") {
@@ -239,15 +260,15 @@ export async function POST(request: Request, { params }: RouteParams) {
         const result = insert.run(issueId, resolvedUserId, cleanContent);
         commentId = result.lastInsertRowid;
 
-        // コメント本文内の添付ファイルURLをこの課題およびコメントにバインド
+        // コメント本文内の添付ファイルURLをこの課題およびコメントにバインド（他ユーザーの未紐付けファイル横取りを防止）
         const commentMatches = cleanContent.matchAll(/\/api\/attachments\/(\d+)/g);
         const updateAttStmt = db.prepare(`
           UPDATE attachments
           SET issue_id = ?, comment_id = ?
-          WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+          WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
         `);
         for (const m of commentMatches) {
-          if (m[1]) updateAttStmt.run(issueId, commentId, Number(m[1]), issueId);
+          if (m[1]) updateAttStmt.run(issueId, commentId, Number(m[1]), resolvedUserId, issueId);
         }
 
         // アクティビティに記録

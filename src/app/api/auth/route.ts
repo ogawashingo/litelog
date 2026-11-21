@@ -4,14 +4,15 @@ import { cookies } from "next/headers";
 import { getDb } from "@/lib/db";
 import {
   SESSION_COOKIE_NAME,
+  LEGACY_SESSION_COOKIE_NAME,
   createSessionToken,
   createTemp2faToken,
   getSessionCookieOptions,
   getSessionUser,
   hashPassword,
-  isPasswordHashed,
   verifyPassword,
 } from "@/lib/auth";
+import { MIN_LENGTHS, validatePassword } from "@/lib/validation";
 
 // 現在のログインセッション確認（HMAC署名検証付き＆初回セットアップ要否判定）
 export async function GET() {
@@ -73,14 +74,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 万一DBに旧平文パスワードが残っていた場合は、ログイン成功時にハッシュ形式へ自動移行
-    if (!isPasswordHashed(row.password)) {
-      db.prepare("UPDATE users SET password = ? WHERE id = ?").run(
-        hashPassword(String(password)),
-        row.id
-      );
-    }
-
     // 2要素認証（TOTP）が有効化されている場合、一時トークンを返し認証コード入力を要求
     if (row.totp_enabled === 1) {
       const tempToken = createTemp2faToken(row.id);
@@ -105,10 +98,11 @@ export async function POST(request: Request) {
       created_at: row.created_at,
     };
 
-    // 署名付きセッショントークンを発行し、httpOnly Cookieとして保存
+    // 署名付きセッショントークンを発行し、httpOnly Cookieとして保存（旧Cookieがあれば削除）
     const sessionToken = createSessionToken(user.id);
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE_NAME, sessionToken, getSessionCookieOptions());
+    cookieStore.delete(LEGACY_SESSION_COOKIE_NAME);
 
     return NextResponse.json({ authenticated: true, user });
   } catch (error) {
@@ -167,11 +161,9 @@ export async function PUT(request: Request) {
     }
 
     const cleanNewPassword = String(newPassword).trim();
-    if (cleanNewPassword.length < 4) {
-      return NextResponse.json(
-        { error: "新しいパスワードは4文字以上で入力してください" },
-        { status: 400 }
-      );
+    const newPwErr = validatePassword(cleanNewPassword, MIN_LENGTHS.PASSWORD_DEFAULT, "新しいパスワード");
+    if (newPwErr) {
+      return NextResponse.json({ error: newPwErr }, { status: 400 });
     }
 
     if (verifyPassword(cleanNewPassword, row.password)) {
@@ -202,6 +194,8 @@ export async function DELETE() {
     const cookieStore = await cookies();
     cookieStore.set(SESSION_COOKIE_NAME, "", getSessionCookieOptions(0));
     cookieStore.delete(SESSION_COOKIE_NAME);
+    cookieStore.set(LEGACY_SESSION_COOKIE_NAME, "", getSessionCookieOptions(0));
+    cookieStore.delete(LEGACY_SESSION_COOKIE_NAME);
     return NextResponse.json({ authenticated: false, message: "ログアウトしました" });
   } catch (error) {
     console.error("ログアウトエラー:", error);

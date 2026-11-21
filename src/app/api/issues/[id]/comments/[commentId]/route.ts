@@ -1,8 +1,10 @@
 // 課題コメント個別操作（更新）API
 import { NextResponse } from "next/server";
-import { getDb, getCommentReactions } from "@/lib/db";
+import { getDb, getCommentReactions, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { createMentionNotifications } from "@/lib/notificationUtils";
+import { MAX_LENGTHS, validateMaxLength } from "@/lib/validation";
+import { isArchivedProject } from "@/types";
 
 interface RouteParams {
   params: Promise<{ id: string; commentId: string }>;
@@ -26,19 +28,41 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
     const db = getDb();
 
-    // 課題の存在確認（プロジェクトのアーカイブ状態も確認）
+    // 課題の存在確認（プロジェクトの参加権限・アーカイブ状態も確認）
     const issue = db.prepare(`
-      SELECT i.id, p.is_archived AS project_is_archived
+      SELECT i.id, i.project_id, p.is_archived AS project_is_archived, p.name AS project_name, p.key AS project_key
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       WHERE ${isNumericIssue ? "i.id = ?" : "i.issue_key = ?"}
-    `).get(isNumericIssue ? Number(id) : id) as { id: number; project_is_archived?: number } | undefined;
+    `).get(isNumericIssue ? Number(id) : id) as {
+      id: number;
+      project_id: number;
+      project_is_archived?: number;
+      project_name?: string;
+      project_key?: string;
+    } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
     }
 
-    if (issue.project_is_archived) {
+    // プロジェクトアクセス権チェック（プロジェクト脱退後の編集を防止）
+    if (
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(issue.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この課題のコメントを編集する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
+    }
+
+    if (isArchivedProject(issue)) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、コメントを編集できません（読み取り専用）" },
         { status: 403 }
@@ -80,6 +104,10 @@ export async function PUT(request: Request, { params }: RouteParams) {
     }
 
     const cleanContent = String(content).trim();
+    const contentLengthErr = validateMaxLength(cleanContent, MAX_LENGTHS.COMMENT_CONTENT, "コメント内容");
+    if (contentLengthErr) {
+      return NextResponse.json({ error: contentLengthErr }, { status: 400 });
+    }
 
     // 内容に変更がない場合はそのまま返す
     if (cleanContent === comment.content) {
@@ -115,15 +143,15 @@ export async function PUT(request: Request, { params }: RouteParams) {
         WHERE id = ?
       `).run(cleanContent, comment.id);
 
-      // コメント本文内の添付ファイルURLをバインド
+      // コメント本文内の添付ファイルURLをバインド（他ユーザーの未紐付けファイル横取りを防止）
       const commentMatches = cleanContent.matchAll(/\/api\/attachments\/(\d+)/g);
       const updateAttStmt = db.prepare(`
         UPDATE attachments
         SET issue_id = ?, comment_id = ?
-        WHERE id = ? AND (issue_id IS NULL OR issue_id = ?)
+        WHERE id = ? AND ((issue_id IS NULL AND user_id = ?) OR issue_id = ?)
       `);
       for (const m of commentMatches) {
-        if (m[1]) updateAttStmt.run(issue.id, comment.id, Number(m[1]), issue.id);
+        if (m[1]) updateAttStmt.run(issue.id, comment.id, Number(m[1]), sessionUser.id, issue.id);
       }
 
       // 3. 課題の updated_at を更新

@@ -44,30 +44,24 @@ export function hashPassword(plainPassword: string): string {
 }
 
 /**
- * 入力された平文パスワードとDB保存パスワード（ハッシュまたは旧平文）を照合します
+ * 入力された平文パスワードとDB保存ハッシュを照合します
  */
 export function verifyPassword(plainPassword: string, storedPassword: string): boolean {
-  if (!plainPassword || !storedPassword) return false;
-
-  if (isPasswordHashed(storedPassword)) {
-    const parts = storedPassword.split("$");
-    if (parts.length !== 3) return false;
-    const [, salt, originalHashHex] = parts;
-    try {
-      const derivedKey = crypto.scryptSync(String(plainPassword), salt, 64);
-      const originalKey = Buffer.from(originalHashHex, "hex");
-      if (derivedKey.length !== originalKey.length) return false;
-      return crypto.timingSafeEqual(derivedKey, originalKey);
-    } catch {
-      return false;
-    }
+  if (!plainPassword || !storedPassword || !isPasswordHashed(storedPassword)) {
+    return false;
   }
 
-  // 旧平文パスワードとの後方互換照合（定数時間比較）
-  const plainBuf = Buffer.from(String(plainPassword), "utf8");
-  const storedBuf = Buffer.from(String(storedPassword), "utf8");
-  if (plainBuf.length !== storedBuf.length) return false;
-  return crypto.timingSafeEqual(plainBuf, storedBuf);
+  const parts = storedPassword.split("$");
+  if (parts.length !== 3) return false;
+  const [, salt, originalHashHex] = parts;
+  try {
+    const derivedKey = crypto.scryptSync(String(plainPassword), salt, 64);
+    const originalKey = Buffer.from(originalHashHex, "hex");
+    if (derivedKey.length !== originalKey.length) return false;
+    return crypto.timingSafeEqual(derivedKey, originalKey);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -212,11 +206,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value;
     if (!rawCookie) return null;
 
-    let userId = verifySessionToken(rawCookie);
-    // 旧形式の数値のみCookieが残っている場合の後方互換フォールバック
-    if (!userId && /^\d+$/.test(rawCookie)) {
-      userId = Number(rawCookie);
-    }
+    const userId = verifySessionToken(rawCookie);
     if (!userId) return null;
 
     const db = getDb();

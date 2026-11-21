@@ -1,6 +1,6 @@
 // 課題コメント編集履歴取得API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
 interface RouteParams {
@@ -27,11 +27,27 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     // 課題の存在確認
     const issue = db.prepare(
-      `SELECT id FROM issues WHERE ${isNumericIssue ? "id = ?" : "issue_key = ?"}`
-    ).get(isNumericIssue ? Number(id) : id) as { id: number } | undefined;
+      `SELECT id, project_id FROM issues WHERE ${isNumericIssue ? "id = ?" : "issue_key = ?"}`
+    ).get(isNumericIssue ? Number(id) : id) as { id: number; project_id: number } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
+    }
+
+    // プロジェクトアクセス権チェック
+    if (
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(issue.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "このコメントの履歴を閲覧する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
     }
 
     // 対象コメントの取得（現在の最新版）

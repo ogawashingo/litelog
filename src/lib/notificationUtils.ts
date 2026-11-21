@@ -8,6 +8,36 @@ export interface MentionUser {
 }
 
 /**
+ * 対象課題のプロジェクトにアクセス可能なユーザー（Adminまたはプロジェクト参加メンバー）のみを取得
+ * プロジェクトメンバーシップが設定されていない場合（単体テスト環境等）は全ユーザーを返す
+ */
+function getNotifiableUsersForIssue(db: DatabaseSync, issueId: number): MentionUser[] {
+  try {
+    const issueRow = db
+      .prepare("SELECT project_id FROM issues WHERE id = ?")
+      .get(issueId) as { project_id: number } | undefined;
+    if (issueRow?.project_id) {
+      const pmCount = db
+        .prepare("SELECT COUNT(*) AS count FROM project_members WHERE project_id = ?")
+        .get(issueRow.project_id) as { count: number } | undefined;
+      if (pmCount && pmCount.count > 0) {
+        return db
+          .prepare(`
+            SELECT DISTINCT u.id, u.login_id, u.name
+            FROM users u
+            LEFT JOIN project_members pm ON pm.user_id = u.id AND pm.project_id = ?
+            WHERE u.is_admin = 1 OR u.role_type = 'admin' OR pm.user_id IS NOT NULL
+          `)
+          .all(issueRow.project_id) as unknown as MentionUser[];
+      }
+    }
+  } catch {
+    // project_members テーブルが存在しない環境へのフォールバック
+  }
+  return db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+}
+
+/**
  * テキストからメンションされたユーザーのID一覧を抽出（重複除去済み）
  * @param text 対象の本文（コメントや課題説明文）
  * @param users 登録されているユーザー一覧
@@ -75,8 +105,8 @@ export function createMentionNotifications(
   } = options;
   if (!text || !text.trim()) return [];
 
-  // 全ユーザー取得
-  const users = db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+  // 対象プロジェクトの閲覧権限を持つユーザーのみ取得（非参加ユーザーへの情報漏洩防止）
+  const users = getNotifiableUsersForIssue(db, issueId);
   if (!users || users.length === 0) return [];
 
   // テキストからメンション対象ユーザーを抽出
@@ -134,11 +164,11 @@ export function createIssueCreatedNotifications(
     notifyUserIds = [],
   } = options;
 
-  const users = db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+  const users = getNotifiableUsersForIssue(db, issueId);
   if (!users || users.length === 0) return [];
   const validUserIdSet = new Set<number>(users.map((u) => Number(u.id)));
-  const sender = users.find((u) => Number(u.id) === Number(senderId));
-  const senderName = sender?.name || "メンバー";
+  const senderRow = db.prepare("SELECT name FROM users WHERE id = ?").get(senderId) as { name: string } | undefined;
+  const senderName = senderRow?.name || "メンバー";
 
   // 同一操作内での重複通知を防ぐセット（送信者自身を最初から除外）
   const notifiedUserIds = new Set<number>([Number(senderId)]);
@@ -230,11 +260,11 @@ export function createIssueUpdatedNotifications(
     notifyUserIds = [],
   } = options;
 
-  const users = db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+  const users = getNotifiableUsersForIssue(db, issueId);
   if (!users || users.length === 0) return [];
   const validUserIdSet = new Set<number>(users.map((u) => Number(u.id)));
-  const sender = users.find((u) => Number(u.id) === Number(senderId));
-  const senderName = sender?.name || "メンバー";
+  const senderRow = db.prepare("SELECT name FROM users WHERE id = ?").get(senderId) as { name: string } | undefined;
+  const senderName = senderRow?.name || "メンバー";
 
   // 同一操作内での重複通知を防ぐセット（送信者自身を最初から除外）
   const notifiedUserIds = new Set<number>([Number(senderId)]);
@@ -340,7 +370,7 @@ export function createCommentNotifications(
 
   if (!text || !text.trim()) return [];
 
-  const users = db.prepare("SELECT id, login_id, name FROM users").all() as unknown as MentionUser[];
+  const users = getNotifiableUsersForIssue(db, issueId);
   if (!users || users.length === 0) return [];
   const validUserIdSet = new Set<number>(users.map((u) => Number(u.id)));
 

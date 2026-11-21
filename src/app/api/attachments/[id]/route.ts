@@ -2,16 +2,38 @@
 import { NextResponse } from "next/server";
 import path from "node:path";
 import fs from "node:fs";
-import { getDb, ATTACHMENTS_DIR } from "@/lib/db";
+import { getDb, ATTACHMENTS_DIR, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { isArchivedProject } from "@/types";
+
+// インライン表示を安全に許可するラスター画像MIMEタイプ（SVGはXSS防止のためダウンロード強制）
+const SAFE_INLINE_IMAGE_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "image/bmp",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+]);
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-// 添付ファイルの取得・ストリーミング配信
+// 添付ファイルの取得・ストリーミング配信（要ログインセッション・プロジェクトアクセス権チェック付き）
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: "ログインセッションが確認できません" },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const attachmentId = Number(id);
     if (!attachmentId || isNaN(attachmentId)) {
@@ -20,9 +42,22 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const db = getDb();
     const attachment = db
-      .prepare("SELECT * FROM attachments WHERE id = ?")
+      .prepare(`
+        SELECT
+          a.*,
+          COALESCE(i.project_id, ci.project_id) AS project_id
+        FROM attachments a
+        LEFT JOIN issues i ON a.issue_id = i.id
+        LEFT JOIN comments c ON a.comment_id = c.id
+        LEFT JOIN issues ci ON c.issue_id = ci.id
+        WHERE a.id = ?
+      `)
       .get(attachmentId) as {
       id: number;
+      user_id: number | null;
+      issue_id: number | null;
+      comment_id: number | null;
+      project_id: number | null;
       file_name: string;
       stored_name: string;
       file_size: number;
@@ -31,6 +66,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     if (!attachment) {
       return NextResponse.json({ error: "ファイルが見つかりません" }, { status: 404 });
+    }
+
+    // アクセス権限チェック
+    // 課題またはコメントに紐づいている場合はプロジェクト参加権限を確認、未紐付けの場合はアップロード者本人またはAdminのみ許可
+    if (attachment.project_id) {
+      const canAccess = canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(attachment.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (!canAccess) {
+        return NextResponse.json(
+          { error: "この添付ファイルを閲覧する権限がありません（プロジェクトメンバーではありません）" },
+          { status: 403 }
+        );
+      }
+    } else if (sessionUser.is_admin !== 1 && attachment.user_id !== sessionUser.id) {
+      return NextResponse.json(
+        { error: "この添付ファイルを閲覧する権限がありません" },
+        { status: 403 }
+      );
     }
 
     const filePath = path.join(ATTACHMENTS_DIR, attachment.stored_name);
@@ -42,11 +100,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     const fileBuffer = fs.readFileSync(filePath);
-    const isImage = attachment.mime_type.startsWith("image/");
+    const normalizedMime = (attachment.mime_type || "application/octet-stream").toLowerCase().split(";")[0].trim();
+    const isSafeInlineImage = SAFE_INLINE_IMAGE_TYPES.has(normalizedMime);
     const encodedFileName = encodeURIComponent(attachment.file_name);
 
-    // 画像はブラウザで直接インライン表示、その他のファイルはダウンロード
-    const contentDisposition = isImage
+    // 安全なラスター画像のみブラウザでインライン表示、SVGやその他のファイルはダウンロード強制
+    const contentDisposition = isSafeInlineImage
       ? `inline; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`
       : `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`;
 
@@ -56,8 +115,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
         "Content-Type": attachment.mime_type || "application/octet-stream",
         "Content-Length": String(fileBuffer.length),
         "Content-Disposition": contentDisposition,
-        // 画像はキャッシュして表示を高速化（1年間不変キャッシュ）
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Content-Type-Options": "nosniff",
+        // 添付ファイル配信時のスクリプト実行・同一オリジンアクセスを遮断
+        "Content-Security-Policy": "sandbox",
+        // 認証が必要なプライベートファイルのため共有キャッシュを禁止
+        "Cache-Control": "private, max-age=3600",
       },
     });
   } catch (error) {
@@ -89,24 +151,52 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
     const db = getDb();
     const attachment = db
       .prepare(`
-        SELECT a.*, p.is_archived AS project_is_archived
+        SELECT
+          a.*,
+          COALESCE(i.project_id, ci.project_id) AS project_id,
+          COALESCE(p.is_archived, cp.is_archived) AS project_is_archived,
+          COALESCE(p.name, cp.name) AS project_name,
+          COALESCE(p.key, cp.key) AS project_key
         FROM attachments a
         LEFT JOIN issues i ON a.issue_id = i.id
         LEFT JOIN projects p ON i.project_id = p.id
+        LEFT JOIN comments c ON a.comment_id = c.id
+        LEFT JOIN issues ci ON c.issue_id = ci.id
+        LEFT JOIN projects cp ON ci.project_id = cp.id
         WHERE a.id = ?
       `)
       .get(attachmentId) as {
       id: number;
       user_id: number | null;
       stored_name: string;
+      project_id?: number | null;
       project_is_archived?: number;
+      project_name?: string;
+      project_key?: string;
     } | undefined;
 
     if (!attachment) {
       return NextResponse.json({ error: "ファイルが見つかりません" }, { status: 404 });
     }
 
-    if (attachment.project_is_archived) {
+    // プロジェクトに紐づく添付ファイルは参加権限も確認（脱退後の削除を防止）
+    if (
+      attachment.project_id &&
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(attachment.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この添付ファイルを削除する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
+    }
+
+    if (isArchivedProject(attachment)) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、ファイルを削除できません（読み取り専用）" },
         { status: 403 }

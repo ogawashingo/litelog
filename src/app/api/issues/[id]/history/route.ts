@@ -1,6 +1,6 @@
 // 課題変更履歴（タイトル・詳細説明の過去バージョン一覧）API
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 
 interface RouteParams {
@@ -23,6 +23,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     const issue = db.prepare(`
       SELECT 
         i.id,
+        i.project_id,
         i.issue_key,
         i.title,
         i.description,
@@ -37,6 +38,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
     `).get(isNumeric ? Number(id) : id) as {
       id: number;
+      project_id: number;
       issue_key: string;
       title: string;
       description: string | null;
@@ -50,6 +52,22 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
+    }
+
+    // プロジェクトアクセス権チェック
+    if (
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(issue.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この課題の変更履歴を閲覧する権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
     }
 
     // 課題変更履歴（過去版）を取得（新しい順）

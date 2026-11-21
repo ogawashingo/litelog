@@ -2,21 +2,25 @@
 import { NextResponse } from "next/server";
 import { getDb, getUserAccessibleProjectIds } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { MAX_LENGTHS, validateHexColor, validateMaxLength, validateProjectKey } from "@/lib/validation";
 
-// プロジェクト一覧取得（課題件数およびメンバー情報の集計付き）
+// プロジェクト一覧取得（課題件数およびメンバー情報の集計付き・要ログインセッション）
 export async function GET(request: Request) {
   try {
     const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const forceAll = searchParams.get("all") === "1";
 
     const db = getDb();
     // 管理者（Admin）のみ全件取得（all=1）を許可。PMOや一般メンバーはall=1が指定されても参加プロジェクトのみに限定
-    const isAdmin = sessionUser && (sessionUser.is_admin === 1 || sessionUser.role_type === "admin");
-    const limitToUser = isAdmin && forceAll ? null : (sessionUser ? sessionUser.id : null);
+    const isAdmin = sessionUser.is_admin === 1 || sessionUser.role_type === "admin";
+    const limitToUser = isAdmin && forceAll ? null : sessionUser.id;
 
     // ログインユーザーのピン留め情報を結合して取得し、ピン留め済みプロジェクトを先頭に並べる
-    const currentUserId = sessionUser ? sessionUser.id : null;
+    const currentUserId = sessionUser.id;
     const params: (number | string)[] = [];
 
     let query = `
@@ -128,13 +132,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "プロジェクトキーと名称は必須です" }, { status: 400 });
     }
 
+    const cleanName = String(name).trim();
+    const nameLengthErr = validateMaxLength(cleanName, MAX_LENGTHS.PROJECT_NAME, "プロジェクト名");
+    if (nameLengthErr) {
+      return NextResponse.json({ error: nameLengthErr }, { status: 400 });
+    }
+
     // キーは大文字英数字に正規化
     const normalizedKey = String(key).trim().toUpperCase();
-    if (!/^[A-Z0-9_]{1,15}$/.test(normalizedKey)) {
-      return NextResponse.json(
-        { error: "プロジェクトキーは半角英数字（1〜15文字）で指定してください" },
-        { status: 400 }
-      );
+    const keyErr = validateProjectKey(normalizedKey);
+    if (keyErr) {
+      return NextResponse.json({ error: keyErr }, { status: 400 });
+    }
+
+    const cleanColor = color ? String(color).trim() : "#4f46e5";
+    const colorErr = validateHexColor(cleanColor);
+    if (colorErr) {
+      return NextResponse.json({ error: colorErr }, { status: 400 });
     }
 
     // 重複チェック
@@ -147,7 +161,7 @@ export async function POST(request: Request) {
       INSERT INTO projects (key, name, color)
       VALUES (?, ?, ?)
     `);
-    const result = insert.run(normalizedKey, String(name).trim(), color || "#4f46e5");
+    const result = insert.run(normalizedKey, cleanName, cleanColor);
     const newProjectId = Number(result.lastInsertRowid);
 
     // プロジェクト作成時にAdminおよび指定メンバーを project_members に登録

@@ -1,8 +1,8 @@
 // コメントへのスタンプ（リアクション）付与・解除トグルAPI
 import { NextResponse } from "next/server";
-import { getDb, getCommentReactions } from "@/lib/db";
+import { getDb, getCommentReactions, canUserAccessProject } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { COMMENT_STAMP_OPTIONS, CommentStamp } from "@/types";
+import { COMMENT_STAMP_OPTIONS, CommentStamp, isArchivedProject } from "@/types";
 
 const VALID_STAMPS = new Map<CommentStamp, string>(
   COMMENT_STAMP_OPTIONS.map((opt) => [opt.stamp, opt.label])
@@ -40,21 +40,43 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const db = getDb();
 
-    // 課題の存在確認（プロジェクトのアーカイブ状態も確認）
+    // 課題の存在確認（プロジェクトのアクセス権限・アーカイブ状態も確認）
     const issue = db
       .prepare(`
-        SELECT i.id, p.is_archived AS project_is_archived
+        SELECT i.id, i.project_id, p.is_archived AS project_is_archived, p.name AS project_name, p.key AS project_key
         FROM issues i
         JOIN projects p ON i.project_id = p.id
         WHERE ${isNumericIssue ? "i.id = ?" : "i.issue_key = ?"}
       `)
-      .get(isNumericIssue ? Number(id) : id) as { id: number; project_is_archived?: number } | undefined;
+      .get(isNumericIssue ? Number(id) : id) as {
+        id: number;
+        project_id: number;
+        project_is_archived?: number;
+        project_name?: string;
+        project_key?: string;
+      } | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "対象の課題が見つかりません" }, { status: 404 });
     }
 
-    if (issue.project_is_archived) {
+    // プロジェクトアクセス権チェック
+    if (
+      !canUserAccessProject(
+        db,
+        sessionUser.id,
+        Number(issue.project_id),
+        sessionUser.role_type,
+        sessionUser.is_admin
+      )
+    ) {
+      return NextResponse.json(
+        { error: "この課題のコメントにリアクションする権限がありません（プロジェクトメンバーではありません）" },
+        { status: 403 }
+      );
+    }
+
+    if (isArchivedProject(issue)) {
       return NextResponse.json(
         { error: "この課題が属するプロジェクトはアーカイブされているため、リアクションを変更できません（読み取り専用）" },
         { status: 403 }
