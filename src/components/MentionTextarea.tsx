@@ -3,6 +3,12 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { User, Attachment } from "@/types";
+import {
+  ATTACHMENT_ACCEPT_ATTR,
+  ATTACHMENT_POLICY_HINT,
+  isInlineImageMimeType,
+  validateAttachmentBatchMeta,
+} from "@/lib/attachmentPolicy";
 import { getUserInitials } from "./UserManageModal";
 import MentionText from "./MentionText";
 import {
@@ -286,6 +292,20 @@ export default function MentionTextarea({
   // ファイルアップロード共通処理
   const uploadFiles = async (files: File[]) => {
     if (!files || files.length === 0) return;
+
+    // 送信前にクライアント側で件数・サイズ・拡張子・MIMEタイプを検証
+    const preCheck = validateAttachmentBatchMeta(
+      files.map((file) => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      }))
+    );
+    if (!preCheck.ok) {
+      setUploadError(preCheck.error);
+      return;
+    }
+
     setIsUploading(true);
     setUploadError("");
 
@@ -304,7 +324,7 @@ export default function MentionTextarea({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         setUploadError(err.error || "ファイルのアップロードに失敗しました");
         return;
       }
@@ -315,7 +335,7 @@ export default function MentionTextarea({
       // Markdown テキストをカーソル位置または末尾に挿入
       const markdownToInsert = attachmentsList
         .map((att) => {
-          const isImg = att.mime_type.startsWith("image/");
+          const isImg = isInlineImageMimeType(att.mime_type);
           return isImg
             ? `\n![${att.file_name}](${att.url})\n`
             : `\n[${att.file_name}](${att.url})\n`;
@@ -363,9 +383,16 @@ export default function MentionTextarea({
       if (item.kind === "file") {
         const file = item.getAsFile();
         if (file) {
-          if (file.type.startsWith("image/") && (!file.name || file.name === "image.png")) {
+          if (isInlineImageMimeType(file.type) && (!file.name || file.name === "image.png")) {
             const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-            const namedFile = new File([file], `screenshot_${timestamp}.png`, { type: file.type });
+            const extByMime: Record<string, string> = {
+              "image/png": "png",
+              "image/jpeg": "jpg",
+              "image/gif": "gif",
+              "image/webp": "webp",
+            };
+            const ext = extByMime[file.type.toLowerCase()] || "png";
+            const namedFile = new File([file], `screenshot_${timestamp}.${ext}`, { type: file.type });
             filesToUpload.push(namedFile);
           } else {
             filesToUpload.push(file);
@@ -585,6 +612,7 @@ export default function MentionTextarea({
                   type="file"
                   ref={fileInputRef}
                   className="hidden"
+                  accept={ATTACHMENT_ACCEPT_ATTR}
                   multiple
                   onChange={(e) => {
                     if (e.target.files && e.target.files.length > 0) {
@@ -596,7 +624,7 @@ export default function MentionTextarea({
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  title="ファイル・画像を添付（ドラッグ＆ドロップ、Cmd+V貼り付け対応）"
+                  title={`ファイル・画像を添付（ドラッグ＆ドロップ、Cmd+V貼り付け対応 / ${ATTACHMENT_POLICY_HINT}）`}
                   disabled={disabled || isUploading}
                   className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
                 >
