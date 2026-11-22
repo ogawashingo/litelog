@@ -80,7 +80,7 @@ export default function IssueList({
     pageSize,
   ]);
 
-  // PMO / Admin 権限判定（maiなどの進行管理ロールまたは代表管理者）
+  // PMO / Admin 権限判定（進行管理権限または管理者権限）
   const isPmoOrAdmin = canManageIssues(currentUser);
 
   // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
@@ -459,7 +459,7 @@ export default function IssueList({
               <span>今日のマイタスク ({todayMyIssuesCount})</span>
             </button>
 
-            {/* PMO / Admin（mai、管理者など）限定ピル */}
+            {/* PMO / Admin 限定ピル */}
             {isPmoOrAdmin && (
               <>
                 <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
