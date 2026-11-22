@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp, ChevronLeft, ChevronRight, Flame } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDeleteIssue } from "@/types";
 import { ISSUE_STATUS_CONFIG, TypeBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -47,6 +47,8 @@ export default function IssueList({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all"); // "all" | "me" | "unassigned" | userId文字列
+  // 「今日のマイタスク」集中表示モード（遅延・本日締切・進行中の自分担当課題に特化）
+  const [isTodayFocus, setIsTodayFocus] = useState<boolean>(false);
   const [typeFilter, setTypeFilter] = useState<IssueType | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "all">("all");
   const [resolutionFilter, setResolutionFilter] = useState<string>("all");
@@ -67,6 +69,7 @@ export default function IssueList({
   }, [
     searchQuery,
     assigneeFilter,
+    isTodayFocus,
     typeFilter,
     priorityFilter,
     resolutionFilter,
@@ -79,6 +82,21 @@ export default function IssueList({
 
   // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
   const isShowingClosed = selectedStatus === "closed" || showClosed;
+
+  // 今日の日付文字列（タイムゾーン考慮）
+  const todayStr = useMemo(() => getTodayDateString(settings), [settings]);
+
+  // 「今日のマイタスク」件数（未完了 × 進行中 or 今日以前締切・遅延）
+  const todayMyIssuesCount = useMemo(() => {
+    if (!currentUser) return 0;
+    return issues.filter((i) => {
+      if (i.assignee_id !== currentUser.id) return false;
+      if (i.status === "closed") return false;
+      const isUrgentDue = Boolean(i.due_date && i.due_date <= todayStr);
+      const isInProgress = i.status === "in_progress";
+      return isUrgentDue || isInProgress;
+    }).length;
+  }, [issues, currentUser, todayStr]);
 
   // 担当者フィルター選択肢用の件数集計（完了表示設定およびステータス選択を反映したベース課題群から算出）
   const assigneeCounts = useMemo(() => {
@@ -138,21 +156,30 @@ export default function IssueList({
 
   // フィルタリング処理
   const filteredIssues = issues.filter((issue) => {
-    // ステータスフィルター
-    if (selectedStatus !== "all" && issue.status !== selectedStatus) {
-      return false;
-    }
-    // 完了済み（closed）のタスクはデフォルトで非表示（「完了」カード選択時または「完了を含む」ON時は表示）
-    if (!isShowingClosed && issue.status === "closed") {
-      return false;
-    }
-    // 担当者フィルター
-    if (assigneeFilter === "me") {
+    // 今日のマイタスク集中表示時：自分の担当 × 未完了 ×（期限切れ or 本日締切 or 進行中）に特化
+    if (isTodayFocus) {
       if (!currentUser || issue.assignee_id !== currentUser.id) return false;
-    } else if (assigneeFilter === "unassigned") {
-      if (issue.assignee_id !== null && issue.assignee_id !== undefined) return false;
-    } else if (assigneeFilter !== "all") {
-      if (issue.assignee_id !== Number(assigneeFilter)) return false;
+      if (issue.status === "closed") return false;
+      const isUrgentDue = Boolean(issue.due_date && issue.due_date <= todayStr);
+      const isInProgress = issue.status === "in_progress";
+      if (!isUrgentDue && !isInProgress) return false;
+    } else {
+      // 通常時：ステータスフィルター
+      if (selectedStatus !== "all" && issue.status !== selectedStatus) {
+        return false;
+      }
+      // 完了済み（closed）のタスクはデフォルトで非表示（「完了」カード選択時または「完了を含む」ON時は表示）
+      if (!isShowingClosed && issue.status === "closed") {
+        return false;
+      }
+      // 担当者フィルター
+      if (assigneeFilter === "me") {
+        if (!currentUser || issue.assignee_id !== currentUser.id) return false;
+      } else if (assigneeFilter === "unassigned") {
+        if (issue.assignee_id !== null && issue.assignee_id !== undefined) return false;
+      } else if (assigneeFilter !== "all") {
+        if (issue.assignee_id !== Number(assigneeFilter)) return false;
+      }
     }
     // 種別フィルター
     if (typeFilter !== "all" && issue.issue_type !== typeFilter) {
@@ -314,14 +341,26 @@ export default function IssueList({
     <div ref={listContainerRef} className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
       {/* リストヘッダー & フィルターコントロール */}
       <div className="issue-list-header p-4 border-b border-slate-200/80 bg-gradient-to-r from-indigo-50/40 via-white to-violet-50/40 flex flex-wrap items-center justify-between gap-3">
-        {/* タイトル・クイック切替タブ（すべて / 自分の担当） */}
+        {/* タイトル・クイック切替タブ（すべて / 自分の担当 / 今日のマイタスク） */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-slate-800 text-base">
-              {assigneeFilter === "me" && currentUser
-                ? `${currentUser.name} の担当課題`
-                : "課題一覧"}
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-slate-800 text-base flex items-center gap-1.5">
+              {isTodayFocus ? (
+                <>
+                  <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  <span>{currentUser ? `${currentUser.name} の今日のマイタスク` : "今日のマイタスク"}</span>
+                </>
+              ) : assigneeFilter === "me" && currentUser ? (
+                `${currentUser.name} の担当課題`
+              ) : (
+                "課題一覧"
+              )}
             </h3>
+            {isTodayFocus && (
+              <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                遅延・本日締切・進行中
+              </span>
+            )}
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
               {pageSize === 0 || totalItems <= pageSize
                 ? `${totalItems} 件`
@@ -329,13 +368,16 @@ export default function IssueList({
             </span>
           </div>
 
-          {/* ワンクリック切替ピル（全員 / 自分の担当） */}
+          {/* ワンクリック切替ピル（全員 / 自分の担当 / 今日のマイタスク） */}
           <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-xs">
             <button
               type="button"
-              onClick={() => setAssigneeFilter("all")}
+              onClick={() => {
+                setAssigneeFilter("all");
+                setIsTodayFocus(false);
+              }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                assigneeFilter === "all"
+                assigneeFilter === "all" && !isTodayFocus
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -345,15 +387,33 @@ export default function IssueList({
             </button>
             <button
               type="button"
-              onClick={() => setAssigneeFilter("me")}
+              onClick={() => {
+                setAssigneeFilter("me");
+                setIsTodayFocus(false);
+              }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                assigneeFilter === "me"
+                assigneeFilter === "me" && !isTodayFocus
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
               <UserCheck className="w-3.5 h-3.5" />
               <span>自分の担当 ({myIssuesCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAssigneeFilter("me");
+                setIsTodayFocus(true);
+              }}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                isTodayFocus
+                  ? "bg-amber-500 text-white shadow-2xs"
+                  : "text-amber-700 hover:text-amber-900 hover:bg-amber-100/50"
+              }`}
+            >
+              <Flame className={`w-3.5 h-3.5 ${isTodayFocus ? "fill-white text-white" : "fill-amber-500 text-amber-500"}`} />
+              <span>今日のマイタスク ({todayMyIssuesCount})</span>
             </button>
           </div>
         </div>
@@ -375,7 +435,10 @@ export default function IssueList({
           {/* 担当者フィルター */}
           <select
             value={assigneeFilter}
-            onChange={(e) => setAssigneeFilter(e.target.value)}
+            onChange={(e) => {
+              setAssigneeFilter(e.target.value);
+              setIsTodayFocus(false);
+            }}
             className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
             <option value="all">担当者: すべて ({assigneeCounts.totalCount}件)</option>
@@ -532,9 +595,19 @@ export default function IssueList({
         ) : displayedIssues.length === 0 ? (
           <div className="py-12 text-center text-slate-400">
             <div className="flex flex-col items-center justify-center gap-2">
-              <Filter className="w-8 h-8 text-slate-300" />
-              <p className="text-sm font-medium">該当する課題が見つかりません</p>
-              <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+              {isTodayFocus ? (
+                <>
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                  <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
+                  <p className="text-xs text-slate-400">現在、至急対応が必要なタスクや進行中のタスクはありません。順調です！</p>
+                </>
+              ) : (
+                <>
+                  <Filter className="w-8 h-8 text-slate-300" />
+                  <p className="text-sm font-medium">該当する課題が見つかりません</p>
+                  <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -725,9 +798,19 @@ export default function IssueList({
               <tr>
                 <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
-                    <Filter className="w-8 h-8 text-slate-300" />
-                    <p className="text-sm font-medium">該当する課題が見つかりません</p>
-                    <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+                    {isTodayFocus ? (
+                      <>
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
+                        <p className="text-xs text-slate-400">現在、至急対応が必要なタスクや進行中のタスクはありません。順調です！</p>
+                      </>
+                    ) : (
+                      <>
+                        <Filter className="w-8 h-8 text-slate-300" />
+                        <p className="text-sm font-medium">該当する課題が見つかりません</p>
+                        <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
