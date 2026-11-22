@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp, ChevronLeft, ChevronRight, Flame } from "lucide-react";
-import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDeleteIssue } from "@/types";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp, ChevronLeft, ChevronRight, Flame, ClipboardCheck } from "lucide-react";
+import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDeleteIssue, canManageIssues } from "@/types";
 import { ISSUE_STATUS_CONFIG, TypeBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
@@ -47,8 +47,8 @@ export default function IssueList({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all"); // "all" | "me" | "unassigned" | userId文字列
-  // 「今日のマイタスク」集中表示モード（遅延・本日締切・進行中の自分担当課題に特化）
-  const [isTodayFocus, setIsTodayFocus] = useState<boolean>(false);
+  // クイック表示モード（none: 通常, today: 今日のマイタスク, review: レビュー待ち, stalled: 要フォロー）
+  const [quickView, setQuickView] = useState<"none" | "today" | "review" | "stalled">("none");
   const [typeFilter, setTypeFilter] = useState<IssueType | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "all">("all");
   const [resolutionFilter, setResolutionFilter] = useState<string>("all");
@@ -69,7 +69,7 @@ export default function IssueList({
   }, [
     searchQuery,
     assigneeFilter,
-    isTodayFocus,
+    quickView,
     typeFilter,
     priorityFilter,
     resolutionFilter,
@@ -79,6 +79,9 @@ export default function IssueList({
     showClosed,
     pageSize,
   ]);
+
+  // PMO / Admin 権限判定（maiなどの進行管理ロールまたは代表管理者）
+  const isPmoOrAdmin = canManageIssues(currentUser);
 
   // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
   const isShowingClosed = selectedStatus === "closed" || showClosed;
@@ -97,6 +100,19 @@ export default function IssueList({
       return isUrgentDue || isInProgress;
     }).length;
   }, [issues, currentUser, todayStr]);
+
+  // 「レビュー待ち」件数（一般メンバーからのレビュー依頼＝処理済み課題）
+  const reviewIssuesCount = useMemo(() => {
+    return issues.filter((i) => i.status === "resolved").length;
+  }, [issues]);
+
+  // 「要フォロー」件数（停滞・遅延・未着手などのアラート対象課題）
+  const stalledIssuesCount = useMemo(() => {
+    return issues.filter((i) => {
+      if (i.status === "closed") return false;
+      return Boolean(getIssueAlert(i, settings));
+    }).length;
+  }, [issues, settings]);
 
   // 担当者フィルター選択肢用の件数集計（完了表示設定およびステータス選択を反映したベース課題群から算出）
   const assigneeCounts = useMemo(() => {
@@ -156,13 +172,20 @@ export default function IssueList({
 
   // フィルタリング処理
   const filteredIssues = issues.filter((issue) => {
-    // 今日のマイタスク集中表示時：自分の担当 × 未完了 ×（期限切れ or 本日締切 or 進行中）に特化
-    if (isTodayFocus) {
+    if (quickView === "today") {
+      // 今日のマイタスク集中表示時：自分の担当 × 未完了 ×（期限切れ or 本日締切 or 進行中）に特化
       if (!currentUser || issue.assignee_id !== currentUser.id) return false;
       if (issue.status === "closed") return false;
       const isUrgentDue = Boolean(issue.due_date && issue.due_date <= todayStr);
       const isInProgress = issue.status === "in_progress";
       if (!isUrgentDue && !isInProgress) return false;
+    } else if (quickView === "review") {
+      // レビュー待ちモード（PMO/Admin用：一般メンバーからレビュー依頼が出ている処理済み課題）
+      if (issue.status !== "resolved") return false;
+    } else if (quickView === "stalled") {
+      // 要フォローモード（PMO/Admin用：停滞・遅延・未着手などのアラート対象課題）
+      if (issue.status === "closed") return false;
+      if (!getIssueAlert(issue, settings)) return false;
     } else {
       // 通常時：ステータスフィルター
       if (selectedStatus !== "all" && issue.status !== selectedStatus) {
@@ -341,14 +364,24 @@ export default function IssueList({
     <div ref={listContainerRef} className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
       {/* リストヘッダー & フィルターコントロール */}
       <div className="issue-list-header p-4 border-b border-slate-200/80 bg-gradient-to-r from-indigo-50/40 via-white to-violet-50/40 flex flex-wrap items-center justify-between gap-3">
-        {/* タイトル・クイック切替タブ（すべて / 自分の担当 / 今日のマイタスク） */}
+        {/* タイトル・クイック切替タブ（すべて / 自分の担当 / 今日のマイタスク / [PMO] レビュー待ち / [PMO] 要フォロー） */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-bold text-slate-800 text-base flex items-center gap-1.5">
-              {isTodayFocus ? (
+              {quickView === "today" ? (
                 <>
                   <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
                   <span>{currentUser ? `${currentUser.name} の今日のマイタスク` : "今日のマイタスク"}</span>
+                </>
+              ) : quickView === "review" ? (
+                <>
+                  <ClipboardCheck className="w-4 h-4 text-violet-600" />
+                  <span>レビュー待ち課題（承認待ち）</span>
+                </>
+              ) : quickView === "stalled" ? (
+                <>
+                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                  <span>要フォロー・停滞課題</span>
                 </>
               ) : assigneeFilter === "me" && currentUser ? (
                 `${currentUser.name} の担当課題`
@@ -356,9 +389,19 @@ export default function IssueList({
                 "課題一覧"
               )}
             </h3>
-            {isTodayFocus && (
+            {quickView === "today" && (
               <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                 遅延・本日締切・進行中
+              </span>
+            )}
+            {quickView === "review" && (
+              <span className="text-[11px] font-semibold text-violet-800 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-200">
+                処理済み・検収待ち
+              </span>
+            )}
+            {quickView === "stalled" && (
+              <span className="text-[11px] font-semibold text-rose-800 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                停滞・遅延・未着手
               </span>
             )}
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
@@ -368,16 +411,16 @@ export default function IssueList({
             </span>
           </div>
 
-          {/* ワンクリック切替ピル（全員 / 自分の担当 / 今日のマイタスク） */}
-          <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-xs">
+          {/* ワンクリック切替ピル（全員 / 自分の担当 / 今日のマイタスク / [PMO限定] レビュー待ち / [PMO限定] 要フォロー） */}
+          <div className="flex items-center bg-slate-200/70 p-0.5 rounded-lg text-xs flex-wrap gap-0.5">
             <button
               type="button"
               onClick={() => {
                 setAssigneeFilter("all");
-                setIsTodayFocus(false);
+                setQuickView("none");
               }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                assigneeFilter === "all" && !isTodayFocus
+                assigneeFilter === "all" && quickView === "none"
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -389,10 +432,10 @@ export default function IssueList({
               type="button"
               onClick={() => {
                 setAssigneeFilter("me");
-                setIsTodayFocus(false);
+                setQuickView("none");
               }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                assigneeFilter === "me" && !isTodayFocus
+                assigneeFilter === "me" && quickView === "none"
                   ? "bg-white text-indigo-800 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               }`}
@@ -404,17 +447,50 @@ export default function IssueList({
               type="button"
               onClick={() => {
                 setAssigneeFilter("me");
-                setIsTodayFocus(true);
+                setQuickView("today");
               }}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
-                isTodayFocus
+                quickView === "today"
                   ? "bg-amber-500 text-white shadow-2xs"
                   : "text-amber-700 hover:text-amber-900 hover:bg-amber-100/50"
               }`}
             >
-              <Flame className={`w-3.5 h-3.5 ${isTodayFocus ? "fill-white text-white" : "fill-amber-500 text-amber-500"}`} />
+              <Flame className={`w-3.5 h-3.5 ${quickView === "today" ? "fill-white text-white" : "fill-amber-500 text-amber-500"}`} />
               <span>今日のマイタスク ({todayMyIssuesCount})</span>
             </button>
+
+            {/* PMO / Admin（mai、管理者など）限定ピル */}
+            {isPmoOrAdmin && (
+              <>
+                <div className="w-px h-3.5 bg-slate-300 mx-0.5" />
+                <button
+                  type="button"
+                  onClick={() => setQuickView("review")}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                    quickView === "review"
+                      ? "bg-violet-600 text-white shadow-2xs"
+                      : "text-violet-700 hover:text-violet-900 hover:bg-violet-100/50"
+                  }`}
+                  title="一般メンバーからレビュー依頼が出ている処理済み課題"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                  <span>レビュー待ち ({reviewIssuesCount})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickView("stalled")}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                    quickView === "stalled"
+                      ? "bg-rose-600 text-white shadow-2xs"
+                      : "text-rose-700 hover:text-rose-900 hover:bg-rose-100/50"
+                  }`}
+                  title="停滞中・期限超過・未着手などのフォローが必要な課題"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>要フォロー ({stalledIssuesCount})</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -437,7 +513,7 @@ export default function IssueList({
             value={assigneeFilter}
             onChange={(e) => {
               setAssigneeFilter(e.target.value);
-              setIsTodayFocus(false);
+              setQuickView("none");
             }}
             className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
@@ -595,11 +671,23 @@ export default function IssueList({
         ) : displayedIssues.length === 0 ? (
           <div className="py-12 text-center text-slate-400">
             <div className="flex flex-col items-center justify-center gap-2">
-              {isTodayFocus ? (
+              {quickView === "today" ? (
                 <>
                   <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                   <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
                   <p className="text-xs text-slate-400">現在、至急対応が必要なタスクや進行中のタスクはありません。順調です！</p>
+                </>
+              ) : quickView === "review" ? (
+                <>
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                  <p className="text-sm font-semibold text-slate-700">レビュー待ちの課題はありません</p>
+                  <p className="text-xs text-slate-400">すべての作業完了レビューが完了しています！✨</p>
+                </>
+              ) : quickView === "stalled" ? (
+                <>
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                  <p className="text-sm font-semibold text-slate-700">要フォローの課題はありません</p>
+                  <p className="text-xs text-slate-400">停滞・遅延している課題はなく、プロジェクトは順調に進行しています！✨</p>
                 </>
               ) : (
                 <>
@@ -798,11 +886,23 @@ export default function IssueList({
               <tr>
                 <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center justify-center gap-2">
-                    {isTodayFocus ? (
+                    {quickView === "today" ? (
                       <>
                         <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                         <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
                         <p className="text-xs text-slate-400">現在、至急対応が必要なタスクや進行中のタスクはありません。順調です！</p>
+                      </>
+                    ) : quickView === "review" ? (
+                      <>
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        <p className="text-sm font-semibold text-slate-700">レビュー待ちの課題はありません</p>
+                        <p className="text-xs text-slate-400">すべての作業完了レビューが完了しています！✨</p>
+                      </>
+                    ) : quickView === "stalled" ? (
+                      <>
+                        <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                        <p className="text-sm font-semibold text-slate-700">要フォローの課題はありません</p>
+                        <p className="text-xs text-slate-400">停滞・遅延している課題はなく、プロジェクトは順調に進行しています！✨</p>
                       </>
                     ) : (
                       <>
