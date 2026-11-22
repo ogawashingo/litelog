@@ -5,18 +5,25 @@ import { getSessionUser } from "@/lib/auth";
 import { createIssueCreatedNotifications } from "@/lib/notificationUtils";
 import { extendAncestorDueDatesIfNeeded } from "@/lib/parentDueDate";
 import { MAX_LENGTHS, validateDateRange, validateMaxLength } from "@/lib/validation";
+import { logger } from "@/lib/logger";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
 
 const VALID_ISSUE_TYPES = new Set(["task", "bug", "request", "other"]);
 const VALID_STATUSES = new Set(["open", "in_progress", "resolved", "closed"]);
 const VALID_PRIORITIES = new Set(["high", "medium", "low"]);
 const VALID_RESOLUTIONS = new Set(["fixed", "wont_fix", "invalid", "duplicated", "cannot_reproduce"]);
 
-// 課題一覧取得（要ログインセッション）
+// 課題一覧取得（要ログインセッション・ページネーション対応）
 export async function GET(request: Request) {
   try {
     const sessionUser = await getSessionUser();
     if (!sessionUser) {
-      return NextResponse.json({ error: "ログインセッションが確認できません" }, { status: 401 });
+      return apiError({
+        status: 401,
+        detail: "ログインセッションが確認できません",
+        code: "UNAUTHORIZED",
+        request,
+      });
     }
     const db = getDb();
     const { searchParams } = new URL(request.url);
@@ -29,6 +36,12 @@ export async function GET(request: Request) {
     const resolution = searchParams.get("resolution");
     const querySearch = searchParams.get("q");
 
+    // ページネーションパラメータ
+    const hasPagination = searchParams.has("page") || searchParams.has("limit");
+    const page = Math.max(1, Number(searchParams.get("page")) || 1);
+    const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit")) || 30));
+    const offset = (page - 1) * limit;
+
     // プロジェクトアクセス権のチェック
     if (projectId) {
       const canAccess = canUserAccessProject(
@@ -39,8 +52,97 @@ export async function GET(request: Request) {
         sessionUser.is_admin
       );
       if (!canAccess) {
-        return NextResponse.json([]); // 権限がないプロジェクトの場合は空配列を返却
+        if (hasPagination) {
+          return apiSuccess({ items: [], totalCount: 0, page, limit, totalPages: 0 }, undefined, request);
+        }
+        return apiSuccess([], undefined, request);
       }
+    }
+
+    let whereClause = " WHERE 1=1";
+    const params: (string | number)[] = [];
+
+    if (projectId) {
+      whereClause += " AND i.project_id = ?";
+      params.push(Number(projectId));
+    } else if (sessionUser) {
+      const accessibleIds = getUserAccessibleProjectIds(
+        db,
+        sessionUser.id,
+        sessionUser.role_type,
+        sessionUser.is_admin
+      );
+      if (accessibleIds !== null) {
+        if (accessibleIds.length === 0) {
+          if (hasPagination) {
+            return apiSuccess({ items: [], totalCount: 0, page, limit, totalPages: 0 }, undefined, request);
+          }
+          return apiSuccess([], undefined, request);
+        }
+        const placeholders = accessibleIds.map(() => "?").join(",");
+        whereClause += ` AND i.project_id IN (${placeholders})`;
+        params.push(...accessibleIds);
+      }
+    }
+
+    if (status && status !== "all") {
+      whereClause += " AND i.status = ?";
+      params.push(status);
+    }
+
+    if (issueType && issueType !== "all") {
+      whereClause += " AND i.issue_type = ?";
+      params.push(issueType);
+    }
+
+    if (priority && priority !== "all") {
+      whereClause += " AND i.priority = ?";
+      params.push(priority);
+    }
+
+    if (assigneeId && assigneeId !== "all") {
+      if (assigneeId === "unassigned") {
+        whereClause += " AND i.assignee_id IS NULL";
+      } else {
+        whereClause += " AND i.assignee_id = ?";
+        params.push(Number(assigneeId));
+      }
+    }
+
+    if (resolution && resolution !== "all") {
+      if (resolution === "none" || resolution === "unassigned") {
+        whereClause += " AND (i.resolution IS NULL OR i.resolution = '')";
+      } else {
+        whereClause += " AND i.resolution = ?";
+        params.push(resolution);
+      }
+    }
+
+    const trimmedSearch = querySearch ? querySearch.trim().slice(0, 200) : "";
+    if (trimmedSearch) {
+      whereClause += ` AND (
+        i.title LIKE ? 
+        OR i.issue_key LIKE ? 
+        OR i.description LIKE ? 
+        OR p.name LIKE ?
+        OR p.key LIKE ?
+        OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = i.id AND c.content LIKE ?)
+      )`;
+      const pattern = `%${trimmedSearch}%`;
+      params.push(pattern, pattern, pattern, pattern, pattern, pattern);
+    }
+
+    // ページネーション時の総件数集計
+    let totalCount = 0;
+    if (hasPagination) {
+      const countSql = `
+        SELECT COUNT(*) AS total_count
+        FROM issues i
+        JOIN projects p ON i.project_id = p.id
+        ${whereClause}
+      `;
+      const countRow = db.prepare(countSql).get(...params) as { total_count: number } | undefined;
+      totalCount = countRow ? countRow.total_count : 0;
     }
 
     let sql = `
@@ -80,85 +182,54 @@ export async function GET(request: Request) {
       ) att_stat ON att_stat.issue_id = i.id
       LEFT JOIN comments latest_c ON latest_c.id = cmt_stat.latest_comment_id
       LEFT JOIN users cu ON latest_c.user_id = cu.id
-      WHERE 1=1
+      ${whereClause}
+      ORDER BY CASE WHEN i.status = 'closed' THEN 1 ELSE 0 END ASC, i.updated_at DESC, i.id DESC
     `;
-    const params: (string | number)[] = [];
 
-    if (projectId) {
-      sql += " AND i.project_id = ?";
-      params.push(Number(projectId));
-    } else if (sessionUser) {
-      const accessibleIds = getUserAccessibleProjectIds(
-        db,
-        sessionUser.id,
-        sessionUser.role_type,
-        sessionUser.is_admin
+    const queryParams = [...params];
+    if (hasPagination) {
+      sql += " LIMIT ? OFFSET ?";
+      queryParams.push(limit, offset);
+    }
+
+    const issues = db.prepare(sql).all(...queryParams);
+
+    if (hasPagination) {
+      return apiSuccess(
+        {
+          items: issues,
+          totalCount,
+          page,
+          limit,
+          totalPages: Math.ceil(totalCount / limit),
+        },
+        {
+          headers: {
+            "X-Total-Count": String(totalCount),
+            "X-Page": String(page),
+            "X-Limit": String(limit),
+          },
+        },
+        request
       );
-      if (accessibleIds !== null) {
-        if (accessibleIds.length === 0) {
-          return NextResponse.json([]);
-        }
-        const placeholders = accessibleIds.map(() => "?").join(",");
-        sql += ` AND i.project_id IN (${placeholders})`;
-        params.push(...accessibleIds);
-      }
     }
 
-    if (status && status !== "all") {
-      sql += " AND i.status = ?";
-      params.push(status);
-    }
-
-    if (issueType && issueType !== "all") {
-      sql += " AND i.issue_type = ?";
-      params.push(issueType);
-    }
-
-    if (priority && priority !== "all") {
-      sql += " AND i.priority = ?";
-      params.push(priority);
-    }
-
-    if (assigneeId && assigneeId !== "all") {
-      if (assigneeId === "unassigned") {
-        sql += " AND i.assignee_id IS NULL";
-      } else {
-        sql += " AND i.assignee_id = ?";
-        params.push(Number(assigneeId));
-      }
-    }
-
-    if (resolution && resolution !== "all") {
-      if (resolution === "none" || resolution === "unassigned") {
-        sql += " AND (i.resolution IS NULL OR i.resolution = '')";
-      } else {
-        sql += " AND i.resolution = ?";
-        params.push(resolution);
-      }
-    }
-
-    const trimmedSearch = querySearch ? querySearch.trim().slice(0, 200) : "";
-    if (trimmedSearch) {
-      // 課題件名・課題キー・詳細説明・プロジェクト名・プロジェクトキー、およびコメント本文を横断検索
-      sql += ` AND (
-        i.title LIKE ? 
-        OR i.issue_key LIKE ? 
-        OR i.description LIKE ? 
-        OR p.name LIKE ?
-        OR p.key LIKE ?
-        OR EXISTS (SELECT 1 FROM comments c WHERE c.issue_id = i.id AND c.content LIKE ?)
-      )`;
-      const pattern = `%${trimmedSearch}%`;
-      params.push(pattern, pattern, pattern, pattern, pattern, pattern);
-    }
-
-    sql += " ORDER BY CASE WHEN i.status = 'closed' THEN 1 ELSE 0 END ASC, i.updated_at DESC, i.id DESC";
-
-    const issues = db.prepare(sql).all(...params);
-    return NextResponse.json(issues);
+    return apiSuccess(
+      issues,
+      {
+        headers: {
+          "X-Total-Count": String(issues.length),
+        },
+      },
+      request
+    );
   } catch (error) {
-    console.error("課題取得エラー:", error);
-    return NextResponse.json({ error: "課題一覧の取得に失敗しました" }, { status: 500 });
+    logger.error("課題取得エラー", { path: "/api/issues", method: "GET" }, error);
+    return apiError({
+      status: 500,
+      detail: "課題一覧の取得に失敗しました",
+      request,
+    });
   }
 }
 
@@ -326,8 +397,8 @@ export async function POST(request: Request) {
 
     let issueId: number | bigint = 0;
 
-    // 採番・課題登録・アクティビティ記録をトランザクションで一括実行
-    db.exec("BEGIN;");
+    // 採番・課題登録・アクティビティ記録を排他トランザクションで一括実行（同時採番の競合・重複エラー防止）
+    db.exec("BEGIN IMMEDIATE;");
     try {
       const maxNumRow = db.prepare(`
         SELECT COALESCE(MAX(issue_number), 0) AS max_num
@@ -440,9 +511,13 @@ export async function POST(request: Request) {
       WHERE i.id = ?
     `).get(issueId);
 
-    return NextResponse.json(created, { status: 201 });
+    return apiSuccess(created, { status: 201 }, request);
   } catch (error) {
-    console.error("課題作成エラー:", error);
-    return NextResponse.json({ error: "課題の作成に失敗しました" }, { status: 500 });
+    logger.error("課題作成エラー", { path: "/api/issues", method: "POST" }, error);
+    return apiError({
+      status: 500,
+      detail: "課題の作成に失敗しました",
+      request,
+    });
   }
 }

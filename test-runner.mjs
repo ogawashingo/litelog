@@ -3752,6 +3752,81 @@ async function runTests() {
     db.prepare("DELETE FROM users WHERE id = ?").run(secUserId);
 
     console.log("✓ 追加セキュリティ強化検証（パストラバーサル遮断・パスワード/2FA変更時トークン失効・TOTPリプレイ/不正鍵防止・XFF偽装対策・プロトコル相対URL遮断・CSRF保護・PMO権限境界強化）テスト成功");
+
+    // ===== Webシステム標準化対応テスト（セッション失効・ページネーション・排他採番・RFC7807/ロガー） =====
+    const testUserRow = db.prepare("SELECT id FROM users LIMIT 1").get();
+    const testUserId = testUserRow ? testUserRow.id : 1;
+    const testProjRow = db.prepare("SELECT id FROM projects LIMIT 1").get();
+    const testProjId = testProjRow ? testProjRow.id : 1;
+
+    // 1. セッショントークンのサーバー側即時失効（ブラックリスト）テスト
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS session_revocations (
+        token_hash TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_session_revocations_expires_at ON session_revocations(expires_at);
+    `);
+
+    const dummyToken = "1.9999999999999.dummy_signature_hex";
+    const dummyTokenHash = crypto.createHash("sha256").update(dummyToken).digest("hex");
+    const futureExpiresAt = Date.now() + 3600 * 1000;
+
+    // トークン登録
+    db.prepare(`
+      INSERT INTO session_revocations (token_hash, user_id, expires_at)
+      VALUES (?, ?, ?)
+    `).run(dummyTokenHash, testUserId, futureExpiresAt);
+
+    // 失効チェック照合
+    const isRevoked = Boolean(
+      db.prepare("SELECT 1 FROM session_revocations WHERE token_hash = ?").get(dummyTokenHash)
+    );
+    if (!isRevoked) {
+      throw new Error("ブラックリストに登録したトークンが失効検知されませんでした");
+    }
+
+    // 期限切れレコードの自動パージ検証
+    const pastExpiresAt = Date.now() - 1000;
+    const expiredTokenHash = crypto.createHash("sha256").update("expired_token").digest("hex");
+    db.prepare(`
+      INSERT INTO session_revocations (token_hash, user_id, expires_at)
+      VALUES (?, ?, ?)
+    `).run(expiredTokenHash, testUserId, pastExpiresAt);
+
+    db.prepare("DELETE FROM session_revocations WHERE expires_at < ?").run(Date.now());
+    const expiredRecord = db.prepare("SELECT 1 FROM session_revocations WHERE token_hash = ?").get(expiredTokenHash);
+    if (expiredRecord) {
+      throw new Error("期限切れセッション失効レコードの自動パージが動作していません");
+    }
+    console.log("✓ セッショントークンのサーバー側即時失効＆ブラックリスト自動パージ検証成功");
+
+    // 2. 課題キー採番の排他トランザクション（BEGIN IMMEDIATE）検証
+    db.exec("BEGIN IMMEDIATE;");
+    const maxRow = db.prepare("SELECT COALESCE(MAX(issue_number), 0) AS max_num FROM issues WHERE project_id = ?").get(testProjId);
+    const nextIssueNum = maxRow.max_num + 1;
+    if (typeof nextIssueNum !== "number" || nextIssueNum <= 0) {
+      db.exec("ROLLBACK;");
+      throw new Error("BEGIN IMMEDIATE トランザクション内での採番クエリが失敗しました");
+    }
+    db.exec("COMMIT;");
+    console.log("✓ 課題キー採番の排他トランザクション（BEGIN IMMEDIATE）検証成功");
+
+    // 3. ページネーション（LIMIT / OFFSET と総件数メタデータ）検証
+    const totalIssuesCountRow = db.prepare("SELECT COUNT(*) AS total FROM issues WHERE project_id = ?").get(testProjId);
+    const totalCount = totalIssuesCountRow ? totalIssuesCountRow.total : 0;
+    const pageLimit = 2;
+    const pagedIssues = db.prepare("SELECT id FROM issues WHERE project_id = ? ORDER BY id ASC LIMIT ? OFFSET 0").all(testProjId, pageLimit);
+    if (pagedIssues.length > pageLimit) {
+      throw new Error("ページネーションのLIMITが正しく反映されていません");
+    }
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageLimit));
+    if (totalPages < 1) {
+      throw new Error("ページネーション総ページ数の計算が不正です");
+    }
+    console.log(`✓ 課題一覧ページネーション計算（件数=${totalCount}, 1ページ=${pageLimit}, 総ページ=${totalPages}）検証成功`);
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

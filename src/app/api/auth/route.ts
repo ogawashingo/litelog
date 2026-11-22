@@ -10,10 +10,13 @@ import {
   getSessionCookieOptions,
   getSessionUser,
   hashPassword,
+  revokeSession,
   verifyDummyPassword,
   verifyPassword,
   verifySameOriginRequest,
 } from "@/lib/auth";
+import { logger } from "@/lib/logger";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
 import {
   checkRateLimit,
   formatRetryAfterJa,
@@ -308,20 +311,40 @@ export async function PUT(request: Request) {
   }
 }
 
-// ログアウト処理
+// ログアウト処理（サーバー側セッショントークン失効付き）
 export async function DELETE(request: Request) {
   try {
     if (!verifySameOriginRequest(request)) {
-      return NextResponse.json({ error: "不正なオリジンからのリクエストです" }, { status: 403 });
+      return apiError({
+        status: 403,
+        detail: "不正なオリジンからのリクエストです",
+        code: "CSRF_DETECTED",
+        request,
+      });
     }
     const cookieStore = await cookies();
+    const currentToken =
+      cookieStore.get(SESSION_COOKIE_NAME)?.value ||
+      cookieStore.get(LEGACY_SESSION_COOKIE_NAME)?.value;
+
+    // サーバー側のブラックリストに登録して即時失効
+    if (currentToken) {
+      revokeSession(currentToken);
+    }
+
     cookieStore.set(SESSION_COOKIE_NAME, "", getSessionCookieOptions(0));
     cookieStore.delete(SESSION_COOKIE_NAME);
     cookieStore.set(LEGACY_SESSION_COOKIE_NAME, "", getSessionCookieOptions(0));
     cookieStore.delete(LEGACY_SESSION_COOKIE_NAME);
-    return NextResponse.json({ authenticated: false, message: "ログアウトしました" });
+
+    logger.info("ユーザーがログアウトしました", { path: "/api/auth", method: "DELETE" });
+    return apiSuccess({ authenticated: false, message: "ログアウトしました" }, undefined, request);
   } catch (error) {
-    console.error("ログアウトエラー:", error);
-    return NextResponse.json({ error: "ログアウトに失敗しました" }, { status: 500 });
+    logger.error("ログアウトエラー", { path: "/api/auth", method: "DELETE" }, error);
+    return apiError({
+      status: 500,
+      detail: "ログアウトに失敗しました",
+      request,
+    });
   }
 }

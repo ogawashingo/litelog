@@ -2,7 +2,7 @@
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { cookies, headers } from "next/headers";
-import { getDb } from "@/lib/db";
+import { getDb, isSessionTokenRevoked, revokeSessionToken } from "@/lib/db";
 
 export const SESSION_COOKIE_NAME = "litelog_session_uid";
 export const LEGACY_SESSION_COOKIE_NAME = "backlog_session_uid";
@@ -269,10 +269,35 @@ export function verifySessionToken(
     const expectedBuf = Buffer.from(expectedSigHex, "hex");
     if (sigBuf.length !== expectedBuf.length) return null;
     if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+
+    // サーバー側で明示的に失効（ログアウト等）されたトークンかを検証
+    const db = dbOverride || getDb();
+    if (isSessionTokenRevoked(db, token)) {
+      return null;
+    }
+
     return userId;
   } catch {
     return null;
   }
+}
+
+/**
+ * トークンを即座にサーバー側で失効（ブラックリスト登録）します
+ */
+export function revokeSession(
+  token: string | undefined | null,
+  dbOverride?: DatabaseSync
+): void {
+  if (!token || typeof token !== "string") return;
+  const parts = token.split(".");
+  if (parts.length !== 3) return;
+  const userId = Number(parts[0]);
+  const expiresAt = Number(parts[1]);
+  if (!Number.isInteger(userId) || !Number.isFinite(expiresAt)) return;
+
+  const db = dbOverride || getDb();
+  revokeSessionToken(db, token, userId, expiresAt);
 }
 
 /**
@@ -334,6 +359,13 @@ export function verifyTemp2faToken(
     const expectedBuf = Buffer.from(expectedSigHex, "hex");
     if (sigBuf.length !== expectedBuf.length) return null;
     if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return null;
+
+    // サーバー側で明示的に失効（ログアウト等）されたトークンかを検証
+    const db = dbOverride || getDb();
+    if (isSessionTokenRevoked(db, token)) {
+      return null;
+    }
+
     return userId;
   } catch {
     return null;

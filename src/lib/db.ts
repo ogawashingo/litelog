@@ -2,6 +2,7 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { isSafeStoredAttachmentName } from "@/lib/attachmentPolicy";
 
 // データベースファイルの保存先パス（環境変数 LITELOG_DB_PATH で切り替え可能）
@@ -27,18 +28,22 @@ if (ATTACHMENTS_DIR && !fs.existsSync(ATTACHMENTS_DIR)) {
 }
 
 let dbInstance: DatabaseSync | null = null;
+let isDbInitialized = false;
 
 // シングルトンでデータベースインスタンスを取得
 export function getDb(): DatabaseSync {
   if (!dbInstance) {
     dbInstance = new DatabaseSync(DB_PATH);
-    initDb(dbInstance);
+    if (!isDbInitialized) {
+      initDb(dbInstance);
+      isDbInitialized = true;
+    }
   }
   return dbInstance;
 }
 
-// テーブル作成および初期データの投入
-function initDb(db: DatabaseSync) {
+// テーブル作成および初期データの投入（デプロイ時スクリプトからも呼び出し可能）
+export function initDb(db: DatabaseSync) {
   // 外部キー制約・WALモード・ビジータイムアウトの有効化
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec("PRAGMA journal_mode = WAL;");
@@ -393,6 +398,17 @@ function initDb(db: DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS idx_login_rate_limits_locked_until ON login_rate_limits(locked_until);
     CREATE INDEX IF NOT EXISTS idx_login_rate_limits_updated_at ON login_rate_limits(updated_at DESC);
+  `);
+
+  // セッション即時失効（ブラックリスト）テーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS session_revocations (
+      token_hash TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_session_revocations_expires_at ON session_revocations(expires_at);
   `);
 
   // project_members の初期データ移行（初回のみ1回だけ実行。ユーザーによる脱退操作を勝手に上書き・再登録しないようにガード）
@@ -884,5 +900,46 @@ export function deleteAttachmentFilesOnDisk(
     }
   }
 }
+
+/**
+ * ログアウト時等にセッショントークンを即座に失効（ブラックリスト登録）します
+ */
+export function revokeSessionToken(
+  db: DatabaseSync,
+  rawToken: string,
+  userId: number,
+  expiresAtMs: number
+): void {
+  try {
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const nowMs = Date.now();
+    // 期限切れレコードのパージ
+    db.prepare("DELETE FROM session_revocations WHERE expires_at < ?").run(nowMs);
+    // ブラックリスト登録
+    db.prepare(`
+      INSERT INTO session_revocations (token_hash, user_id, expires_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(token_hash) DO NOTHING
+    `).run(tokenHash, userId, expiresAtMs);
+  } catch (err) {
+    console.error("セッショントークン失効登録エラー:", err);
+  }
+}
+
+/**
+ * 指定されたトークンが失効済み（ブラックリスト登録済み）かを照合します
+ */
+export function isSessionTokenRevoked(db: DatabaseSync, rawToken: string): boolean {
+  try {
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const row = db
+      .prepare("SELECT 1 FROM session_revocations WHERE token_hash = ?")
+      .get(tokenHash);
+    return Boolean(row);
+  } catch {
+    return false;
+  }
+}
+
 
 

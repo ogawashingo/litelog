@@ -1,6 +1,7 @@
 // 個別添付ファイルの配信（GET）および削除（DELETE）API
 import { NextResponse } from "next/server";
 import fs from "node:fs";
+import { Readable } from "node:stream";
 import {
   getDb,
   canUserAccessProject,
@@ -9,6 +10,8 @@ import {
 } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { isArchivedProject } from "@/types";
+import { logger } from "@/lib/logger";
+import { apiError } from "@/lib/apiResponse";
 
 // インライン表示を安全に許可するラスター画像MIMEタイプ（SVGはXSS防止のためダウンロード強制）
 const SAFE_INLINE_IMAGE_TYPES = new Set([
@@ -97,13 +100,19 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
     const filePath = resolveSafeAttachmentPath(attachment.stored_name);
     if (!filePath || !fs.existsSync(filePath)) {
-      return NextResponse.json(
-        { error: "ディスク上にファイル実体が存在しません" },
-        { status: 404 }
-      );
+      return apiError({
+        status: 404,
+        detail: "ディスク上にファイル実体が存在しません",
+        code: "FILE_NOT_FOUND",
+        request: _request,
+      });
     }
 
-    const fileBuffer = fs.readFileSync(filePath);
+    // メモリ枯渇を防止するため、バッファ一括読み込みではなくストリームで配信
+    const fileStat = fs.statSync(filePath);
+    const nodeStream = fs.createReadStream(filePath);
+    const webStream = Readable.toWeb(nodeStream) as ReadableStream<Uint8Array>;
+
     const normalizedMime = (attachment.mime_type || "application/octet-stream").toLowerCase().split(";")[0].trim();
     const isSafeInlineImage = SAFE_INLINE_IMAGE_TYPES.has(normalizedMime);
     const encodedFileName = encodeURIComponent(attachment.file_name);
@@ -113,11 +122,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
       ? `inline; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`
       : `attachment; filename="${encodedFileName}"; filename*=UTF-8''${encodedFileName}`;
 
-    return new Response(fileBuffer, {
+    return new Response(webStream, {
       status: 200,
       headers: {
         "Content-Type": attachment.mime_type || "application/octet-stream",
-        "Content-Length": String(fileBuffer.length),
+        "Content-Length": String(fileStat.size),
         "Content-Disposition": contentDisposition,
         "X-Content-Type-Options": "nosniff",
         // 添付ファイル配信時のスクリプト実行・同一オリジンアクセスを遮断
@@ -127,11 +136,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error("添付ファイル配信エラー:", error);
-    return NextResponse.json(
-      { error: "ファイルの取得に失敗しました" },
-      { status: 500 }
-    );
+    logger.error("添付ファイル配信エラー", { path: "/api/attachments/[id]", method: "GET" }, error);
+    return apiError({
+      status: 500,
+      detail: "ファイルの取得に失敗しました",
+      request: _request,
+    });
   }
 }
 
