@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/Header";
-import SummaryCards from "@/components/SummaryCards";
 import IssueList from "@/components/IssueList";
 import ProjectList from "@/components/ProjectList";
 import ActivityList from "@/components/ActivityList";
@@ -459,14 +458,6 @@ function DashboardContent() {
 
       {/* メインダッシュボードコンテンツ */}
       <main className="flex-1 max-w-[1800px] w-full mx-auto px-3 sm:px-5 lg:px-6 py-4 sm:py-5 space-y-5">
-        {/* 至急対応が必要な課題ウィジェット（期限切れ・本日期限・優先度高） */}
-        <SummaryCards
-          issues={filteredIssues}
-          selectedProjectId={selectedProjectId}
-          onSelectIssue={handleSelectIssue}
-          isLoading={isLoadingIssues}
-        />
-
         {/* メインエリア: 課題一覧を全幅で表示し、件名や担当者の視認性を確保 */}
         <div>
           <IssueList
