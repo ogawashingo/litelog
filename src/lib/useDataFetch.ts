@@ -113,8 +113,6 @@ export function useDataFetch<T = unknown>(
     revalidateOnFocus = true,
     refreshInterval = 0,
     initialData,
-    onSuccess,
-    onError,
   } = options;
 
   const initialEntry = key ? (cache.get(key) as CacheEntry<T> | undefined) : undefined;
@@ -128,9 +126,12 @@ export function useDataFetch<T = unknown>(
   const [isLoading, setIsLoading] = useState<boolean>(!initialEntry && !initialData && Boolean(key));
 
   const optionsRef = useRef(options);
-  optionsRef.current = options;
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+
+  useEffect(() => {
+    optionsRef.current = options;
+    fetcherRef.current = fetcher;
+  });
 
   // データ再検証フェッチ関数
   const revalidate = useCallback(
