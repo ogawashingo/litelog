@@ -1,8 +1,8 @@
 // 課題一覧テーブルコンポーネント（チーム全体／自分の課題／担当者別フィルター対応）
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp } from "lucide-react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDeleteIssue } from "@/types";
 import { ISSUE_STATUS_CONFIG, TypeBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -54,6 +54,27 @@ export default function IssueList({
   const [withParentRelation, setWithParentRelation] = useState<boolean>(true);
   // ダッシュボードでは完了済み（closed）のタスクはデフォルトで非表示
   const [showClosed, setShowClosed] = useState(false);
+  // 1ページの表示件数（デフォルト25件、0は全件）
+  const [pageSize, setPageSize] = useState<number>(25);
+  // 現在のページ番号（1始まり）
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+
+  // フィルター・ソート条件またはページサイズが変更されたらページを1に戻す
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchQuery,
+    assigneeFilter,
+    typeFilter,
+    priorityFilter,
+    resolutionFilter,
+    sortBy,
+    withParentRelation,
+    selectedStatus,
+    showClosed,
+    pageSize,
+  ]);
 
   // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
   const isShowingClosed = selectedStatus === "closed" || showClosed;
@@ -226,8 +247,60 @@ export default function IssueList({
     return result;
   }, [filteredIssues, withParentRelation, sortBy, selectedStatus]);
 
+  // ページネーション計算
+  const totalItems = displayedIssues.length;
+  const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(totalItems / pageSize));
+
+  // フィルター変更等で総ページ数が減った場合の自動補正
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  // 現在のページに表示する課題のスライス
+  const paginatedIssues = useMemo(() => {
+    if (pageSize === 0) return displayedIssues;
+    const startIndex = (currentPage - 1) * pageSize;
+    return displayedIssues.slice(startIndex, startIndex + pageSize);
+  }, [displayedIssues, currentPage, pageSize]);
+
+  // 表示中範囲のインデックス
+  const startIndex = totalItems === 0 ? 0 : pageSize === 0 ? 1 : (currentPage - 1) * pageSize + 1;
+  const endIndex = pageSize === 0 ? totalItems : Math.min(currentPage * pageSize, totalItems);
+
+  // ページ変更ハンドラー（スムーズスクロール対応）
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    listContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // ページ番号ボタングループ生成
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) {
+        pages.push("...");
+      }
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      if (currentPage < totalPages - 2) {
+        pages.push("...");
+      }
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   return (
-    <div className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
+    <div ref={listContainerRef} className="bg-white/95 backdrop-blur-xs rounded-xl shadow-xs border border-indigo-100/80 overflow-hidden">
       {/* リストヘッダー & フィルターコントロール */}
       <div className="issue-list-header p-4 border-b border-slate-200/80 bg-gradient-to-r from-indigo-50/40 via-white to-violet-50/40 flex flex-wrap items-center justify-between gap-3">
         {/* タイトル・クイック切替タブ（すべて / 自分の担当） */}
@@ -239,7 +312,9 @@ export default function IssueList({
                 : "課題一覧"}
             </h3>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
-              {displayedIssues.length} 件
+              {pageSize === 0 || totalItems <= pageSize
+                ? `${totalItems} 件`
+                : `${startIndex} - ${endIndex} / ${totalItems} 件`}
             </span>
           </div>
 
@@ -414,6 +489,19 @@ export default function IssueList({
             />
             <span>完了を含む</span>
           </button>
+
+          {/* 1ページ表示件数セレクタ */}
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            title="1ページあたりの表示件数を切り替えます"
+          >
+            <option value={25}>25件 / 頁</option>
+            <option value={50}>50件 / 頁</option>
+            <option value={100}>100件 / 頁</option>
+            <option value={0}>全件表示</option>
+          </select>
         </div>
       </div>
 
@@ -435,7 +523,7 @@ export default function IssueList({
             </div>
           </div>
         ) : (
-          displayedIssues.map(({ issue, depth }, index) => {
+          paginatedIssues.map(({ issue, depth }, index) => {
             const dueInfo = formatDueDate(issue.due_date);
             const isClosed = issue.status === "closed";
             const issueAlert = getIssueAlert(issue, settings);
@@ -483,6 +571,23 @@ export default function IssueList({
                   <span className="font-mono font-bold text-indigo-600">
                     {issue.issue_key}
                   </span>
+                  {depth > 0 && issue.parent_id && (
+                    (() => {
+                      const parentIssue = issues.find((i) => i.id === issue.parent_id);
+                      return parentIssue ? (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectIssue(parentIssue);
+                          }}
+                          className="text-[10px] text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-1 py-0.5 rounded font-mono cursor-pointer transition-colors"
+                          title={`親課題: [${parentIssue.issue_key}] ${parentIssue.title}`}
+                        >
+                          親:{parentIssue.issue_key}
+                        </span>
+                      ) : null;
+                    })()
+                  )}
                   <div className="shrink-0">
                     <TypeBadge type={issue.issue_type} showLabel={false} />
                   </div>
@@ -612,7 +717,7 @@ export default function IssueList({
                 </td>
               </tr>
             ) : (
-              displayedIssues.map(({ issue, depth }, index) => {
+              paginatedIssues.map(({ issue, depth }, index) => {
                 const dueInfo = formatDueDate(issue.due_date);
                 const isClosed = issue.status === "closed";
                 const assigneeColor = issue.assignee_color || "#4f46e5";
@@ -710,6 +815,23 @@ export default function IssueList({
                         >
                           {issue.issue_key}
                         </a>
+                        {depth > 0 && issue.parent_id && (
+                          (() => {
+                            const parentIssue = issues.find((i) => i.id === issue.parent_id);
+                            return parentIssue ? (
+                              <span
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectIssue(parentIssue);
+                                }}
+                                className="text-[10px] text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-1 py-0.5 rounded font-mono cursor-pointer transition-colors"
+                                title={`親課題: [${parentIssue.issue_key}] ${parentIssue.title}`}
+                              >
+                                親:{parentIssue.issue_key}
+                              </span>
+                            ) : null;
+                          })()
+                        )}
                       </div>
                     </td>
 
@@ -978,6 +1100,92 @@ export default function IssueList({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* ページネーションフッターバー */}
+      <div className="px-4 py-3 border-t border-slate-200/80 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
+        {/* 件数表示 ＆ 1ページの件数セレクタ */}
+        <div className="flex flex-wrap items-center gap-3 text-slate-600 text-xs sm:text-sm">
+          <span>
+            {totalItems === 0 ? (
+              "0 件"
+            ) : (
+              <>
+                <strong className="text-slate-800 font-semibold">{totalItems}</strong> 件中{" "}
+                <strong className="text-slate-800 font-semibold">{startIndex}</strong> -{" "}
+                <strong className="text-slate-800 font-semibold">{endIndex}</strong> 件を表示
+              </>
+            )}
+          </span>
+
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-slate-400">表示件数:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-700 font-medium focus:outline-hidden focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value={25}>25件</option>
+              <option value={50}>50件</option>
+              <option value={100}>100件</option>
+              <option value={0}>全件</option>
+            </select>
+          </div>
+        </div>
+
+        {/* ページネーションボタン群 */}
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => handlePageChange(currentPage - 1)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              title="前のページへ"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">前へ</span>
+            </button>
+
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((p, idx) => {
+                if (p === "...") {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-1.5 py-1 text-xs text-slate-400 select-none">
+                      …
+                    </span>
+                  );
+                }
+                const isCurrent = p === currentPage;
+                return (
+                  <button
+                    key={`page-${p}`}
+                    type="button"
+                    onClick={() => handlePageChange(p)}
+                    className={`min-w-[28px] h-7 px-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                      isCurrent
+                        ? "bg-indigo-600 text-white shadow-2xs"
+                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              disabled={currentPage === totalPages}
+              onClick={() => handlePageChange(currentPage + 1)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              title="次のページへ"
+            >
+              <span className="hidden sm:inline">次へ</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
