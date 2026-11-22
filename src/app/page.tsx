@@ -20,6 +20,7 @@ import ParentDueDateConfirmModal, {
 import { useUser } from "@/components/UserContext";
 import { Project, Issue, Activity, IssueStatus, IssuePriority, IssueType, IssueResolution, canManageIssues } from "@/types";
 import { getStoredProjectId, setStoredProjectId } from "@/lib/projectStorage";
+import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 
 function DashboardContent() {
   const router = useRouter();
@@ -216,7 +217,7 @@ function DashboardContent() {
             : i
         )
       );
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         status: newStatus,
         actorId: currentUser?.id || null,
       };
@@ -568,9 +569,7 @@ function DashboardContent() {
             }
             setReviewTargetIssue(null);
             await refreshAll();
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new Event("litelog:notifications-updated"));
-            }
+            notifyNotificationsUpdated();
           }}
         />
       )}

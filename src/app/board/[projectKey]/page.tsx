@@ -115,7 +115,7 @@ export default function ProjectBoardPage() {
         )
       );
 
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         status: newStatus,
         actorId: currentUser?.id || null,
       };

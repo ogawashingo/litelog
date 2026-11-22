@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck, Search, Mail, Copy, ExternalLink, Send } from "lucide-react";
-import { User, WeekStartDay, UserRoleType, getUserRoleType, isAdminUser, canManageIssues } from "@/types";
+import { User, Project, WeekStartDay, UserRoleType, getUserRoleType, isAdminUser, canManageIssues } from "@/types";
 import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import AvatarColorPicker from "./AvatarColorPicker";
@@ -182,7 +182,7 @@ export default function UserManageModal({
   const [newPassword, setNewPassword] = useState("");
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("メンバー");
-  const [projectsList, setProjectsList] = useState<any[]>([]);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -273,7 +273,7 @@ export default function UserManageModal({
     setEditShowHolidays(
       user.show_holidays !== undefined ? Boolean(user.show_holidays) : true
     );
-    setEditProjectIds((user.projects || []).map((p: any) => p.id));
+    setEditProjectIds((user.projects || []).map((p) => p.id));
     setErrorMsg("");
   }, []);
 
@@ -348,7 +348,7 @@ export default function UserManageModal({
           color: autoColor,
           weekStart: "monday",
           showHolidays: true,
-          projectIds: projectsList.map((p: any) => p.id),
+          projectIds: projectsList.map((p) => p.id),
         }),
       });
 
@@ -428,7 +428,7 @@ export default function UserManageModal({
     }
 
     try {
-      const currentIds = (user.projects || []).map((p: any) => p.id);
+      const currentIds = (user.projects || []).map((p) => p.id);
       const nextIds = currentIds.filter((id: number) => id !== projectId);
 
       const res = await fetch(`/api/users/${user.id}`, {

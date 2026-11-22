@@ -214,7 +214,7 @@ export default function AdminPage() {
       return;
     }
     try {
-      const currentIds = (user.projects || []).map((p: any) => p.id);
+      const currentIds = (user.projects || []).map((p) => p.id);
       const nextIds = currentIds.filter((id) => id !== projectId);
       const res = await fetch(`/api/users/${user.id}`, {
         method: "PATCH",

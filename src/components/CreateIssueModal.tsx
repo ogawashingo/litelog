@@ -15,6 +15,7 @@ import ParentDueDateConfirmModal, {
   ParentDueDateWarningInfo,
   isExceedingParentDueDate,
 } from "./ParentDueDateConfirmModal";
+import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -168,9 +169,7 @@ export default function CreateIssueModal({
       setStartDate("");
       setDueDate("");
       setNotifyUserIds([]);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("litelog:notifications-updated"));
-      }
+      notifyNotificationsUpdated();
       await refreshUsers();
       onCreated();
       onClose();

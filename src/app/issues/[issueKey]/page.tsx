@@ -45,6 +45,7 @@ import ParentDueDateConfirmModal, {
   ParentDueDateWarningInfo,
   isExceedingParentDueDate,
 } from "@/components/ParentDueDateConfirmModal";
+import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -239,9 +240,7 @@ export default function IssueDetailPage() {
       if (res.ok) {
         setIsEditing(false);
         setEditNotifyUserIds([]);
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
         await fetchIssueDetail();
       }
@@ -335,9 +334,7 @@ export default function IssueDetailPage() {
     // 課題詳細とコメント一覧を再取得
     await fetchIssueDetail();
     await refreshUsers();
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("litelog:notifications-updated"));
-    }
+    notifyNotificationsUpdated();
   };
 
   // 完了理由即時変更
@@ -379,9 +376,7 @@ export default function IssueDetailPage() {
         }),
       });
       if (res.ok) {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -479,9 +474,7 @@ export default function IssueDetailPage() {
           setEditResolution(data.issue.resolution || null);
         }
         setNewComment("");
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
       } else {
         const errData = await res.json().catch(() => ({}));

@@ -29,6 +29,7 @@ import ParentDueDateConfirmModal, {
   ParentDueDateWarningInfo,
   isExceedingParentDueDate,
 } from "./ParentDueDateConfirmModal";
+import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -423,9 +424,7 @@ export default function IssueDetailModal({
       if (res.ok) {
         setIsEditing(false);
         setEditNotifyUserIds([]);
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         // DB最新レコードで再同期
         const detailRes = await fetch(`/api/issues/${issue.id}`);
         if (detailRes.ok) {
@@ -534,9 +533,7 @@ export default function IssueDetailModal({
         }),
       });
       if (res.ok) {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated();
       } else {
@@ -604,9 +601,7 @@ export default function IssueDetailModal({
 
     await refreshUsers();
     onUpdated();
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("litelog:notifications-updated"));
-    }
+    notifyNotificationsUpdated();
   };
 
   // 完了理由即時変更
@@ -624,9 +619,7 @@ export default function IssueDetailModal({
         }),
       });
       if (res.ok) {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated();
       } else {
@@ -732,9 +725,7 @@ export default function IssueDetailModal({
         }),
       });
       if (res.ok) {
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated();
       } else {
@@ -793,9 +784,7 @@ export default function IssueDetailModal({
           const detailData = await detailRes.json();
           if (detailData.issue) setCurrentIssue(detailData.issue);
         }
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated();
       }
@@ -831,9 +820,7 @@ export default function IssueDetailModal({
           setEditResolution(data.issue.resolution || null);
         }
         setNewComment("");
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("litelog:notifications-updated"));
-        }
+        notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated(); // アクティビティや親一覧の反映
       } else {

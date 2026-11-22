@@ -385,7 +385,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       LEFT JOIN issues i ON u.id = i.assignee_id
       WHERE u.id = ?
       GROUP BY u.id
-    `).get(targetId) as any;
+    `).get(targetId) as ({ id: number } & Record<string, unknown>) | undefined;
 
     if (updated) {
       const accessibleIds = getUserAccessibleProjectIds(
@@ -402,11 +402,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         WHERE pm.user_id = ?
         ORDER BY p.is_archived ASC, p.id ASC
       `).all(targetId) as { id: number }[];
-      updated.projects =
+      const visibleProjects =
         accessibleSet === null
           ? allProjects
           : allProjects.filter((p) => accessibleSet.has(Number(p.id)));
-      updated.project_count = updated.projects.length;
+      updated.projects = visibleProjects;
+      updated.project_count = visibleProjects.length;
     }
 
     return NextResponse.json(updated);

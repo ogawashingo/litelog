@@ -45,8 +45,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     // 参加中のメンバー一覧
-    const members = getProjectMemberUsers(db, projectId);
-    const memberUserIds = new Set(members.map((m: any) => m.id));
+    const members = getProjectMemberUsers(db, projectId) as { id: number }[];
+    const memberUserIds = new Set(members.map((m) => m.id));
 
     // システム全体の全ユーザー一覧（参加フラグ付き）
     const allUsers = db
@@ -56,10 +56,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
         ORDER BY is_admin DESC, role_type = 'pmo' DESC, id ASC
       `)
       .all()
-      .map((u: any) => ({
-        ...u,
-        is_member: memberUserIds.has(u.id),
-      }));
+      .map((row) => {
+        const u = row as { id: number } & Record<string, unknown>;
+        return {
+          ...u,
+          is_member: memberUserIds.has(u.id),
+        };
+      });
 
     return NextResponse.json({
       project,

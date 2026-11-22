@@ -48,7 +48,7 @@ export async function GET() {
       LEFT JOIN issues i ON u.id = i.assignee_id
       GROUP BY u.id
       ORDER BY u.id ASC
-    `).all() as any[];
+    `).all() as ({ id: number } & Record<string, unknown>)[];
 
     // 各ユーザーの所属プロジェクト一覧を取得してマッピング（Admin以外は自身が閲覧可能なプロジェクトのみ公開）
     const userProjectsStmt = db.prepare(`

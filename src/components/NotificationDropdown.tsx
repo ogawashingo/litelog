@@ -8,6 +8,7 @@ import { Notification } from "@/types";
 import { getUserInitials } from "./UserManageModal";
 import { useUser } from "./UserContext";
 import { formatTimestamp } from "@/lib/dateUtils";
+import { NOTIFICATIONS_UPDATED_EVENT } from "@/lib/clientEvents";
 
 interface NotificationDropdownProps {
   onSelectIssue?: (issueKey: string) => void;
@@ -47,13 +48,13 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
       fetchNotifications();
     };
     window.addEventListener("focus", handleFocus);
-    window.addEventListener("litelog:notifications-updated", handleFocus);
+    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, handleFocus);
     window.addEventListener("backlog:notifications-updated", handleFocus);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("litelog:notifications-updated", handleFocus);
+      window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, handleFocus);
       window.removeEventListener("backlog:notifications-updated", handleFocus);
     };
   }, [fetchNotifications]);

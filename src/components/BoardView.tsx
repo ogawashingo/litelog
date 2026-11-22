@@ -23,6 +23,7 @@ import ReviewRequestModal from "./ReviewRequestModal";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
+import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 
 interface BoardViewProps {
   projects: Project[];
@@ -217,9 +218,7 @@ export default function BoardView({
     }
     setReviewTargetIssue(null);
     await onRefresh();
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("litelog:notifications-updated"));
-    }
+    notifyNotificationsUpdated();
   };
 
   // 各ステータスレーンへの新規追加モーダル表示

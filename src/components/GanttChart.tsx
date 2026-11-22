@@ -45,6 +45,7 @@ import {
   getWeekdayJa,
   generateDateRange,
 } from "@/lib/dateUtils";
+import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 
 interface GanttChartProps {
   projects: Project[];
@@ -1687,9 +1688,7 @@ export default function GanttChart({
             }
             setReviewTargetIssue(null);
             onRefresh();
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new Event("litelog:notifications-updated"));
-            }
+            notifyNotificationsUpdated();
           }}
         />
       )}

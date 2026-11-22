@@ -9,6 +9,13 @@ import {
   CommentStamp,
 } from "@/types";
 
+// 楽観的UI更新用の一時リアクションID（実データと衝突しないよう負の連番で採番）
+let optimisticReactionIdSeq = 0;
+const nextOptimisticReactionId = (): number => {
+  optimisticReactionIdSeq += 1;
+  return -optimisticReactionIdSeq;
+};
+
 interface CommentReactionBarProps {
   issueId: number;
   commentId: number;
@@ -93,7 +100,7 @@ export default function CommentReactionBar({
       : [
           ...prevReactions,
           {
-            id: -Date.now(),
+            id: nextOptimisticReactionId(),
             comment_id: commentId,
             user_id: currentUserId,
             user_name: currentUserName || "自分",
