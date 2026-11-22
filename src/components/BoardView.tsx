@@ -24,6 +24,7 @@ import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
 import { notifyNotificationsUpdated } from "@/lib/clientEvents";
+import { calculateAssigneeCounts } from "@/lib/assigneeUtils";
 
 interface BoardViewProps {
   projects: Project[];
@@ -276,6 +277,12 @@ export default function BoardView({
     };
   };
 
+  // 担当者フィルター選択肢用の件数集計（完了表示トグルを反映したベース課題群から算出）
+  const assigneeCounts = useMemo(() => {
+    const baseIssues = showClosed ? issues : issues.filter((i) => i.status !== "closed");
+    return calculateAssigneeCounts(baseIssues, currentUser?.id);
+  }, [issues, showClosed, currentUser?.id]);
+
   // フィルター後の課題一覧
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
@@ -433,14 +440,18 @@ export default function BoardView({
               onChange={(e) => setFilterAssignee(e.target.value)}
               className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="all">担当者: すべて</option>
+              <option value="all">担当者: すべて ({assigneeCounts.totalCount}件)</option>
               {currentUser && (
-                <option value="me">担当者: 自分 ({currentUser.name})</option>
+                <option value="me">
+                  担当者: 自分 ({currentUser.name}) ({assigneeCounts.myCount}件)
+                </option>
               )}
-              <option value="unassigned">担当者: 未割当</option>
+              <option value="unassigned">
+                担当者: 未割当 ({assigneeCounts.unassignedCount}件)
+              </option>
               {users.map((u) => (
                 <option key={u.id} value={String(u.id)}>
-                  担当者: {u.name}
+                  担当者: {u.name} ({assigneeCounts.userCountMap[u.id] || 0}件)
                 </option>
               ))}
             </select>

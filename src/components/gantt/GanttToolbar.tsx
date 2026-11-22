@@ -17,6 +17,7 @@ import { Project, IssueStatus, IssueType, IssuePriority, User } from "@/types";
 import { DatePicker } from "../DatePicker";
 import { parseDateString, formatDateString } from "@/lib/dateUtils";
 import { ViewScale, DEFAULT_LEFT_PANE_WIDTH } from "./ganttUtils";
+import { AssigneeCounts } from "@/lib/assigneeUtils";
 
 interface GanttToolbarProps {
   currentProject: Project | null;
@@ -27,6 +28,7 @@ interface GanttToolbarProps {
   onChangeFilterAssignee: (v: string) => void;
   currentUser: User | null;
   users: User[];
+  assigneeCounts?: AssigneeCounts;
   filterType: IssueType | "all";
   onChangeFilterType: (v: IssueType | "all") => void;
   filterStatus: IssueStatus | "all";
@@ -60,6 +62,7 @@ export default function GanttToolbar({
   onChangeFilterAssignee,
   currentUser,
   users,
+  assigneeCounts,
   filterType,
   onChangeFilterType,
   filterStatus,
@@ -130,14 +133,20 @@ export default function GanttToolbar({
             onChange={(e) => onChangeFilterAssignee(e.target.value)}
             className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="all">担当者: すべて</option>
+            <option value="all">
+              担当者: すべて{assigneeCounts ? ` (${assigneeCounts.totalCount}件)` : ""}
+            </option>
             {currentUser && (
-              <option value="me">担当者: 自分 ({currentUser.name})</option>
+              <option value="me">
+                担当者: 自分 ({currentUser.name}){assigneeCounts ? ` (${assigneeCounts.myCount}件)` : ""}
+              </option>
             )}
-            <option value="unassigned">担当者: 未割当</option>
+            <option value="unassigned">
+              担当者: 未割当{assigneeCounts ? ` (${assigneeCounts.unassignedCount}件)` : ""}
+            </option>
             {users.map((u) => (
               <option key={u.id} value={String(u.id)}>
-                担当者: {u.name}
+                担当者: {u.name}{assigneeCounts ? ` (${assigneeCounts.userCountMap[u.id] || 0}件)` : ""}
               </option>
             ))}
           </select>

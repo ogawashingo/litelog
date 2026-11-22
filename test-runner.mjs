@@ -36,6 +36,7 @@ import {
   createApiError,
   getSafeErrorMessage,
 } from "./src/lib/clientError.ts";
+import { calculateAssigneeCounts } from "./src/lib/assigneeUtils.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -3827,6 +3828,26 @@ async function runTests() {
       throw new Error("ページネーション総ページ数の計算が不正です");
     }
     console.log(`✓ 課題一覧ページネーション計算（件数=${totalCount}, 1ページ=${pageLimit}, 総ページ=${totalPages}）検証成功`);
+
+    // 4. 担当者フィルター用件数集計（calculateAssigneeCounts）検証
+    const sampleIssuesForCount = [
+      { id: 101, assignee_id: 1 },
+      { id: 102, assignee_id: 1 },
+      { id: 103, assignee_id: 2 },
+      { id: 104, assignee_id: null },
+      { id: 105, assignee_id: null },
+    ];
+    const counts = calculateAssigneeCounts(sampleIssuesForCount, 1);
+    if (
+      counts.totalCount !== 5 ||
+      counts.userCountMap[1] !== 2 ||
+      counts.userCountMap[2] !== 1 ||
+      counts.unassignedCount !== 2 ||
+      counts.myCount !== 2
+    ) {
+      throw new Error(`担当者フィルター件数集計が不正です: ${JSON.stringify(counts)}`);
+    }
+    console.log("✓ 担当者フィルター用件数集計（メンバー別・未割当・自分・全体件数）検証成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

@@ -50,6 +50,7 @@ import {
 import GanttToolbar from "./gantt/GanttToolbar";
 import GanttLeftTable from "./gantt/GanttLeftTable";
 import GanttTimeline from "./gantt/GanttTimeline";
+import { calculateAssigneeCounts } from "@/lib/assigneeUtils";
 
 interface GanttChartProps {
   projects: Project[];
@@ -322,6 +323,12 @@ export default function GanttChart({
     setStartDate(nextStart);
     updateUrlParams({ startDate: nextStart });
   };
+
+  // 担当者フィルター選択肢用の件数集計（完了表示トグルを反映したベース課題群から算出）
+  const assigneeCounts = useMemo(() => {
+    const baseIssues = showClosed ? issues : issues.filter((i) => i.status !== "closed");
+    return calculateAssigneeCounts(baseIssues, currentUser?.id);
+  }, [issues, showClosed, currentUser?.id]);
 
   // フィルター後の課題一覧
   const filteredIssues = useMemo(
@@ -614,6 +621,7 @@ export default function GanttChart({
           onChangeFilterAssignee={setFilterAssignee}
           currentUser={currentUser}
           users={users}
+          assigneeCounts={assigneeCounts}
           filterType={filterType}
           onChangeFilterType={setFilterType}
           filterStatus={filterStatus}

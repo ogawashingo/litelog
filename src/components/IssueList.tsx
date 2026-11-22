@@ -12,6 +12,7 @@ import { DatePicker } from "./DatePicker";
 import CommentPreviewBadge from "./CommentPreviewBadge";
 import { getIssueAlert } from "@/lib/issueAlerts";
 import IssueAlertBadge from "./IssueAlertBadge";
+import { calculateAssigneeCounts } from "@/lib/assigneeUtils";
 
 interface IssueListProps {
   issues: Issue[];
@@ -78,6 +79,16 @@ export default function IssueList({
 
   // 「完了」ステータスカードが明示的に選択されている場合、または「完了を表示」トグルがONの場合は完了課題を表示
   const isShowingClosed = selectedStatus === "closed" || showClosed;
+
+  // 担当者フィルター選択肢用の件数集計（完了表示設定およびステータス選択を反映したベース課題群から算出）
+  const assigneeCounts = useMemo(() => {
+    const baseIssues = issues.filter((issue) => {
+      if (selectedStatus !== "all" && issue.status !== selectedStatus) return false;
+      if (!isShowingClosed && issue.status === "closed") return false;
+      return true;
+    });
+    return calculateAssigneeCounts(baseIssues, currentUser?.id);
+  }, [issues, selectedStatus, isShowingClosed, currentUser?.id]);
 
   // 期限日の相対表現フォーマッター（設定タイムゾーン基準）
   const formatDueDate = (dateStr: string | null) => {
@@ -367,14 +378,18 @@ export default function IssueList({
             onChange={(e) => setAssigneeFilter(e.target.value)}
             className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="all">担当者: すべて</option>
+            <option value="all">担当者: すべて ({assigneeCounts.totalCount}件)</option>
             {currentUser && (
-              <option value="me">担当者: 自分 ({currentUser.name})</option>
+              <option value="me">
+                担当者: 自分 ({currentUser.name}) ({assigneeCounts.myCount}件)
+              </option>
             )}
-            <option value="unassigned">担当者: 未割当</option>
+            <option value="unassigned">
+              担当者: 未割当 ({assigneeCounts.unassignedCount}件)
+            </option>
             {users.map((u) => (
               <option key={u.id} value={String(u.id)}>
-                担当者: {u.name}
+                担当者: {u.name} ({assigneeCounts.userCountMap[u.id] || 0}件)
               </option>
             ))}
           </select>
