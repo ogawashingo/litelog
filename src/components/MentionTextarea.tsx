@@ -124,24 +124,26 @@ export default function MentionTextarea({
     return scored.map((s) => s.user);
   }, [isOpen, query, users]);
 
-  // 入力値変更時のメンション検知
+  // 入力値変更時のメンション検知（半角@と全角＠の両方に対応）
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const cursorPos = e.target.selectionStart || 0;
     onChange(newValue);
 
-    // カーソル直前のテキストを解析して @ メンションの入力中かをチェック
+    // カーソル直前のテキストを解析して @ または ＠ メンションの入力中かをチェック
     const textBeforeCursor = newValue.slice(0, cursorPos);
-    const atIndex = textBeforeCursor.lastIndexOf("@");
+    const atIndexHalf = textBeforeCursor.lastIndexOf("@");
+    const atIndexFull = textBeforeCursor.lastIndexOf("＠");
+    const atIndex = Math.max(atIndexHalf, atIndexFull);
 
     if (atIndex !== -1) {
-      // @ の直前が空白文字・改行または行頭であるか確認（メールアドレス等の途中での誤爆防止）
+      // @ の直前が空白文字（半角・全角）・改行または行頭・各種括弧であるか確認（メールアドレス等の途中での誤爆防止）
       const charBeforeAt = atIndex > 0 ? textBeforeCursor[atIndex - 1] : " ";
-      const isWordBoundary = /[\s\n(]/.test(charBeforeAt);
+      const isWordBoundary = /[\s\n(（「『【]/.test(charBeforeAt);
 
       const potentialQuery = textBeforeCursor.slice(atIndex + 1);
-      // スペースや改行が含まれていない場合はクエリとして認識
-      if (isWordBoundary && !/\s/.test(potentialQuery)) {
+      // スペース（半角・全角）や改行が含まれていない場合はクエリとして認識
+      if (isWordBoundary && !/[\s\u3000\n]/.test(potentialQuery)) {
         setMentionStartIndex(atIndex);
         setQuery(potentialQuery);
         setIsOpen(true);
@@ -156,29 +158,34 @@ export default function MentionTextarea({
   // 候補選択時のテキスト挿入処理
   const insertMention = useCallback(
     (user: User) => {
-      if (mentionStartIndex === -1 || !textareaRef.current) return;
+      if (mentionStartIndex === -1) return;
 
-      const textarea = textareaRef.current;
-      const cursorPos = textarea.selectionStart || 0;
+      // mentionStartIndex の位置以降で、クエリが終わる位置（最初の空白・改行、またはテキスト末尾）
+      // iPhone等のタッチ時に selectionStart がリセットされても安全に置換できるように計算
+      const textAfterAt = value.slice(mentionStartIndex + 1);
+      const match = textAfterAt.match(/^[^\s\u3000\n]*/);
+      const queryLength = match ? match[0].length : 0;
+      const mentionEndIndex = mentionStartIndex + 1 + queryLength;
+
       const beforeMention = value.slice(0, mentionStartIndex);
-      const afterCursor = value.slice(cursorPos);
+      const afterMention = value.slice(mentionEndIndex);
 
-      // @login_id の後に半角スペースを付与して挿入
+      // @login_id の後に半角スペースを付与して挿入（全角＠で入力された場合も半角@に正規化）
       const insertedText = `@${user.login_id} `;
-      const nextValue = beforeMention + insertedText + afterCursor;
+      const nextValue = beforeMention + insertedText + afterMention;
       const nextCursorPos = beforeMention.length + insertedText.length;
 
       onChange(nextValue);
       setIsOpen(false);
       setMentionStartIndex(-1);
 
-      // フォーカスとカーソル位置を更新
+      // フォーカスとカーソル位置を更新（iOS WebKitでのキーボード表示とカーソル移動に配慮）
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.focus();
           textareaRef.current.setSelectionRange(nextCursorPos, nextCursorPos);
         }
-      }, 0);
+      }, 50);
     },
     [mentionStartIndex, value, onChange]
   );
@@ -286,7 +293,33 @@ export default function MentionTextarea({
     applyFormat("[", "](https://)", selected || "リンクテキスト");
   };
   const handleTriggerMention = () => {
-    applyFormat("@", "", "");
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+
+    // 直前が空白文字・改行・行頭でない場合は半角スペースを補う
+    const needPrefixSpace = before.length > 0 && !/[\s\n]/.test(before.slice(-1));
+    const prefix = needPrefixSpace ? " @" : "@";
+    const nextVal = before + prefix + after;
+    const newIndex = before.length + (needPrefixSpace ? 1 : 0);
+    const nextCursorPos = before.length + prefix.length;
+
+    onChange(nextVal);
+    setMentionStartIndex(newIndex);
+    setQuery("");
+    setIsOpen(true);
+    setSelectedIndex(0);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(nextCursorPos, nextCursorPos);
+      }
+    }, 50);
   };
 
   // ファイルアップロード共通処理
@@ -474,17 +507,19 @@ export default function MentionTextarea({
     }
   };
 
-  // 外側クリックでサジェストやヘルプを閉じる
+  // 外側クリックやタッチでサジェストやヘルプを閉じる
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handlePointerDownOutside = (event: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
         setShowHelp(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handlePointerDownOutside);
+    document.addEventListener("touchstart", handlePointerDownOutside, { passive: true });
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("mousedown", handlePointerDownOutside);
+      document.removeEventListener("touchstart", handlePointerDownOutside);
     };
   }, []);
 
@@ -818,15 +853,15 @@ export default function MentionTextarea({
         </div>
       )}
 
-      {/* メンション候補サジェストポップアップ（ダークテーマ対応・高コントラスト視認性確保） */}
+      {/* メンション候補サジェストポップアップ（ダークテーマ対応・iOSタッチ最適化） */}
       {isOpen && activeTab === "edit" && (
-        <div className="mention-suggest-popup absolute z-50 left-0 bottom-full mb-1.5 w-72 sm:w-80 max-h-64 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 py-1 text-xs animate-in fade-in zoom-in-95 duration-100 max-w-[calc(100vw-32px)]">
-          <div className="mention-suggest-header px-3 py-1.5 text-[10px] font-semibold text-slate-500 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+        <div className="mention-suggest-popup absolute z-50 left-0 bottom-full mb-1.5 w-72 sm:w-80 max-h-56 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-200 py-1 text-xs animate-in fade-in zoom-in-95 duration-100 max-w-[calc(100vw-32px)] touch-pan-y">
+          <div className="mention-suggest-header px-3 py-1.5 text-[10px] font-semibold text-slate-500 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 z-10 backdrop-blur-xs">
             <span>
               メンバーを選択 (@)
               {filteredUsers.length > 0 && ` (${filteredUsers.length}名)`}
             </span>
-            <span className="text-[9px] text-slate-400">↑↓で移動 / Enterで確定</span>
+            <span className="text-[9px] text-slate-400">タップで挿入</span>
           </div>
           {filteredUsers.length === 0 ? (
             <div className="py-4 px-3 text-center text-slate-400 text-xs">
@@ -839,9 +874,20 @@ export default function MentionTextarea({
                 <button
                   key={user.id}
                   type="button"
-                  onClick={() => insertMention(user)}
+                  onMouseDown={(e) => {
+                    // タップ・クリック時にtextareaからフォーカスが外れるのを防ぐ
+                    e.preventDefault();
+                  }}
+                  onPointerDown={(e) => {
+                    // iOS Safari等でタップした際にblurやキーボード引っ込みを防ぐ
+                    e.preventDefault();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    insertMention(user);
+                  }}
                   onMouseEnter={() => setSelectedIndex(index)}
-                  className={`mention-suggest-item w-full px-3 py-2 flex items-center gap-2.5 text-left transition-colors cursor-pointer ${
+                  className={`mention-suggest-item w-full min-h-[44px] px-3 py-2 flex items-center gap-2.5 text-left transition-colors cursor-pointer active:bg-indigo-100 touch-manipulation ${
                     isSelected
                       ? "is-selected bg-indigo-50 text-indigo-900"
                       : "text-slate-700 hover:bg-slate-50"
