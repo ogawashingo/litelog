@@ -503,7 +503,7 @@ export default function CreateIssueModal({
             <button
               type="submit"
               disabled={isSubmitting || isSuccess}
-              className={`px-6 py-2 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-75 cursor-pointer spring-bounce flex items-center justify-center gap-1.5 min-w-[110px] ${
+              className={`px-6 py-2 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-75 cursor-pointer spring-bounce btn-shimmer group flex items-center justify-center gap-1.5 min-w-[110px] hover:-translate-y-0.5 ${
                 isSuccess
                   ? "bg-emerald-600 text-white shadow-emerald-500/30"
                   : "app-primary-btn"
@@ -511,14 +511,14 @@ export default function CreateIssueModal({
             >
               {isSuccess ? (
                 <>
-                  <Check className="w-4 h-4 stroke-[3]" />
+                  <Check className="w-4 h-4 stroke-[3] animate-check-pop" />
                   <span>追加完了！</span>
                 </>
               ) : isSubmitting ? (
                 <span>追加中...</span>
               ) : (
                 <>
-                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <Plus className="w-4 h-4 stroke-[2.5] transition-transform duration-300 group-hover:rotate-90" />
                   <span>追加する</span>
                 </>
               )}

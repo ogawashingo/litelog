@@ -22,6 +22,7 @@ import IssueAttachmentsSection from "./issue-detail/IssueAttachmentsSection";
 import IssueChildSection from "./issue-detail/IssueChildSection";
 import IssueCommentsSection from "./issue-detail/IssueCommentsSection";
 import IssueDetailModalsBundle from "./issue-detail/IssueDetailModalsBundle";
+import CompleteIssueModal from "./CompleteIssueModal";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -53,6 +54,7 @@ export default function IssueDetailModal({
   const [issueHistoryTab, setIssueHistoryTab] = useState<"description" | "title" | "dates" | "all">("description");
   const [isEditing, setIsEditing] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   // 子課題の期限延長に伴う親課題期限延長の確認モーダル情報
   const [parentDueWarning, setParentDueWarning] = useState<ParentDueDateWarningInfo | null>(null);
 
@@ -520,6 +522,61 @@ export default function IssueDetailModal({
     await executeSaveEdit(false);
   };
 
+  // 完了確定処理（完了理由選択モーダルからの確定）
+  const executeCloseWithResolution = async (resolution: IssueResolution | null) => {
+    if (!issue) return;
+    const previousStatus = activeIssue.status;
+    const previousResolution = activeIssue.resolution ?? null;
+
+    try {
+      setCurrentIssue((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "closed",
+              resolution: resolution || null,
+            }
+          : null
+      );
+      setEditStatus("closed");
+      setEditResolution(resolution || null);
+
+      const res = await fetch(`/api/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "closed",
+          resolution: resolution || null,
+          actorId: currentUser?.id || null,
+        }),
+      });
+      if (res.ok) {
+        notifyNotificationsUpdated();
+        await refreshUsers();
+        onUpdated();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "ステータス変更に失敗しました");
+        setCurrentIssue((prev) =>
+          prev
+            ? { ...prev, status: previousStatus, resolution: previousResolution }
+            : null
+        );
+        setEditStatus(previousStatus);
+        setEditResolution(previousResolution);
+      }
+    } catch (err) {
+      console.error("完了処理エラー:", err);
+      setCurrentIssue((prev) =>
+        prev
+          ? { ...prev, status: previousStatus, resolution: previousResolution }
+          : null
+      );
+      setEditStatus(previousStatus);
+      setEditResolution(previousResolution);
+    }
+  };
+
   // ステータス即時変更
   const handleQuickStatusChange = async (newStatus: IssueStatus) => {
     if (newStatus === "closed") {
@@ -531,34 +588,34 @@ export default function IssueDetailModal({
         alert(`未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`);
         return;
       }
+      // 完了理由選択ダイアログを起動
+      setIsCompleteModalOpen(true);
+      return;
     }
 
     const previousStatus = activeIssue.status;
     const previousResolution = activeIssue.resolution ?? null;
-    const isUnclosing = newStatus !== "closed";
 
     try {
-      // 完了以外に戻す場合は、完了理由も即時nullにクリア
+      // 完了以外のステータスへの変更時は、完了理由をnullにクリア
       setCurrentIssue((prev) =>
         prev
           ? {
               ...prev,
               status: newStatus,
-              ...(isUnclosing ? { resolution: null } : {}),
+              resolution: null,
             }
           : null
       );
       setEditStatus(newStatus);
-      if (isUnclosing) {
-        setEditResolution(null);
-      }
+      setEditResolution(null);
 
       const res = await fetch(`/api/issues/${issue.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           status: newStatus,
-          ...(isUnclosing ? { resolution: null } : {}),
+          resolution: null,
           actorId: currentUser?.id || null,
         }),
       });
@@ -1169,6 +1226,20 @@ export default function IssueDetailModal({
         }}
         onCancelParentDue={() => setParentDueWarning(null)}
       />
+
+      {/* 課題完了時の完了理由選択モーダル */}
+      {isCompleteModalOpen && (
+        <CompleteIssueModal
+          isOpen={isCompleteModalOpen}
+          issueKey={activeIssue.issue_key}
+          issueTitle={activeIssue.title}
+          onClose={() => setIsCompleteModalOpen(false)}
+          onConfirm={async (resolution) => {
+            setIsCompleteModalOpen(false);
+            await executeCloseWithResolution(resolution);
+          }}
+        />
+      )}
     </div>
   );
 }

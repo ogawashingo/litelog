@@ -14,12 +14,13 @@ import {
   Paperclip,
   Archive,
 } from "lucide-react";
-import { Project, Issue, IssueStatus, IssueType, IssuePriority, isArchivedProject, canManageIssues } from "@/types";
+import { Project, Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, isArchivedProject, canManageIssues } from "@/types";
 import { createApiError } from "@/lib/clientError";
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
 import IssueDetailModal from "./IssueDetailModal";
 import ReviewRequestModal from "./ReviewRequestModal";
+import CompleteIssueModal from "./CompleteIssueModal";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
@@ -30,7 +31,7 @@ interface BoardViewProps {
   projects: Project[];
   currentProject: Project | null;
   issues: Issue[];
-  onUpdateStatus: (issueId: number, newStatus: IssueStatus) => Promise<void>;
+  onUpdateStatus: (issueId: number, newStatus: IssueStatus, resolution?: IssueResolution | null) => Promise<void>;
   onRefresh: () => Promise<void>;
   onSelectProjectKey?: (key: string) => void;
 }
@@ -116,6 +117,7 @@ export default function BoardView({
   const [detailIssue, setDetailIssue] = useState<Issue | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [reviewTargetIssue, setReviewTargetIssue] = useState<Issue | null>(null);
+  const [completeTargetIssue, setCompleteTargetIssue] = useState<Issue | null>(null);
 
   // 課題のドラッグ開始
   const handleDragStart = (e: React.DragEvent, issueId: number) => {
@@ -189,6 +191,13 @@ export default function BoardView({
     // 処理済みレーンへの移動時は、こっそり処理済み放置を防ぐためレビュー依頼モーダルを起動（管理者AdminおよびPMOはスキップして即時更新）
     if (newStatus === "resolved" && !canManageIssues(currentUser)) {
       setReviewTargetIssue(targetIssue);
+      setDraggingIssueId(null);
+      return;
+    }
+
+    // 完了レーンへの移動時は、完了理由選択モーダルを起動
+    if (newStatus === "closed") {
+      setCompleteTargetIssue(targetIssue);
       setDraggingIssueId(null);
       return;
     }
@@ -791,6 +800,21 @@ export default function BoardView({
           currentUserId={currentUser?.id}
           onClose={() => setReviewTargetIssue(null)}
           onSubmit={handleReviewRequestSubmit}
+        />
+      )}
+
+      {/* 課題完了時の完了理由選択モーダル（完了へのドロップ時） */}
+      {completeTargetIssue && (
+        <CompleteIssueModal
+          isOpen={completeTargetIssue !== null}
+          issueKey={completeTargetIssue.issue_key}
+          issueTitle={completeTargetIssue.title}
+          onClose={() => setCompleteTargetIssue(null)}
+          onConfirm={async (resolution) => {
+            const target = completeTargetIssue;
+            setCompleteTargetIssue(null);
+            await onUpdateStatus(target.id, "closed", resolution);
+          }}
         />
       )}
     </div>
