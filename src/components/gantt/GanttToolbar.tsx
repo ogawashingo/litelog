@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Calendar as CalendarIcon,
   Search,
+  CheckCircle2,
   Maximize2,
   Minimize2,
   GitBranch,
@@ -68,6 +69,8 @@ export default function GanttToolbar({
   onChangeFilterStatus,
   filterPriority,
   onChangeFilterPriority,
+  showClosed = true,
+  onToggleShowClosed,
   onShiftPeriod,
   onGoToToday,
   startDate,
@@ -271,8 +274,24 @@ export default function GanttToolbar({
           </div>
         </div>
 
-        {/* 右側グループ：親子課題トグル(withParentRelation) ・ 一覧開閉 */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* 右側グループ：完了課題トグル ・ 親子課題トグル(withParentRelation) ・ 一覧開閉 */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* 完了課題の表示切り替え */}
+          {onToggleShowClosed && (
+            <label className="h-[30px] flex items-center gap-1.5 text-sm font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors">
+              <input
+                type="checkbox"
+                checked={Boolean(showClosed)}
+                onChange={onToggleShowClosed}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <CheckCircle2
+                className={`w-3.5 h-3.5 ${showClosed ? "text-indigo-600" : "text-slate-400"}`}
+              />
+              <span>完了を含む</span>
+            </label>
+          )}
+
           {/* 親子課題関連の表示切り替え (withParentRelation) */}
           <label className="h-[30px] flex items-center gap-1.5 text-sm font-semibold text-slate-700 cursor-pointer select-none bg-slate-50 hover:bg-slate-100 border border-slate-300 px-2.5 rounded-lg transition-colors">
             <input

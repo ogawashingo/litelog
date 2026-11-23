@@ -95,7 +95,7 @@ export interface IssueFilterParams {
 // 課題一覧のフィルタリング純関数
 export function filterGanttIssues(issues: Issue[], params: IssueFilterParams): Issue[] {
   const {
-    showClosed,
+    showClosed = true,
     filterAssignee,
     currentUser,
     filterType,
@@ -105,7 +105,7 @@ export function filterGanttIssues(issues: Issue[], params: IssueFilterParams): I
   } = params;
 
   return issues.filter((issue) => {
-    if (showClosed === false && issue.status === "closed") return false;
+    if (!showClosed && issue.status === "closed") return false;
     if (filterAssignee === "me") {
       if (!currentUser || issue.assignee_id !== currentUser.id) return false;
     } else if (filterAssignee === "unassigned") {
