@@ -41,6 +41,7 @@ export default function CommentReactionBar({
 }: CommentReactionBarProps) {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [togglingStamp, setTogglingStamp] = useState<CommentStamp | null>(null);
+  const [lastPoppedStamp, setLastPoppedStamp] = useState<CommentStamp | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   // ポップオーバー外側クリックで閉じる
@@ -93,6 +94,10 @@ export default function CommentReactionBar({
     );
 
     // 楽観的UI更新
+    if (!alreadyExists) {
+      setLastPoppedStamp(stamp);
+      setTimeout(() => setLastPoppedStamp(null), 600);
+    }
     const optimisticReactions: CommentReaction[] = alreadyExists
       ? prevReactions.filter(
           (r) => !(Number(r.user_id) === Number(currentUserId) && r.stamp === stamp)
@@ -144,6 +149,7 @@ export default function CommentReactionBar({
       {/* 押されているスタンプバッジ一覧 */}
       {groupedReactions.map((group) => {
         const tooltipText = `${group.stamp} ${group.userNames.join("、")}`;
+        const isJustPopped = lastPoppedStamp === group.stamp;
         return (
           <div key={group.stamp} className="relative group/badge">
             <button
@@ -151,16 +157,20 @@ export default function CommentReactionBar({
               disabled={disabled || !currentUserId || togglingStamp === group.stamp}
               onClick={() => handleToggleStamp(group.stamp)}
               title={tooltipText}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all select-none ${
-                disabled ? "cursor-default opacity-85" : "cursor-pointer"
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs border transition-all select-none spring-bounce ${
+                disabled ? "cursor-default opacity-85" : "cursor-pointer hover:scale-105 hover:shadow-2xs active:scale-95"
               } ${
                 group.hasReacted
                   ? "bg-indigo-50/90 border-indigo-300 text-indigo-700 font-bold shadow-2xs"
                   : "bg-white border-slate-200/90 text-slate-600 font-medium hover:bg-slate-100 hover:border-slate-300"
               }`}
             >
-              <span className="text-sm leading-none">{group.stamp}</span>
-              <span className="text-[11px] leading-none">{group.count}</span>
+              <span className={`text-sm leading-none transition-transform ${isJustPopped ? "animate-stamp-pop inline-block" : ""}`}>
+                {group.stamp}
+              </span>
+              <span className={`text-[11px] leading-none transition-transform ${isJustPopped ? "scale-125 font-bold" : ""}`}>
+                {group.count}
+              </span>
             </button>
 
             {/* ホバー時のカスタムツールチップ（誰が押したかを表示） */}
@@ -185,10 +195,10 @@ export default function CommentReactionBar({
           <button
             type="button"
             onClick={() => setIsPickerOpen((prev) => !prev)}
-            className={`inline-flex items-center justify-center p-1 rounded-full border transition-colors cursor-pointer select-none ${
+            className={`inline-flex items-center justify-center p-1 rounded-full border transition-all cursor-pointer select-none spring-bounce ${
               isPickerOpen
-                ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold"
-                : "bg-white/80 border-slate-200/80 text-slate-400 hover:text-slate-700 hover:bg-white hover:border-slate-300"
+                ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold scale-110"
+                : "bg-white/80 border-slate-200/80 text-slate-400 hover:text-slate-700 hover:bg-white hover:border-slate-300 hover:scale-110"
             }`}
             title="リアクションを追加"
           >
@@ -205,10 +215,10 @@ export default function CommentReactionBar({
                     type="button"
                     onClick={() => handleToggleStamp(opt.stamp)}
                     title={opt.label}
-                    className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition-all cursor-pointer ${
+                    className={`flex items-center justify-center w-8 h-8 rounded-lg text-lg transition-all cursor-pointer spring-bounce ${
                       isSelected
-                        ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-300 scale-105"
-                        : "hover:bg-slate-100 hover:scale-110"
+                        ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-300 scale-110"
+                        : "hover:bg-slate-100 hover:scale-125 active:scale-90"
                     }`}
                   >
                     <span>{opt.stamp}</span>

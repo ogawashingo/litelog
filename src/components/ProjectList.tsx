@@ -378,13 +378,13 @@ export default function ProjectList({
                         title={isPinned ? "ピン留めを解除" : "上部にピン留め"}
                         aria-label={isPinned ? `${proj.name}のピン留めを解除` : `${proj.name}を上部にピン留め`}
                         aria-pressed={isPinned}
-                        className={`p-1 rounded-md transition-colors cursor-pointer disabled:opacity-50 ${
+                        className={`p-1 rounded-md transition-all cursor-pointer disabled:opacity-50 spring-bounce hover:scale-115 active:scale-90 ${
                           isPinned
                             ? "text-amber-500 hover:text-amber-600 hover:bg-amber-100/70"
                             : "text-slate-300 hover:text-amber-500 hover:bg-amber-50"
                         } ${isPinningThis ? "animate-pulse" : ""}`}
                       >
-                        <Pin className={`w-3.5 h-3.5 ${isPinned ? "fill-amber-400" : ""}`} />
+                        <Pin className={`w-3.5 h-3.5 transition-transform ${isPinned ? "fill-amber-400 rotate-[-15deg] scale-110" : ""}`} />
                       </button>
                     )}
                     <span className="text-[11px] font-bold text-indigo-600">

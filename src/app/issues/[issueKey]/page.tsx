@@ -532,21 +532,21 @@ export default function IssueDetailPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* URLコピーボタン */}
+            {/* URLコピーボタン（弾性スプリング＆サクセスポップ） */}
             <button
               type="button"
               onClick={handleCopyLink}
               disabled={notFound || isLoading}
-              className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all cursor-pointer spring-bounce ${
                 isCopiedUrl
-                  ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+                  ? "bg-emerald-50 border-emerald-400 text-emerald-700 shadow-2xs font-bold scale-[1.02]"
+                  : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
               }`}
               title="この課題のURLをコピーして共有"
             >
               {isCopiedUrl ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3] animate-check-pop" />
                   <span>URLをコピーしました！</span>
                 </>
               ) : (

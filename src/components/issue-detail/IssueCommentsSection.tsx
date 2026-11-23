@@ -1,8 +1,8 @@
 // 課題詳細（モーダル・個別ページ）共通のコメント一覧・インライン編集・投稿フォームセクション
 "use client";
 
-import React from "react";
-import { MessageSquare, Edit2, Trash2, Send, ArrowLeft } from "lucide-react";
+import React, { useState } from "react";
+import { MessageSquare, Edit2, Trash2, Send, ArrowLeft, Check } from "lucide-react";
 import {
   Attachment,
   Comment,
@@ -70,6 +70,19 @@ export default function IssueCommentsSection({
   onCloseModal,
 }: IssueCommentsSectionProps) {
   const isModal = variant === "modal";
+  const [isPostSuccess, setIsPostSuccess] = useState(false);
+
+  const handleSubmitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || isPostingComment || isPostSuccess) return;
+    try {
+      await onPostComment(e);
+      setIsPostSuccess(true);
+      setTimeout(() => setIsPostSuccess(false), 1200);
+    } catch {
+      // エラー処理は親で行われる
+    }
+  };
 
   return (
     <div
@@ -255,7 +268,7 @@ export default function IssueCommentsSection({
 
       {/* コメント投稿フォーム（アーカイブ時は読み取り専用案内を表示） */}
       {!isProjectArchived ? (
-        <form onSubmit={onPostComment} className="space-y-2.5 pt-2">
+        <form onSubmit={handleSubmitComment} className="space-y-2.5 pt-2">
           <MentionTextarea
             rows={5}
             placeholder={
@@ -278,15 +291,29 @@ export default function IssueCommentsSection({
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={!newComment.trim() || isPostingComment}
-              className={
-                isModal
-                  ? "flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs"
-                  : "px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
-              }
+              disabled={!newComment.trim() || isPostingComment || isPostSuccess}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs spring-bounce group min-w-[110px] justify-center ${
+                isPostSuccess
+                  ? "bg-emerald-600 text-white shadow-emerald-500/30"
+                  : "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white hover:-translate-y-0.5"
+              }`}
             >
-              <Send className="w-3.5 h-3.5" />
-              <span>{isPostingComment ? "送信中..." : "コメントを投稿"}</span>
+              {isPostSuccess ? (
+                <>
+                  <Check className="w-3.5 h-3.5 stroke-[3] animate-check-pop" />
+                  <span>投稿完了！</span>
+                </>
+              ) : isPostingComment ? (
+                <>
+                  <Send className="w-3.5 h-3.5 animate-fly-away" />
+                  <span>送信中...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  <span>コメントを投稿</span>
+                </>
+              )}
             </button>
           </div>
         </form>

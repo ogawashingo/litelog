@@ -166,18 +166,18 @@ export default function NotificationDropdown({ onSelectIssue }: NotificationDrop
 
   return (
     <div ref={dropdownRef} className="relative shrink-0">
-      {/* ベルアイコンボタン */}
+      {/* ベルアイコンボタン（チリンチリン揺れるスイング＆弾性スプリング） */}
       <button
         type="button"
         onClick={handleToggle}
-        className={`relative p-2 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
+        className={`relative p-2 rounded-lg transition-all cursor-pointer flex items-center justify-center group spring-bounce ${
           isOpen ? "bg-white/20 text-white" : "text-white/80 hover:text-white hover:bg-white/10"
         }`}
         title="通知"
         aria-label="通知一覧を開く"
         aria-expanded={isOpen}
       >
-        <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.2]" />
+        <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.2] group-hover:animate-bell-swing" />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-extrabold flex items-center justify-center border-2 border-slate-900 shadow-xs animate-in zoom-in-75">
             {unreadCount > 99 ? "99+" : unreadCount}

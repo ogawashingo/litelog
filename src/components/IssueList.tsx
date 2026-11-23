@@ -618,7 +618,7 @@ export default function IssueList({
             <span>親子階層表示</span>
           </button>
 
-          {/* 完了済み課題の表示切り替えトグル */}
+          {/* 完了済み課題の表示切り替えトグル（弾性スプリング＆チェックポップ） */}
           <button
             type="button"
             onClick={() => {
@@ -629,16 +629,16 @@ export default function IssueList({
                 setShowClosed((prev) => !prev);
               }
             }}
-            className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer spring-bounce ${
               isShowingClosed
-                ? "bg-indigo-50/70 text-indigo-800 border-indigo-200 font-semibold"
-                : "bg-white text-slate-500 border-slate-300 hover:bg-slate-50"
+                ? "bg-indigo-50 text-indigo-800 border-indigo-300 font-bold shadow-2xs scale-[1.02]"
+                : "bg-white text-slate-500 border-slate-300 hover:bg-slate-50 hover:border-slate-400"
             }`}
             title="完了した課題の表示/非表示を切り替えます"
           >
             <CheckCircle2
-              className={`w-3.5 h-3.5 ${
-                isShowingClosed ? "text-indigo-600" : "text-slate-400"
+              className={`w-3.5 h-3.5 transition-transform ${
+                isShowingClosed ? "text-indigo-600 animate-check-pop" : "text-slate-400"
               }`}
             />
             <span>完了を含む</span>
