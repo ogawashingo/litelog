@@ -83,7 +83,7 @@ export interface WeekGroup {
 
 // フィルターオプション型
 export interface IssueFilterParams {
-  showClosed: boolean;
+  showClosed?: boolean;
   filterAssignee: string;
   currentUser: User | null;
   filterType: IssueType | "all";
@@ -105,7 +105,7 @@ export function filterGanttIssues(issues: Issue[], params: IssueFilterParams): I
   } = params;
 
   return issues.filter((issue) => {
-    if (!showClosed && issue.status === "closed") return false;
+    if (showClosed === false && issue.status === "closed") return false;
     if (filterAssignee === "me") {
       if (!currentUser || issue.assignee_id !== currentUser.id) return false;
     } else if (filterAssignee === "unassigned") {

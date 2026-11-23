@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Calendar as CalendarIcon,
   Search,
-  CheckCircle2,
   Maximize2,
   Minimize2,
   GitBranch,
@@ -35,8 +34,8 @@ interface GanttToolbarProps {
   onChangeFilterStatus: (v: IssueStatus | "all") => void;
   filterPriority: IssuePriority | "all";
   onChangeFilterPriority: (v: IssuePriority | "all") => void;
-  showClosed: boolean;
-  onToggleShowClosed: () => void;
+  showClosed?: boolean;
+  onToggleShowClosed?: () => void;
   onShiftPeriod: (monthsDelta: number) => void;
   onGoToToday: () => void;
   startDate: Date;
@@ -69,8 +68,6 @@ export default function GanttToolbar({
   onChangeFilterStatus,
   filterPriority,
   onChangeFilterPriority,
-  showClosed,
-  onToggleShowClosed,
   onShiftPeriod,
   onGoToToday,
   startDate,
@@ -88,35 +85,33 @@ export default function GanttToolbar({
 }: GanttToolbarProps) {
   return (
     <div className="sticky top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        {/* 左側: プロジェクト情報（タイトル・キー） */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-3.5 h-7 rounded-sm"
-              style={{ backgroundColor: currentProject?.color || "#4f46e5" }}
-            />
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <span>{currentProject ? currentProject.name : "すべてのプロジェクト"}</span>
-              {currentProject && (
-                <span className="text-sm font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-                  {currentProject.key}
-                </span>
-              )}
-              {isArchived && (
-                <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700 border border-slate-300">
-                  <Archive className="w-3 h-3" />
-                  <span>アーカイブ</span>
-                </span>
-              )}
-            </h2>
-          </div>
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        {/* 左側: プロジェクト情報（カラー・タイトル・キー・アーカイブバッジ） */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="w-3.5 h-6 rounded-sm shrink-0"
+            style={{ backgroundColor: currentProject?.color || "#4f46e5" }}
+          />
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 min-w-0">
+            <span className="truncate">{currentProject ? currentProject.name : "すべてのプロジェクト"}</span>
+            {currentProject && (
+              <span className="text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 shrink-0">
+                {currentProject.key}
+              </span>
+            )}
+            {isArchived && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700 border border-slate-300 shrink-0">
+                <Archive className="w-3 h-3" />
+                <span>アーカイブ</span>
+              </span>
+            )}
+          </h2>
         </div>
 
-        {/* 右側: 検索・フィルター・課題追加 */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* 右側: 検索・フィルターツールバー（横1行に整然と配置） */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* 検索入力 */}
-          <div className="relative min-w-[150px] max-w-xs">
+          <div className="relative min-w-[130px] flex-1 sm:flex-none sm:w-36 lg:w-40 xl:w-44">
             <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -188,22 +183,6 @@ export default function GanttToolbar({
             <option value="medium">中</option>
             <option value="low">低</option>
           </select>
-
-          {/* 完了課題の表示トグル */}
-          <button
-            onClick={onToggleShowClosed}
-            className={`flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
-              showClosed
-                ? "bg-indigo-50/70 text-indigo-800 border-indigo-200"
-                : "bg-white text-slate-400 border-slate-200"
-            }`}
-            title="完了した課題の表示を切り替えます"
-          >
-            <CheckCircle2
-              className={`w-3.5 h-3.5 ${showClosed ? "text-indigo-600" : "text-slate-400"}`}
-            />
-            <span>完了を含む</span>
-          </button>
         </div>
       </div>
 

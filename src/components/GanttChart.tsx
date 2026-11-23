@@ -257,7 +257,6 @@ export default function GanttChart({
   const [filterType, setFilterType] = useState<IssueType | "all">("all");
   const [filterStatus, setFilterStatus] = useState<IssueStatus | "all">("all");
   const [filterPriority, setFilterPriority] = useState<IssuePriority | "all">("all");
-  const [showClosed, setShowClosed] = useState(true);
 
   // モーダル用State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -324,17 +323,15 @@ export default function GanttChart({
     updateUrlParams({ startDate: nextStart });
   };
 
-  // 担当者フィルター選択肢用の件数集計（完了表示トグルを反映したベース課題群から算出）
+  // 担当者フィルター選択肢用の件数集計
   const assigneeCounts = useMemo(() => {
-    const baseIssues = showClosed ? issues : issues.filter((i) => i.status !== "closed");
-    return calculateAssigneeCounts(baseIssues, currentUser?.id);
-  }, [issues, showClosed, currentUser?.id]);
+    return calculateAssigneeCounts(issues, currentUser?.id);
+  }, [issues, currentUser?.id]);
 
   // フィルター後の課題一覧
   const filteredIssues = useMemo(
     () =>
       filterGanttIssues(issues, {
-        showClosed,
         filterAssignee,
         currentUser,
         filterType,
@@ -344,7 +341,6 @@ export default function GanttChart({
       }),
     [
       issues,
-      showClosed,
       filterAssignee,
       currentUser,
       filterType,
@@ -628,8 +624,6 @@ export default function GanttChart({
           onChangeFilterStatus={setFilterStatus}
           filterPriority={filterPriority}
           onChangeFilterPriority={setFilterPriority}
-          showClosed={showClosed}
-          onToggleShowClosed={() => setShowClosed(!showClosed)}
           onShiftPeriod={handleShiftPeriod}
           onGoToToday={handleGoToToday}
           startDate={startDate}
