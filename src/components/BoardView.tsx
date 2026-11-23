@@ -25,7 +25,6 @@ import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
 import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 import { calculateAssigneeCounts } from "@/lib/assigneeUtils";
-import { fireConfetti } from "@/lib/confetti";
 
 interface BoardViewProps {
   projects: Project[];
@@ -196,10 +195,6 @@ export default function BoardView({
 
     setDraggingIssueId(null);
     await onUpdateStatus(issueId, newStatus);
-    // 完了レーンへ移動成功時に紙吹雪エフェクトを打ち上げる
-    if (newStatus === "closed") {
-      fireConfetti();
-    }
   };
 
   // レビュー・確認依頼モーダル経由での処理済みステータス更新
