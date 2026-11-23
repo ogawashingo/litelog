@@ -504,148 +504,156 @@ function SearchPageContent() {
                 })}
               </div>
             ) : (
-              // 表形式ステータスマトリクス（横: ステータス × 縦: プロジェクト）
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
-                <table className="w-full border-collapse text-left text-xs min-w-[960px]">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                      <th className="p-3.5 w-80 min-w-[300px]">プロジェクト</th>
-                      <th className="p-3.5 w-40 text-center">対応状況</th>
-                      <th className="p-3.5 bg-amber-50/50 text-amber-900 border-l border-slate-200">
-                        未対応
-                      </th>
-                      <th className="p-3.5 bg-blue-50/50 text-blue-900 border-l border-slate-200">
-                        進行中
-                      </th>
-                      <th className="p-3.5 bg-emerald-50/50 text-emerald-900 border-l border-slate-200">
-                        完了
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {projectMatrixData.map(({ project, issues: projIssues, total, closed, inProgress, open, statusType }) => {
-                      const openList = projIssues.filter((i) => i.status === "open");
-                      const inProgressList = projIssues.filter((i) => i.status === "in_progress" || i.status === "resolved");
-                      const closedList = projIssues.filter((i) => i.status === "closed");
+              // 表形式ステータスマトリクス（横: ステータス × 縦: プロジェクト、画面幅100%に追従するtable-fixedレスポンシブ配置）
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full table-fixed border-collapse text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                        <th className="p-3 w-[22%]">プロジェクト</th>
+                        <th className="p-3 w-[15%] text-center">対応状況</th>
+                        <th className="p-3 w-[21%] bg-amber-50/50 text-amber-900 border-l border-slate-200">
+                          未対応
+                        </th>
+                        <th className="p-3 w-[21%] bg-blue-50/50 text-blue-900 border-l border-slate-200">
+                          進行中
+                        </th>
+                        <th className="p-3 w-[21%] bg-emerald-50/50 text-emerald-900 border-l border-slate-200">
+                          完了
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {projectMatrixData.map(({ project, issues: projIssues, total, closed, inProgress, open, statusType }) => {
+                        const openList = projIssues.filter((i) => i.status === "open");
+                        const inProgressList = projIssues.filter((i) => i.status === "in_progress" || i.status === "resolved");
+                        const closedList = projIssues.filter((i) => i.status === "closed");
 
-                      return (
-                        <tr key={project.id} className="hover:bg-slate-50/50 transition-colors">
-                          {/* プロジェクト名 */}
-                          <td className="p-3.5 align-top">
-                            <div className="flex items-start gap-2.5">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full shrink-0 mt-1 shadow-2xs"
-                                style={{ backgroundColor: project.color || "#4f46e5" }}
-                              />
-                              <div className="min-w-0">
-                                <span className="font-mono text-[11px] text-slate-400 block font-bold leading-tight">
-                                  {project.key}
-                                </span>
-                                <span className="font-bold text-slate-800 text-xs sm:text-sm break-words leading-snug">
-                                  {project.name}
-                                </span>
+                        return (
+                          <tr key={project.id} className="hover:bg-slate-50/50 transition-colors">
+                            {/* プロジェクト名 */}
+                            <td className="p-3 align-top">
+                              <div className="flex items-start gap-2">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 mt-1 shadow-2xs"
+                                  style={{ backgroundColor: project.color || "#4f46e5" }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <span className="font-mono text-[10px] text-slate-400 block font-bold leading-tight truncate">
+                                    {project.key}
+                                  </span>
+                                  <span
+                                    className="font-bold text-slate-800 text-xs break-words leading-snug line-clamp-2 block"
+                                    title={project.name}
+                                  >
+                                    {project.name}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* 対応状況 */}
-                          <td className="p-3 align-top text-center whitespace-nowrap">
-                            {statusType === "completed" && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-full">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                対応完了 ({closed}/{total})
-                              </span>
-                            )}
-                            {statusType === "in_progress" && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-100/70 px-2.5 py-1 rounded-full">
-                                <Clock className="w-3 h-3 text-blue-600" />
-                                進行中 ({closed}/{total})
-                              </span>
-                            )}
-                            {statusType === "open" && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100/70 px-2.5 py-1 rounded-full">
-                                <AlertCircle className="w-3 h-3 text-amber-600" />
-                                未着手 ({total})
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 未対応セル */}
-                          <td className="p-3 align-top border-l border-slate-100 bg-amber-50/20">
-                            <div className="space-y-1.5">
-                              {openList.map((issue) => (
-                                <button
-                                  key={issue.id}
-                                  type="button"
-                                  onClick={() => handleOpenIssueDetail(issue)}
-                                  className="w-full p-2 bg-white rounded-lg border border-slate-200 hover:border-amber-400 hover:shadow-xs text-left transition-all cursor-pointer block"
-                                >
-                                  <div className="font-mono font-bold text-[10px] text-amber-700">
-                                    {issue.issue_key}
-                                  </div>
-                                  <div className="text-xs font-medium text-slate-800 truncate">
-                                    {issue.title}
-                                  </div>
-                                </button>
-                              ))}
-                              {openList.length === 0 && (
-                                <span className="text-[11px] text-slate-400 block text-center py-2">-</span>
+                            {/* 対応状況 */}
+                            <td className="p-3 align-top text-center">
+                              {statusType === "completed" && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                  <span>完了 ({closed}/{total})</span>
+                                </span>
                               )}
-                            </div>
-                          </td>
-
-                          {/* 進行中セル */}
-                          <td className="p-3 align-top border-l border-slate-100 bg-blue-50/20">
-                            <div className="space-y-1.5">
-                              {inProgressList.map((issue) => (
-                                <button
-                                  key={issue.id}
-                                  type="button"
-                                  onClick={() => handleOpenIssueDetail(issue)}
-                                  className="w-full p-2 bg-white rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-xs text-left transition-all cursor-pointer block"
-                                >
-                                  <div className="font-mono font-bold text-[10px] text-blue-700">
-                                    {issue.issue_key}
-                                  </div>
-                                  <div className="text-xs font-medium text-slate-800 truncate">
-                                    {issue.title}
-                                  </div>
-                                </button>
-                              ))}
-                              {inProgressList.length === 0 && (
-                                <span className="text-[11px] text-slate-400 block text-center py-2">-</span>
+                              {statusType === "in_progress" && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  <Clock className="w-3 h-3 text-blue-600 shrink-0" />
+                                  <span>進行中 ({closed}/{total})</span>
+                                </span>
                               )}
-                            </div>
-                          </td>
-
-                          {/* 完了セル */}
-                          <td className="p-3 align-top border-l border-slate-100 bg-emerald-50/20">
-                            <div className="space-y-1.5">
-                              {closedList.map((issue) => (
-                                <button
-                                  key={issue.id}
-                                  type="button"
-                                  onClick={() => handleOpenIssueDetail(issue)}
-                                  className="w-full p-2 bg-white rounded-lg border border-slate-200 hover:border-emerald-400 hover:shadow-xs text-left transition-all cursor-pointer block opacity-85 hover:opacity-100"
-                                >
-                                  <div className="font-mono font-bold text-[10px] text-emerald-700">
-                                    {issue.issue_key}
-                                  </div>
-                                  <div className="text-xs font-medium text-slate-600 line-through truncate">
-                                    {issue.title}
-                                  </div>
-                                </button>
-                              ))}
-                              {closedList.length === 0 && (
-                                <span className="text-[11px] text-slate-400 block text-center py-2">-</span>
+                              {statusType === "open" && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                                  <span>未着手 ({total})</span>
+                                </span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+
+                            {/* 未対応セル */}
+                            <td className="p-3 align-top border-l border-slate-100 bg-amber-50/20">
+                              <div className="space-y-1.5">
+                                {openList.map((issue) => (
+                                  <button
+                                    key={issue.id}
+                                    type="button"
+                                    onClick={() => handleOpenIssueDetail(issue)}
+                                    className="w-full p-2 bg-white rounded-lg border border-slate-200 hover:border-amber-400 hover:shadow-xs text-left transition-all cursor-pointer block"
+                                    title={`${issue.issue_key}: ${issue.title}`}
+                                  >
+                                    <div className="font-mono font-bold text-[10px] text-amber-700 truncate">
+                                      {issue.issue_key}
+                                    </div>
+                                    <div className="text-xs font-medium text-slate-800 truncate">
+                                      {issue.title}
+                                    </div>
+                                  </button>
+                                ))}
+                                {openList.length === 0 && (
+                                  <span className="text-[11px] text-slate-400 block text-center py-2">-</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* 進行中セル */}
+                            <td className="p-3 align-top border-l border-slate-100 bg-blue-50/20">
+                              <div className="space-y-1.5">
+                                {inProgressList.map((issue) => (
+                                  <button
+                                    key={issue.id}
+                                    type="button"
+                                    onClick={() => handleOpenIssueDetail(issue)}
+                                    className="w-full p-2 bg-white rounded-lg border border-slate-200 hover:border-blue-400 hover:shadow-xs text-left transition-all cursor-pointer block"
+                                    title={`${issue.issue_key}: ${issue.title}`}
+                                  >
+                                    <div className="font-mono font-bold text-[10px] text-blue-700 truncate">
+                                      {issue.issue_key}
+                                    </div>
+                                    <div className="text-xs font-medium text-slate-800 truncate">
+                                      {issue.title}
+                                    </div>
+                                  </button>
+                                ))}
+                                {inProgressList.length === 0 && (
+                                  <span className="text-[11px] text-slate-400 block text-center py-2">-</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* 完了セル */}
+                            <td className="p-3 align-top border-l border-slate-100 bg-emerald-50/20">
+                              <div className="space-y-1.5">
+                                {closedList.map((issue) => (
+                                  <button
+                                    key={issue.id}
+                                    type="button"
+                                    onClick={() => handleOpenIssueDetail(issue)}
+                                    className="w-full p-2 bg-white rounded-lg border border-slate-200 hover:border-emerald-400 hover:shadow-xs text-left transition-all cursor-pointer block opacity-85 hover:opacity-100"
+                                    title={`${issue.issue_key}: ${issue.title}`}
+                                  >
+                                    <div className="font-mono font-bold text-[10px] text-emerald-700 truncate">
+                                      {issue.issue_key}
+                                    </div>
+                                    <div className="text-xs font-medium text-slate-600 line-through truncate">
+                                      {issue.title}
+                                    </div>
+                                  </button>
+                                ))}
+                                {closedList.length === 0 && (
+                                  <span className="text-[11px] text-slate-400 block text-center py-2">-</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
