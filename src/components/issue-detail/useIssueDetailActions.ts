@@ -12,6 +12,7 @@ import {
 } from "@/types";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { notifyNotificationsUpdated } from "@/lib/clientEvents";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 interface UseIssueDetailActionsOptions {
   /** 現在操作対象の課題（未ロード時は null） */
@@ -50,6 +51,7 @@ export function useIssueDetailActions({
 }: UseIssueDetailActionsOptions) {
   // URLコピー表示State
   const [isCopiedUrl, setIsCopiedUrl] = useState(false);
+  const [isPostingSuccess, setIsPostingSuccess] = useState(false);
 
   // コメント投稿・編集State
   const [newComment, setNewComment] = useState("");
@@ -66,14 +68,16 @@ export function useIssueDetailActions({
   const [isSubmittingChild, setIsSubmittingChild] = useState(false);
   const [childError, setChildError] = useState("");
 
-  // 課題URLをクリップボードにコピー
+  // 課題URLをクリップボードにコピー（HTTPSおよびiOS SafariのHTTP環境両対応）
   const handleCopyLink = async () => {
     if (!activeIssue) return;
     try {
       const fullUrl = getCopyUrl(activeIssue);
-      await navigator.clipboard.writeText(fullUrl);
-      setIsCopiedUrl(true);
-      setTimeout(() => setIsCopiedUrl(false), 2000);
+      const success = await copyTextToClipboard(fullUrl);
+      if (success) {
+        setIsCopiedUrl(true);
+        setTimeout(() => setIsCopiedUrl(false), 2000);
+      }
     } catch (err) {
       console.error("URLコピー失敗:", err);
     }
@@ -104,6 +108,9 @@ export function useIssueDetailActions({
           onIssueSyncedFromComment(data.issue);
         }
         setNewComment("");
+        // 送信成功フィードバックを明示的に発火
+        setIsPostingSuccess(true);
+        setTimeout(() => setIsPostingSuccess(false), 1500);
         notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated?.();
@@ -257,6 +264,7 @@ export function useIssueDetailActions({
 
   return {
     isCopiedUrl,
+    isPostingSuccess,
     handleCopyLink,
     newComment,
     setNewComment,

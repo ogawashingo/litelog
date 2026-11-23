@@ -255,6 +255,7 @@ export default function IssueDetailModal({
   // コメント・子課題追加・課題削除・URLコピー共通アクション
   const {
     isCopiedUrl,
+    isPostingSuccess,
     handleCopyLink,
     newComment,
     setNewComment,
@@ -936,17 +937,17 @@ export default function IssueDetailModal({
             <button
               type="button"
               onClick={handleCopyLink}
-              className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1 rounded-lg border transition-all cursor-pointer spring-bounce ${
+              className={`flex items-center gap-1.5 text-xs font-semibold px-2 sm:px-3 py-1 rounded-lg border transition-all cursor-pointer spring-bounce ${
                 isCopiedUrl
-                  ? "bg-emerald-50 border-emerald-400 text-emerald-700 shadow-2xs font-bold scale-[1.02]"
+                  ? "bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold scale-[1.02]"
                   : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
               }`}
               title="課題の一意URLをコピー"
             >
               {isCopiedUrl ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 stroke-[3] animate-check-pop" />
-                  <span className="hidden sm:inline">コピー完了！</span>
+                  <Check className="w-3.5 h-3.5 text-white shrink-0 stroke-[3] animate-check-pop" />
+                  <span className="text-[11px] sm:text-xs">コピー完了！</span>
                 </>
               ) : (
                 <>
@@ -1194,6 +1195,7 @@ export default function IssueDetailModal({
             newComment={newComment}
             onChangeNewComment={setNewComment}
             isPostingComment={isPostingComment}
+            isPostingSuccess={isPostingSuccess}
             onPostComment={handlePostComment}
             onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
             onIssueClick={handleSwitchByIssueKey}

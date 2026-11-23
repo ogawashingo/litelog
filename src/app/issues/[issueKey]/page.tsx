@@ -398,6 +398,7 @@ export default function IssueDetailPage() {
   // コメント・子課題追加・課題削除・URLコピー共通アクション
   const {
     isCopiedUrl,
+    isPostingSuccess,
     handleCopyLink,
     newComment,
     setNewComment,
@@ -539,14 +540,14 @@ export default function IssueDetailPage() {
               disabled={notFound || isLoading}
               className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all cursor-pointer spring-bounce ${
                 isCopiedUrl
-                  ? "bg-emerald-50 border-emerald-400 text-emerald-700 shadow-2xs font-bold scale-[1.02]"
+                  ? "bg-emerald-600 border-emerald-600 text-white shadow-xs font-bold scale-[1.02]"
                   : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400"
               }`}
               title="この課題のURLをコピーして共有"
             >
               {isCopiedUrl ? (
                 <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3] animate-check-pop" />
+                  <Check className="w-3.5 h-3.5 text-white stroke-[3] animate-check-pop" />
                   <span>URLをコピーしました！</span>
                 </>
               ) : (
@@ -867,6 +868,7 @@ export default function IssueDetailPage() {
                 newComment={newComment}
                 onChangeNewComment={setNewComment}
                 isPostingComment={isPostingComment}
+                isPostingSuccess={isPostingSuccess}
                 onPostComment={handlePostComment}
               />
             </div>

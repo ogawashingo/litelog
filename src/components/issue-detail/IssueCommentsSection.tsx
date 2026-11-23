@@ -37,6 +37,7 @@ interface IssueCommentsSectionProps {
   newComment: string;
   onChangeNewComment: (val: string) => void;
   isPostingComment: boolean;
+  isPostingSuccess?: boolean;
   onPostComment: (e: React.FormEvent) => void;
   onAttachmentUploaded?: (att: Attachment) => void;
   onIssueClick?: (issueKey: string) => void;
@@ -64,23 +65,25 @@ export default function IssueCommentsSection({
   newComment,
   onChangeNewComment,
   isPostingComment,
+  isPostingSuccess = false,
   onPostComment,
   onAttachmentUploaded,
   onIssueClick,
   onCloseModal,
 }: IssueCommentsSectionProps) {
   const isModal = variant === "modal";
-  const [isPostSuccess, setIsPostSuccess] = useState(false);
+  const [isLocalPostSuccess, setIsLocalPostSuccess] = useState(false);
+  const showSuccess = isPostingSuccess || isLocalPostSuccess;
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || isPostingComment || isPostSuccess) return;
+    if (!newComment.trim() || isPostingComment || showSuccess) return;
     try {
+      setIsLocalPostSuccess(true);
       await onPostComment(e);
-      setIsPostSuccess(true);
-      setTimeout(() => setIsPostSuccess(false), 1200);
+      setTimeout(() => setIsLocalPostSuccess(false), 1500);
     } catch {
-      // エラー処理は親で行われる
+      setIsLocalPostSuccess(false);
     }
   };
 
@@ -291,17 +294,19 @@ export default function IssueCommentsSection({
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={!newComment.trim() || isPostingComment || isPostSuccess}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-xs spring-bounce group min-w-[110px] justify-center ${
-                isPostSuccess
-                  ? "bg-emerald-600 text-white shadow-emerald-500/30"
+              disabled={(!newComment.trim() && !showSuccess) || isPostingComment}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs spring-bounce group min-w-[110px] justify-center ${
+                showSuccess
+                  ? "bg-emerald-600 text-white shadow-emerald-500/30 ring-2 ring-emerald-400/50 scale-[1.02]"
+                  : !newComment.trim()
+                  ? "opacity-50 cursor-not-allowed bg-slate-300 text-slate-500"
                   : "bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white hover:-translate-y-0.5"
               }`}
             >
-              {isPostSuccess ? (
+              {showSuccess ? (
                 <>
-                  <Check className="w-3.5 h-3.5 stroke-[3] animate-check-pop" />
-                  <span>投稿完了！</span>
+                  <Check className="w-4 h-4 stroke-[3] animate-check-pop text-white" />
+                  <span className="text-white font-bold">投稿完了！</span>
                 </>
               ) : isPostingComment ? (
                 <>
