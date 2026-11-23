@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Edit2, Check, Trash2, Link as LinkIcon, ArrowLeft, Archive } from "lucide-react";
-import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Attachment, isArchivedProject, canManageIssues, canDeleteIssue, User } from "@/types";
+import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, RESOLUTION_LABELS, Attachment, isArchivedProject, canManageIssues, canDeleteIssue, User } from "@/types";
 import { TypeBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { createApiError } from "@/lib/clientError";
@@ -13,7 +13,7 @@ import {
   ParentDueDateWarningInfo,
   isExceedingParentDueDate,
 } from "./ParentDueDateConfirmModal";
-import { notifyNotificationsUpdated } from "@/lib/clientEvents";
+import { notifyNotificationsUpdated, showToast } from "@/lib/clientEvents";
 import { getSelectedEditParentInfo } from "./issue-detail/issueDetailUtils";
 import { useIssueDetailActions } from "./issue-detail/useIssueDetailActions";
 import IssueSummaryToolbar from "./issue-detail/IssueSummaryToolbar";
@@ -526,6 +526,8 @@ export default function IssueDetailModal({
   // 完了確定処理（完了理由選択モーダルからの確定）
   const executeCloseWithResolution = async (resolution: IssueResolution | null) => {
     if (!issue) return;
+    const targetIssueId = issue.id;
+    const targetIssueKey = activeIssue.issue_key;
     const previousStatus = activeIssue.status;
     const previousResolution = activeIssue.resolution ?? null;
 
@@ -542,7 +544,7 @@ export default function IssueDetailModal({
       setEditStatus("closed");
       setEditResolution(resolution || null);
 
-      const res = await fetch(`/api/issues/${issue.id}`, {
+      const res = await fetch(`/api/issues/${targetIssueId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -555,9 +557,56 @@ export default function IssueDetailModal({
         notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated();
+
+        // 完了トースト通知を表示（元に戻すアクション付き）
+        const resolutionLabel = resolution ? RESOLUTION_LABELS[resolution] || resolution : "理由なし";
+        showToast({
+          message: `${targetIssueKey} を完了にしました（${resolutionLabel}）`,
+          type: "success",
+          action: {
+            label: "元に戻す",
+            onClick: async () => {
+              try {
+                const revertRes = await fetch(`/api/issues/${targetIssueId}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    status: previousStatus,
+                    resolution: previousResolution,
+                    actorId: currentUser?.id || null,
+                  }),
+                });
+                if (revertRes.ok) {
+                  notifyNotificationsUpdated();
+                  await refreshUsers();
+                  onUpdated();
+                  showToast({
+                    message: `${targetIssueKey} の完了を取り消しました`,
+                    type: "info",
+                  });
+                } else {
+                  const errData = await revertRes.json().catch(() => ({}));
+                  showToast({
+                    message: errData.error || "完了の取り消しに失敗しました",
+                    type: "error",
+                  });
+                }
+              } catch (revertErr) {
+                console.error("完了取り消しエラー:", revertErr);
+                showToast({
+                  message: "完了の取り消しに失敗しました",
+                  type: "error",
+                });
+              }
+            },
+          },
+        });
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "ステータス変更に失敗しました");
+        showToast({
+          message: data.error || "ステータス変更に失敗しました",
+          type: "error",
+        });
         setCurrentIssue((prev) =>
           prev
             ? { ...prev, status: previousStatus, resolution: previousResolution }
@@ -565,9 +614,14 @@ export default function IssueDetailModal({
         );
         setEditStatus(previousStatus);
         setEditResolution(previousResolution);
+        onUpdated();
       }
     } catch (err) {
       console.error("完了処理エラー:", err);
+      showToast({
+        message: "完了処理中にエラーが発生しました",
+        type: "error",
+      });
       setCurrentIssue((prev) =>
         prev
           ? { ...prev, status: previousStatus, resolution: previousResolution }
@@ -575,6 +629,7 @@ export default function IssueDetailModal({
       );
       setEditStatus(previousStatus);
       setEditResolution(previousResolution);
+      onUpdated();
     }
   };
 
@@ -1238,6 +1293,7 @@ export default function IssueDetailModal({
           onClose={() => setIsCompleteModalOpen(false)}
           onConfirm={async (resolution) => {
             setIsCompleteModalOpen(false);
+            onClose(); // 課題完了理由を選択したら、課題詳細ウィンドウも自動で閉じる
             await executeCloseWithResolution(resolution);
           }}
         />

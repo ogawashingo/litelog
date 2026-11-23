@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { UserProvider } from "@/components/UserContext";
+import Toast from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "litelog - タスク・プロジェクト管理",
@@ -33,7 +34,10 @@ export default function RootLayout({
       <body
         className="antialiased font-sans transition-colors duration-150"
       >
-        <UserProvider>{children}</UserProvider>
+        <UserProvider>
+          {children}
+          <Toast />
+        </UserProvider>
       </body>
     </html>
   );

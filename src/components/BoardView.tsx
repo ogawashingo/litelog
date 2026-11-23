@@ -14,7 +14,7 @@ import {
   Paperclip,
   Archive,
 } from "lucide-react";
-import { Project, Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, isArchivedProject, canManageIssues } from "@/types";
+import { Project, Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, RESOLUTION_LABELS, isArchivedProject, canManageIssues } from "@/types";
 import { createApiError } from "@/lib/clientError";
 import { TypeBadge, PriorityBadge, ResolutionBadge } from "./IssueBadge";
 import CreateIssueModal from "./CreateIssueModal";
@@ -24,7 +24,7 @@ import CompleteIssueModal from "./CompleteIssueModal";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
-import { notifyNotificationsUpdated } from "@/lib/clientEvents";
+import { notifyNotificationsUpdated, showToast } from "@/lib/clientEvents";
 import { calculateAssigneeCounts } from "@/lib/assigneeUtils";
 
 interface BoardViewProps {
@@ -812,8 +812,26 @@ export default function BoardView({
           onClose={() => setCompleteTargetIssue(null)}
           onConfirm={async (resolution) => {
             const target = completeTargetIssue;
+            const previousStatus = target.status;
+            const previousResolution = target.resolution ?? null;
             setCompleteTargetIssue(null);
             await onUpdateStatus(target.id, "closed", resolution);
+
+            const resolutionLabel = resolution ? RESOLUTION_LABELS[resolution] || resolution : "理由なし";
+            showToast({
+              message: `${target.issue_key} を完了にしました（${resolutionLabel}）`,
+              type: "success",
+              action: {
+                label: "元に戻す",
+                onClick: async () => {
+                  await onUpdateStatus(target.id, previousStatus, previousResolution);
+                  showToast({
+                    message: `${target.issue_key} の完了を取り消しました`,
+                    type: "info",
+                  });
+                },
+              },
+            });
           }}
         />
       )}
