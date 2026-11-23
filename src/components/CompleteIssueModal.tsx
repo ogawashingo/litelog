@@ -29,9 +29,9 @@ const RESOLUTION_BUTTONS: {
     description: "通常の作業・改修・実装が完了した場合",
     icon: CheckCircle2,
     isRecommended: true,
-    badgeClass: "bg-emerald-600 text-white shadow-xs",
+    badgeClass: "bg-emerald-600 text-white border-emerald-600 shadow-2xs",
     cardClass:
-      "border-emerald-300/80 bg-gradient-to-r from-emerald-50/80 via-emerald-50/40 to-white hover:from-emerald-100/90 hover:to-emerald-50 hover:border-emerald-500 hover:shadow-md text-emerald-950 btn-shimmer",
+      "complete-issue-card-recommended border-emerald-300 bg-emerald-50/70 hover:bg-emerald-100/80 hover:border-emerald-500 hover:shadow-md text-emerald-950",
   },
   {
     resolution: "wont_fix",
@@ -40,7 +40,7 @@ const RESOLUTION_BUTTONS: {
     icon: Ban,
     badgeClass: "bg-stone-100 text-stone-700 border-stone-300",
     cardClass:
-      "border-slate-200 bg-white hover:bg-stone-50/80 hover:border-stone-400 hover:shadow-sm text-stone-900",
+      "complete-issue-card-normal border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 hover:shadow-xs text-slate-900",
   },
   {
     resolution: "invalid",
@@ -49,7 +49,7 @@ const RESOLUTION_BUTTONS: {
     icon: X,
     badgeClass: "bg-zinc-100 text-zinc-700 border-zinc-300",
     cardClass:
-      "border-slate-200 bg-white hover:bg-zinc-50/80 hover:border-zinc-400 hover:shadow-sm text-zinc-900",
+      "complete-issue-card-normal border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 hover:shadow-xs text-slate-900",
   },
   {
     resolution: "duplicated",
@@ -58,7 +58,7 @@ const RESOLUTION_BUTTONS: {
     icon: Copy,
     badgeClass: "bg-indigo-100 text-indigo-700 border-indigo-300",
     cardClass:
-      "border-slate-200 bg-white hover:bg-indigo-50/80 hover:border-indigo-400 hover:shadow-sm text-indigo-950",
+      "complete-issue-card-normal border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 hover:shadow-xs text-slate-900",
   },
   {
     resolution: "cannot_reproduce",
@@ -67,7 +67,7 @@ const RESOLUTION_BUTTONS: {
     icon: HelpCircle,
     badgeClass: "bg-amber-100 text-amber-800 border-amber-300",
     cardClass:
-      "border-slate-200 bg-white hover:bg-amber-50/80 hover:border-amber-400 hover:shadow-sm text-amber-950",
+      "complete-issue-card-normal border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-400 hover:shadow-xs text-slate-900",
   },
 ];
 
@@ -119,29 +119,29 @@ export default function CompleteIssueModal({
       }}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden transform transition-all animate-scaleUp"
+        className="complete-issue-modal bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden transform transition-all animate-scaleUp"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="complete-issue-modal-title"
       >
         {/* ヘッダー */}
-        <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-emerald-50/60 via-white to-slate-50/50 flex items-start justify-between gap-3">
+        <div className="complete-issue-header p-5 border-b border-slate-200 bg-slate-50 flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Check className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h3 id="complete-issue-modal-title" className="text-base font-bold text-slate-800 flex items-center gap-2">
+              <h3 id="complete-issue-modal-title" className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span>課題を完了にする</span>
-                <span className="text-xs font-normal text-emerald-700 bg-emerald-100/70 border border-emerald-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="complete-issue-header-badge text-xs font-semibold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   <span>理由を選択</span>
                 </span>
               </h3>
               <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5 truncate max-w-[340px]">
-                <span className="font-mono font-bold text-indigo-600">{issueKey}</span>
-                <span className="truncate">{issueTitle}</span>
+                <span className="font-mono font-bold text-indigo-600 shrink-0">{issueKey}</span>
+                <span className="complete-issue-header-title font-medium text-slate-700 truncate">{issueTitle}</span>
               </p>
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function CompleteIssueModal({
             type="button"
             onClick={onClose}
             disabled={selectedResolution !== null}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer disabled:opacity-40"
+            className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer disabled:opacity-40"
             title="閉じる"
           >
             <X className="w-5 h-5" />
@@ -200,8 +200,8 @@ export default function CompleteIssueModal({
                     </span>
 
                     <span
-                      className={`text-xs truncate transition-colors ${
-                        isSelected ? "text-emerald-50 font-medium" : "text-slate-600"
+                      className={`complete-issue-card-desc text-xs truncate transition-colors ${
+                        isSelected ? "text-emerald-50 font-medium" : "text-slate-600 font-normal"
                       }`}
                     >
                       {btn.description}
@@ -210,7 +210,7 @@ export default function CompleteIssueModal({
 
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     {btn.isRecommended && !isSelected && (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/90 border border-emerald-300/80 px-1.5 py-0.5 rounded-full shrink-0">
+                      <span className="complete-issue-recommended-pill text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-full shrink-0">
                         推奨
                       </span>
                     )}
@@ -229,12 +229,12 @@ export default function CompleteIssueModal({
         </div>
 
         {/* フッター */}
-        <div className="px-5 py-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs">
+        <div className="complete-issue-footer px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs">
           <button
             type="button"
             disabled={selectedResolution !== null}
             onClick={() => handleSelect(null)}
-            className={`text-slate-500 hover:text-slate-800 underline underline-offset-2 transition-colors cursor-pointer ${
+            className={`complete-issue-footer-link text-slate-500 hover:text-slate-800 underline underline-offset-2 transition-colors cursor-pointer ${
               selectedResolution === "none" ? "font-bold text-emerald-600" : ""
             }`}
           >
@@ -244,7 +244,7 @@ export default function CompleteIssueModal({
             type="button"
             disabled={selectedResolution !== null}
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-medium transition-colors cursor-pointer disabled:opacity-50"
+            className="complete-issue-footer-btn px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-medium transition-colors cursor-pointer disabled:opacity-50"
           >
             キャンセル
           </button>

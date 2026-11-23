@@ -1460,3 +1460,94 @@ body {
   color: #cbd5e1 !important;
 }
 
+/* ==========================================================================
+   課題完了理由選択ダイアログ（CompleteIssueModal）のダークモード視認性最適化
+   白飛びや文字の同化を防ぎ、暗色テーマでも各カードとテキストがクッキリ読めるよう調整
+   ========================================================================== */
+[data-theme="dark"] .complete-issue-modal {
+  background-color: #12121a !important;
+  border-color: #2b2b3d !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .complete-issue-header {
+  background-image: none !important;
+  background-color: #181824 !important;
+  border-bottom-color: #272738 !important;
+}
+
+[data-theme="dark"] .complete-issue-header h3 {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .complete-issue-header-badge {
+  background-color: rgba(6, 78, 59, 0.6) !important;
+  border-color: rgba(52, 211, 153, 0.45) !important;
+  color: #6ee7b7 !important;
+}
+
+[data-theme="dark"] .complete-issue-header-title {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .complete-issue-card-recommended {
+  background-image: none !important;
+  background-color: rgba(6, 78, 59, 0.35) !important;
+  border-color: rgba(52, 211, 153, 0.45) !important;
+}
+
+[data-theme="dark"] .complete-issue-card-recommended:hover {
+  background-color: rgba(6, 78, 59, 0.5) !important;
+  border-color: rgba(52, 211, 153, 0.7) !important;
+}
+
+[data-theme="dark"] .complete-issue-card-recommended .complete-issue-card-desc {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .complete-issue-card-recommended .complete-issue-recommended-pill {
+  background-color: rgba(6, 78, 59, 0.8) !important;
+  border-color: rgba(52, 211, 153, 0.6) !important;
+  color: #a7f3d0 !important;
+}
+
+[data-theme="dark"] .complete-issue-card-normal {
+  background-image: none !important;
+  background-color: #181824 !important;
+  border-color: #2e2e42 !important;
+}
+
+[data-theme="dark"] .complete-issue-card-normal:hover {
+  background-color: #202030 !important;
+  border-color: #42425c !important;
+}
+
+[data-theme="dark"] .complete-issue-card-normal .complete-issue-card-desc {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .complete-issue-footer {
+  background-color: #14141e !important;
+  border-top-color: #272738 !important;
+}
+
+[data-theme="dark"] .complete-issue-footer-link {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .complete-issue-footer-link:hover {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .complete-issue-footer-btn {
+  background-color: #20202e !important;
+  border-color: #37374e !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .complete-issue-footer-btn:hover {
+  background-color: #28283a !important;
+  color: #ffffff !important;
+}
+
+
