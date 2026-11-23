@@ -1149,8 +1149,16 @@ export default function IssueList({
                         <option value="open">未対応</option>
                         <option value="in_progress">処理中</option>
                         <option value="resolved">処理済み</option>
-                        <option value="closed" disabled={hasUnclosedChildren}>
-                          完了{hasUnclosedChildren ? " (未完了あり)" : ""}
+                        <option
+                          value="closed"
+                          disabled={hasUnclosedChildren}
+                          title={
+                            hasUnclosedChildren
+                              ? `未完了の子課題が ${unclosedChildrenCount} 件あるため完了にできません`
+                              : undefined
+                          }
+                        >
+                          完了
                         </option>
                       </select>
                     </td>
