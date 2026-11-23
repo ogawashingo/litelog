@@ -8,8 +8,6 @@ import {
   Calendar,
   AlertCircle,
   Clock,
-  Eye,
-  EyeOff,
   CornerDownRight,
   Paperclip,
   Archive,
@@ -89,8 +87,6 @@ export default function BoardView({
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterType, setFilterType] = useState<IssueType | "all">("all");
   const [filterPriority, setFilterPriority] = useState<IssuePriority | "all">("all");
-  const [filterRelation, setFilterRelation] = useState<"all" | "parent" | "child" | "standalone">("all");
-  const [showClosed, setShowClosed] = useState(true);
 
   // 全課題における親・子の関連マップを事前構築
   const { parentMap, childrenMap } = useMemo(() => {
@@ -309,18 +305,14 @@ export default function BoardView({
     };
   };
 
-  // 担当者フィルター選択肢用の件数集計（完了表示トグルを反映したベース課題群から算出）
+  // 担当者フィルター選択肢用の件数集計
   const assigneeCounts = useMemo(() => {
-    const baseIssues = showClosed ? issues : issues.filter((i) => i.status !== "closed");
-    return calculateAssigneeCounts(baseIssues, currentUser?.id);
-  }, [issues, showClosed, currentUser?.id]);
+    return calculateAssigneeCounts(issues, currentUser?.id);
+  }, [issues, currentUser?.id]);
 
   // フィルター後の課題一覧
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
-      // 完了ステータスの非表示
-      if (!showClosed && issue.status === "closed") return false;
-
       // 担当者フィルター
       if (filterAssignee === "me") {
         if (!currentUser || issue.assignee_id !== currentUser.id) return false;
@@ -336,17 +328,6 @@ export default function BoardView({
       // 優先度フィルター
       if (filterPriority !== "all" && issue.priority !== filterPriority) return false;
 
-      // 階層フィルター（親課題 / 子課題 / 単独課題）
-      if (filterRelation === "parent") {
-        const children = childrenMap.get(issue.id) || [];
-        if (children.length === 0) return false;
-      } else if (filterRelation === "child") {
-        if (!issue.parent_id) return false;
-      } else if (filterRelation === "standalone") {
-        const children = childrenMap.get(issue.id) || [];
-        if (issue.parent_id || children.length > 0) return false;
-      }
-
       // キーワード検索（課題キー、件名、説明文、担当者名）
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
@@ -361,13 +342,10 @@ export default function BoardView({
     });
   }, [
     issues,
-    showClosed,
     filterAssignee,
     currentUser,
     filterType,
     filterPriority,
-    filterRelation,
-    childrenMap,
     searchQuery,
   ]);
 
@@ -523,44 +501,12 @@ export default function BoardView({
             <option value="low">低</option>
           </select>
 
-          {/* 親子階層フィルター */}
-          <select
-            value={filterRelation}
-            onChange={(e) =>
-              setFilterRelation(e.target.value as "all" | "parent" | "child" | "standalone")
-            }
-            className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="all">階層: すべて</option>
-            <option value="parent">親課題のみ</option>
-            <option value="child">子課題のみ</option>
-            <option value="standalone">単独課題のみ</option>
-          </select>
-
-          {/* 完了タスクの表示切り替え */}
-          <button
-            type="button"
-            onClick={() => setShowClosed(!showClosed)}
-            className={`flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ml-auto sm:ml-0 ${
-              showClosed
-                ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
-                : "bg-indigo-50 text-indigo-700 border-indigo-300 hover:bg-indigo-100 font-semibold"
-            }`}
-            title={showClosed ? "完了した課題を非表示にする" : "完了した課題を表示する"}
-          >
-            {showClosed ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span>{showClosed ? "完了を表示中" : "完了を非表示"}</span>
-          </button>
         </div>
       </div>
 
       {/* かんばんボード 4カラムレーン */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
         {BOARD_COLUMNS.map((col) => {
-          if (!showClosed && col.status === "closed") {
-            return null;
-          }
-
           const columnIssues = columnIssuesMap.get(col.status) || [];
           const isOver = dragOverColumn === col.status;
 
