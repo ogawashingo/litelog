@@ -167,13 +167,6 @@ function SearchPageContent() {
     setIsDetailOpen(true);
   };
 
-  // 特定プロジェクトへのクイック課題起票
-  const handleQuickCreateForProject = (proj: Project) => {
-    setCreateDefaultProjectId(proj.id);
-    setCreateDefaultTitle(currentQuery ? `【${currentQuery}】` : "");
-    setIsCreateOpen(true);
-  };
-
   // プロジェクトごとの課題マッピング（マトリクス用：プロジェクト選択時は該当プロジェクトに絞り込み、検索結果が1件以上あるプロジェクトのみ表示）
   const projectMatrixData = useMemo(() => {
     const targetProjects = selectedProjectId
@@ -440,19 +433,6 @@ function SearchPageContent() {
                             </span>
                           )}
                         </div>
-
-                        {/* 右側アクション */}
-                        <div className="flex items-center gap-3">
-                          {/* クイック課題起票ボタン */}
-                          <button
-                            type="button"
-                            onClick={() => handleQuickCreateForProject(project)}
-                            className="flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-indigo-600 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>課題を追加</span>
-                          </button>
-                        </div>
                       </div>
 
                       {/* プロジェクトの該当課題一覧 */}
@@ -526,18 +506,18 @@ function SearchPageContent() {
             ) : (
               // 表形式ステータスマトリクス（横: ステータス × 縦: プロジェクト）
               <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-x-auto">
-                <table className="w-full border-collapse text-left text-xs min-w-[800px]">
+                <table className="w-full border-collapse text-left text-xs min-w-[960px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                      <th className="p-3 w-56">プロジェクト</th>
-                      <th className="p-3 w-36 text-center">対応状況</th>
-                      <th className="p-3 bg-amber-50/50 text-amber-900 border-l border-slate-200">
+                      <th className="p-3.5 w-80 min-w-[300px]">プロジェクト</th>
+                      <th className="p-3.5 w-40 text-center">対応状況</th>
+                      <th className="p-3.5 bg-amber-50/50 text-amber-900 border-l border-slate-200">
                         未対応
                       </th>
-                      <th className="p-3 bg-blue-50/50 text-blue-900 border-l border-slate-200">
+                      <th className="p-3.5 bg-blue-50/50 text-blue-900 border-l border-slate-200">
                         進行中
                       </th>
-                      <th className="p-3 bg-emerald-50/50 text-emerald-900 border-l border-slate-200">
+                      <th className="p-3.5 bg-emerald-50/50 text-emerald-900 border-l border-slate-200">
                         完了
                       </th>
                     </tr>
@@ -551,29 +531,21 @@ function SearchPageContent() {
                       return (
                         <tr key={project.id} className="hover:bg-slate-50/50 transition-colors">
                           {/* プロジェクト名 */}
-                          <td className="p-3 align-top">
-                            <div className="flex items-center gap-2">
+                          <td className="p-3.5 align-top">
+                            <div className="flex items-start gap-2.5">
                               <span
-                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                className="w-2.5 h-2.5 rounded-full shrink-0 mt-1 shadow-2xs"
                                 style={{ backgroundColor: project.color || "#4f46e5" }}
                               />
-                              <div>
-                                <span className="font-mono text-[10px] text-slate-400 block font-bold">
+                              <div className="min-w-0">
+                                <span className="font-mono text-[11px] text-slate-400 block font-bold leading-tight">
                                   {project.key}
                                 </span>
-                                <span className="font-bold text-slate-800 text-xs sm:text-sm">
+                                <span className="font-bold text-slate-800 text-xs sm:text-sm break-words leading-snug">
                                   {project.name}
                                 </span>
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleQuickCreateForProject(project)}
-                              className="mt-2 text-[10px] text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1"
-                            >
-                              <Plus className="w-3 h-3" />
-                              <span>課題を起票</span>
-                            </button>
                           </td>
 
                           {/* 対応状況 */}
