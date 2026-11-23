@@ -406,17 +406,17 @@ export default function BoardView({
       {/* ボードヘッダー / フィルターツールバー（PC・タブレットでは画面スクロール時も上部に固定表示） */}
       <div
         ref={toolbarRef}
-        className="md:sticky md:top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow space-y-3"
+        className="md:sticky md:top-[var(--app-header-height,56px)] z-20 bg-white/95 backdrop-blur-md rounded-xl shadow-sm border border-indigo-100/80 p-3 sm:p-4 transition-shadow"
       >
-        {/* 上段: プロジェクト情報（カラー・タイトル・キー・アーカイブバッジ・課題件数サマリー） */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          {/* 左側: プロジェクト情報（カラー・タイトル・キー・アーカイブバッジ・件数） */}
+          <div className="flex items-center gap-2.5 min-w-0">
             <div
               className="w-3.5 h-6 rounded-sm shrink-0"
               style={{ backgroundColor: currentProject?.color || "#4f46e5" }}
             />
-            <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex flex-wrap items-center gap-2 min-w-0">
-              <span className="break-words">{currentProject ? currentProject.name : "すべてのプロジェクト"}</span>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 min-w-0">
+              <span className="truncate">{currentProject ? currentProject.name : "すべてのプロジェクト"}</span>
               {currentProject && (
                 <span className="text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 shrink-0">
                   {currentProject.key}
@@ -429,78 +429,72 @@ export default function BoardView({
                 </span>
               )}
             </h2>
+            <span className="text-xs text-slate-400 font-medium whitespace-nowrap shrink-0 hidden sm:inline ml-1">
+              ({filteredIssues.length}件)
+            </span>
           </div>
 
-          {/* 課題件数サマリーバッジ */}
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium shrink-0 ml-auto">
-            <span>課題: <strong className="text-slate-700 font-bold">{filteredIssues.length}</strong> 件</span>
-            {filteredIssues.length !== issues.length && (
-              <span className="text-slate-400">（全 {issues.length} 件中）</span>
-            )}
-          </div>
-        </div>
+          {/* 右側: 検索・フィルターツールバー（横1行にスマートに整列） */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* 検索入力 */}
+            <div className="relative min-w-[130px] flex-1 sm:flex-none sm:w-40 lg:w-44 xl:w-48">
+              <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="課題を検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-sm pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
 
-        {/* 下段: 検索・フィルターツールバー（横幅を広々と使えるため、タイトルが長くてもボタンがガタガタにズレず整然と1行で整列） */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-          {/* 検索入力 */}
-          <div className="relative min-w-[140px] flex-1 sm:flex-none sm:w-48 lg:w-56">
-            <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="課題を検索..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-sm pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          {/* 担当者フィルター */}
-          <select
-            value={filterAssignee}
-            onChange={(e) => setFilterAssignee(e.target.value)}
-            className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="all">担当者: すべて ({assigneeCounts.totalCount}件)</option>
-            {currentUser && (
-              <option value="me">
-                担当者: 自分 ({currentUser.name}) ({assigneeCounts.myCount}件)
+            {/* 担当者フィルター */}
+            <select
+              value={filterAssignee}
+              onChange={(e) => setFilterAssignee(e.target.value)}
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">担当者: すべて ({assigneeCounts.totalCount}件)</option>
+              {currentUser && (
+                <option value="me">
+                  担当者: 自分 ({currentUser.name}) ({assigneeCounts.myCount}件)
+                </option>
+              )}
+              <option value="unassigned">
+                担当者: 未割当 ({assigneeCounts.unassignedCount}件)
               </option>
-            )}
-            <option value="unassigned">
-              担当者: 未割当 ({assigneeCounts.unassignedCount}件)
-            </option>
-            {users.map((u) => (
-              <option key={u.id} value={String(u.id)}>
-                担当者: {u.name} ({assigneeCounts.userCountMap[u.id] || 0}件)
-              </option>
-            ))}
-          </select>
+              {users.map((u) => (
+                <option key={u.id} value={String(u.id)}>
+                  担当者: {u.name} ({assigneeCounts.userCountMap[u.id] || 0}件)
+                </option>
+              ))}
+            </select>
 
-          {/* 種別フィルター */}
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value as IssueType | "all")}
-            className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="all">種別: すべて</option>
-            <option value="task">タスク</option>
-            <option value="bug">バグ</option>
-            <option value="request">要望</option>
-            <option value="other">その他</option>
-          </select>
+            {/* 種別フィルター */}
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as IssueType | "all")}
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">種別: すべて</option>
+              <option value="task">タスク</option>
+              <option value="bug">バグ</option>
+              <option value="request">要望</option>
+              <option value="other">その他</option>
+            </select>
 
-          {/* 優先度フィルター */}
-          <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value as IssuePriority | "all")}
-            className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="all">優先度: すべて</option>
-            <option value="high">高</option>
-            <option value="medium">中</option>
-            <option value="low">低</option>
-          </select>
-
+            {/* 優先度フィルター */}
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value as IssuePriority | "all")}
+              className="text-sm bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">優先度: すべて</option>
+              <option value="high">高</option>
+              <option value="medium">中</option>
+              <option value="low">低</option>
+            </select>
+          </div>
         </div>
       </div>
 
