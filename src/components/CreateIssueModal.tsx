@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft, AlertTriangle } from "lucide-react";
+import { X, CheckSquare, Bug, Sparkles, HelpCircle, Calendar, Plus, GitBranch, UserCheck, ArrowLeft, AlertTriangle, Check } from "lucide-react";
 import { Project, Issue, IssueType, IssueStatus, IssuePriority, IssueResolution, canManageIssues } from "@/types";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
@@ -57,6 +57,7 @@ export default function CreateIssueModal({
   const [attachmentIds, setAttachmentIds] = useState<number[]>([]);
   const [notifyUserIds, setNotifyUserIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   // 子課題の期限が親課題を超過する場合の確認モーダル情報
   const [parentDueWarning, setParentDueWarning] = useState<ParentDueDateWarningInfo | null>(null);
@@ -87,6 +88,7 @@ export default function CreateIssueModal({
       setResolution(null);
       setIssueType("task");
       setErrorMessage("");
+      setIsSuccess(false);
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, defaultTitle, projects, currentUser]);
@@ -171,6 +173,9 @@ export default function CreateIssueModal({
       setNotifyUserIds([]);
       notifyNotificationsUpdated();
       await refreshUsers();
+      // 作成成功の視覚的フィードバック（案C: サクセス変化）
+      setIsSuccess(true);
+      await new Promise((resolve) => setTimeout(resolve, 600));
       onCreated();
       onClose();
     } catch (err: unknown) {
@@ -497,10 +502,26 @@ export default function CreateIssueModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2 rounded-lg app-primary-btn text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
+              disabled={isSubmitting || isSuccess}
+              className={`px-6 py-2 rounded-lg text-sm font-bold shadow-md hover:shadow-lg transition-all disabled:opacity-75 cursor-pointer spring-bounce flex items-center justify-center gap-1.5 min-w-[110px] ${
+                isSuccess
+                  ? "bg-emerald-600 text-white shadow-emerald-500/30"
+                  : "app-primary-btn"
+              }`}
             >
-              {isSubmitting ? "追加中..." : "追加する"}
+              {isSuccess ? (
+                <>
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>追加完了！</span>
+                </>
+              ) : isSubmitting ? (
+                <span>追加中...</span>
+              ) : (
+                <>
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>追加する</span>
+                </>
+              )}
             </button>
           </div>
         </form>

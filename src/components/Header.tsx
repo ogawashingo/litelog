@@ -516,12 +516,12 @@ export default function Header({
               <Search className="w-4 h-4" />
             </button>
 
-            {/* 課題追加ボタン（テーマ連動） */}
+            {/* 課題追加ボタン（テーマ連動・弾性スプリング＆ホバー回転） */}
             <button
               onClick={onOpenCreateIssue}
-              className="flex items-center gap-1 app-primary-btn px-2.5 sm:px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all transform active:scale-95 whitespace-nowrap shrink-0 cursor-pointer"
+              className="flex items-center gap-1 app-primary-btn px-2.5 sm:px-3.5 py-1.5 rounded-lg font-bold text-xs spring-bounce whitespace-nowrap shrink-0 cursor-pointer group"
             >
-              <Plus className="w-3.5 h-3.5 stroke-[3] shrink-0" />
+              <Plus className="w-3.5 h-3.5 stroke-[3] shrink-0 transition-transform duration-300 group-hover:rotate-90" />
               <span className="hidden sm:inline">課題の追加</span>
             </button>
 

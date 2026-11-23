@@ -14,6 +14,7 @@ import {
   isExceedingParentDueDate,
 } from "./ParentDueDateConfirmModal";
 import { notifyNotificationsUpdated } from "@/lib/clientEvents";
+import { fireConfetti } from "@/lib/confetti";
 import { getSelectedEditParentInfo } from "./issue-detail/issueDetailUtils";
 import { useIssueDetailActions } from "./issue-detail/useIssueDetailActions";
 import IssueSummaryToolbar from "./issue-detail/IssueSummaryToolbar";
@@ -566,6 +567,10 @@ export default function IssueDetailModal({
         notifyNotificationsUpdated();
         await refreshUsers();
         onUpdated();
+        // 完了ステータスへの変更成功時に紙吹雪エフェクトを打ち上げる
+        if (newStatus === "closed") {
+          fireConfetti();
+        }
       } else {
         const data = await res.json().catch(() => ({}));
         alert(data.error || "ステータス変更に失敗しました");

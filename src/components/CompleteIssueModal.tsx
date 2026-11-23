@@ -4,6 +4,7 @@
 import React, { useEffect } from "react";
 import { CheckCircle2, X, Ban, Copy, HelpCircle, Check, ArrowRight } from "lucide-react";
 import { IssueResolution, RESOLUTION_LABELS } from "@/types";
+import { fireConfetti } from "@/lib/confetti";
 
 interface CompleteIssueModalProps {
   isOpen: boolean;
@@ -136,8 +137,11 @@ export default function CompleteIssueModal({
                 <button
                   key={btn.resolution}
                   type="button"
-                  onClick={() => onConfirm(btn.resolution)}
-                  className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between group focus:outline-hidden focus:ring-2 ${btn.buttonClass}`}
+                  onClick={(e) => {
+                    fireConfetti(e.clientX, e.clientY);
+                    onConfirm(btn.resolution);
+                  }}
+                  className={`w-full text-left p-3 rounded-xl border spring-bounce transition-all cursor-pointer flex items-center justify-between group focus:outline-hidden focus:ring-2 ${btn.buttonClass}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <span
@@ -161,7 +165,10 @@ export default function CompleteIssueModal({
         <div className="px-5 py-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-xs">
           <button
             type="button"
-            onClick={() => onConfirm(null)}
+            onClick={(e) => {
+              fireConfetti(e.clientX, e.clientY);
+              onConfirm(null);
+            }}
             className="text-slate-500 hover:text-slate-800 underline underline-offset-2 transition-colors cursor-pointer"
           >
             理由を指定せずに完了にする

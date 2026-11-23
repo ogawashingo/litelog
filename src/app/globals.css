@@ -191,9 +191,33 @@ body {
   border: 1px solid var(--theme-primary-btn-border);
   color: var(--theme-primary-btn-text);
   box-shadow: 0 4px 12px var(--theme-primary-btn-shadow);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease, opacity 0.2s ease;
 }
 .app-primary-btn:hover {
   background: var(--theme-primary-btn-hover);
+}
+.app-primary-btn:active:not(:disabled) {
+  transform: scale(0.94);
+  transition: transform 0.08s ease;
+}
+
+/* ボタンの弾性スプリング押し込みアクション（触覚的フィードバック） */
+.spring-bounce {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+.spring-bounce:active:not(:disabled) {
+  transform: scale(0.93);
+  transition: transform 0.08s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-primary-btn,
+  .app-primary-btn:active:not(:disabled),
+  .spring-bounce,
+  .spring-bounce:active:not(:disabled) {
+    transition: none !important;
+    transform: none !important;
+  }
 }
 
 .app-logo-box {
