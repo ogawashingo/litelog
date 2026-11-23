@@ -150,7 +150,7 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 検索サジェスト取得（デバウンス）
+  // 検索サジェスト取得（デバウンス: 入力中の過度なリクエストと再描画のチラつきを防止するため250msに設定）
   useEffect(() => {
     const trimmed = searchKeyword.trim();
     if (!trimmed) {
@@ -175,7 +175,7 @@ export default function Header({
       } finally {
         setIsSearchingSuggestions(false);
       }
-    }, 150);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [searchKeyword, selectedProjectId]);
@@ -404,13 +404,13 @@ export default function Header({
                 )}
               </div>
 
-              {/* クイックサジェストドロップダウンプレビュー */}
+              {/* クイックサジェストドロップダウンプレビュー（サイズ揺れ防止のためスケール拡大アニメーションを排し、検索中スケルトンで高さを安定化） */}
               {isSearchDropdownOpen && searchKeyword.trim() && (
-                <div className="absolute right-0 top-full mt-1.5 bg-slate-900/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl overflow-hidden z-50 text-slate-100 min-w-[360px] max-w-[440px] animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 top-full mt-1.5 bg-slate-900/98 border border-white/15 rounded-xl shadow-2xl overflow-hidden z-50 text-slate-100 min-w-[360px] max-w-[440px] animate-in fade-in duration-100">
                   <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between text-[11px] text-white/60 font-medium">
                     <span>クイック候補</span>
                     {isSearchingSuggestions ? (
-                      <span>検索中...</span>
+                      <span className="text-amber-300 animate-pulse">検索中...</span>
                     ) : (
                       <span>
                         {matchingProjects.length > 0 && `${matchingProjects.length} PJ / `}
@@ -457,36 +457,58 @@ export default function Header({
                       </div>
                     )}
 
-                    {/* 課題候補セクション */}
+                    {/* 課題候補セクション（検索中はスケルトンを表示して高さを安定化し、急激な2段階のレイアウトシフトを抑制） */}
                     <div className="py-1">
-                      {matchingProjects.length > 0 && searchSuggestions.length > 0 && (
-                        <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
-                          課題
+                      {isSearchingSuggestions ? (
+                        <div className="py-1 px-3 space-y-2">
+                          {matchingProjects.length > 0 && (
+                            <div className="text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                              課題
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 animate-pulse py-1.5">
+                            <div className="w-2 h-2 rounded-full bg-white/20 shrink-0" />
+                            <div className="w-14 h-3 rounded bg-white/20 shrink-0" />
+                            <div className="flex-1 h-3 rounded bg-white/10" />
+                            <div className="w-10 h-3 rounded bg-white/10 shrink-0" />
+                          </div>
+                          <div className="flex items-center gap-2 animate-pulse py-1.5">
+                            <div className="w-2 h-2 rounded-full bg-white/20 shrink-0" />
+                            <div className="w-16 h-3 rounded bg-white/20 shrink-0" />
+                            <div className="w-2/3 h-3 rounded bg-white/10" />
+                            <div className="w-10 h-3 rounded bg-white/10 shrink-0" />
+                          </div>
                         </div>
-                      )}
-                      {searchSuggestions.length > 0 ? (
-                        searchSuggestions.map((issue) => (
-                          <button
-                            key={issue.id}
-                            type="button"
-                            onClick={() => handleSelectSuggestedIssue(issue)}
-                            className="w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
-                          >
-                            <span
-                              className="w-2 h-2 rounded-full shrink-0"
-                              style={{ backgroundColor: issue.project_color || "#3b82f6" }}
-                            />
-                            <span className="font-mono text-[11px] font-bold text-amber-300 group-hover:underline shrink-0">
-                              {issue.issue_key}
-                            </span>
-                            <span className="text-xs text-white/90 truncate flex-1">
-                              {issue.title}
-                            </span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 shrink-0">
-                              {ISSUE_STATUS_CONFIG[issue.status]?.label || issue.status}
-                            </span>
-                          </button>
-                        ))
+                      ) : searchSuggestions.length > 0 ? (
+                        <>
+                          {matchingProjects.length > 0 && (
+                            <div className="px-3 py-1 text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                              課題
+                            </div>
+                          )}
+                          {searchSuggestions.map((issue) => (
+                            <button
+                              key={issue.id}
+                              type="button"
+                              onClick={() => handleSelectSuggestedIssue(issue)}
+                              className="w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
+                            >
+                              <span
+                                className="w-2 h-2 rounded-full shrink-0"
+                                style={{ backgroundColor: issue.project_color || "#3b82f6" }}
+                              />
+                              <span className="font-mono text-[11px] font-bold text-amber-300 group-hover:underline shrink-0">
+                                {issue.issue_key}
+                              </span>
+                              <span className="text-xs text-white/90 truncate flex-1">
+                                {issue.title}
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 shrink-0">
+                                {ISSUE_STATUS_CONFIG[issue.status]?.label || issue.status}
+                              </span>
+                            </button>
+                          ))}
+                        </>
                       ) : matchingProjects.length === 0 ? (
                         <div className="px-3 py-4 text-center text-xs text-white/50">
                           該当するプロジェクトや課題が見つかりません
@@ -604,13 +626,13 @@ export default function Header({
 
       {/* モバイル用検索入力バー展開 (lg:hidden) */}
       {isMobileSearchOpen && (
-        <div className="lg:hidden border-t border-white/15 bg-slate-900/95 px-3 py-2 animate-in slide-in-from-top-1 duration-150">
+        <div className="lg:hidden relative border-t border-white/15 bg-slate-900/95 px-3 py-2 animate-in slide-in-from-top-1 duration-150">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               executeSearch(searchKeyword);
             }}
-            className="flex items-center gap-2 mb-2"
+            className="flex items-center gap-2 mb-1"
           >
             <div className="relative flex-1">
               <Search className="w-3.5 h-3.5 text-white/60 absolute left-2.5 top-2.5 pointer-events-none" />
@@ -639,9 +661,9 @@ export default function Header({
             </button>
           </form>
 
-          {/* モバイル用サジェストリスト（プロジェクト＆課題） */}
+          {/* モバイル用サジェストリスト（ヘッダーの高さを変えないよう絶対配置オーバーレイにし、ResizeObserverによる2段階画面リフローを防止） */}
           {searchKeyword.trim() && (
-            <div className="max-h-60 overflow-y-auto divide-y divide-white/10 border-t border-white/10 pt-1 pb-1">
+            <div className="absolute left-0 right-0 top-full bg-slate-900/98 border-b border-x border-white/15 shadow-2xl max-h-72 overflow-y-auto divide-y divide-white/10 px-3 py-1 z-50 animate-in fade-in duration-100">
               {matchingProjects.length > 0 && (
                 <div className="py-1">
                   <div className="text-[10px] font-bold text-amber-300 uppercase tracking-wider px-1 py-0.5 flex items-center gap-1">
@@ -675,28 +697,51 @@ export default function Header({
                 </div>
               )}
 
-              {searchSuggestions.length > 0 && (
-                <div className="py-1">
-                  <div className="text-[10px] font-bold text-white/50 uppercase tracking-wider px-1 py-0.5">
-                    課題
+              {/* 課題セクション（検索中はスケルトンで高さを安定化） */}
+              <div className="py-1">
+                {isSearchingSuggestions ? (
+                  <div className="py-1 px-1 space-y-2">
+                    {matchingProjects.length > 0 && (
+                      <div className="text-[10px] font-bold text-white/50 uppercase tracking-wider px-1">
+                        課題
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 animate-pulse py-1">
+                      <div className="w-12 h-3 rounded bg-white/20 shrink-0" />
+                      <div className="flex-1 h-3 rounded bg-white/10" />
+                    </div>
+                    <div className="flex items-center gap-2 animate-pulse py-1">
+                      <div className="w-14 h-3 rounded bg-white/20 shrink-0" />
+                      <div className="w-3/4 h-3 rounded bg-white/10" />
+                    </div>
                   </div>
-                  {searchSuggestions.slice(0, 4).map((issue) => (
-                    <button
-                      key={issue.id}
-                      type="button"
-                      onClick={() => handleSelectSuggestedIssue(issue)}
-                      className="w-full px-2 py-1.5 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
-                    >
-                      <span className="font-mono text-[11px] font-bold text-amber-300 shrink-0">
-                        {issue.issue_key}
-                      </span>
-                      <span className="text-xs text-white/90 truncate flex-1">
-                        {issue.title}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                ) : searchSuggestions.length > 0 ? (
+                  <>
+                    <div className="text-[10px] font-bold text-white/50 uppercase tracking-wider px-1 py-0.5">
+                      課題
+                    </div>
+                    {searchSuggestions.slice(0, 4).map((issue) => (
+                      <button
+                        key={issue.id}
+                        type="button"
+                        onClick={() => handleSelectSuggestedIssue(issue)}
+                        className="w-full px-2 py-1.5 text-left hover:bg-white/10 transition-colors flex items-center gap-2 group cursor-pointer"
+                      >
+                        <span className="font-mono text-[11px] font-bold text-amber-300 shrink-0">
+                          {issue.issue_key}
+                        </span>
+                        <span className="text-xs text-white/90 truncate flex-1">
+                          {issue.title}
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                ) : matchingProjects.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-xs text-white/50">
+                    該当するプロジェクトや課題が見つかりません
+                  </div>
+                ) : null}
+              </div>
             </div>
           )}
         </div>
