@@ -261,47 +261,47 @@ export default function Header({
             </Link>
 
             {/* ナビゲーションメニュー (PC用) */}
-            <nav className="hidden md:flex items-center gap-1 pl-3 border-l border-white/20">
+            <nav className="hidden md:flex items-center gap-1 pl-3 border-l border-white/20 min-w-0">
               {/* ダッシュボードタブ */}
               <Link
                 href={dashboardHref}
                 title="ダッシュボード"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                   isDashboard
                     ? "app-nav-active text-white font-semibold shadow-2xs"
                     : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <LayoutDashboard className="w-3.5 h-3.5 app-nav-indicator" />
-                <span className="hidden xl:inline">ダッシュボード</span>
+                <span className="hidden 2xl:inline">ダッシュボード</span>
               </Link>
 
               {/* ボードタブ */}
               <Link
                 href={boardHref}
                 title="ボード"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                   isBoard
                     ? "app-nav-active text-white font-semibold shadow-2xs"
                     : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5 app-nav-indicator" />
-                <span className="hidden xl:inline">ボード</span>
+                <span className="hidden 2xl:inline">ボード</span>
               </Link>
 
               {/* ガントチャートタブ */}
               <Link
                 href={ganttHref}
                 title="ガントチャート"
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                   isGantt
                     ? "app-nav-active text-white font-semibold shadow-2xs"
                     : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <ChartGantt className="w-3.5 h-3.5 app-nav-indicator" />
-                <span className="hidden xl:inline">ガントチャート</span>
+                <span className="hidden 2xl:inline">ガントチャート</span>
               </Link>
 
 
@@ -310,24 +310,24 @@ export default function Header({
                 <Link
                   href="/admin"
                   title="管理ページ"
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                     isAdmin
                       ? "app-nav-active text-white font-semibold shadow-2xs"
                       : "text-white/80 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   <Settings className="w-3.5 h-3.5 app-nav-indicator" />
-                  <span className="hidden xl:inline">管理ページ</span>
+                  <span className="hidden 2xl:inline">管理ページ</span>
                 </Link>
               )}
 
               {/* プロジェクト切り替えセレクトボックス (PC用) */}
-              <div className="relative flex items-center ml-2 mr-1 sm:mr-2">
+              <div className="relative flex items-center ml-2 mr-1 sm:mr-2 min-w-0 shrink">
                 <FolderGit2 className="w-3.5 h-3.5 text-white/70 absolute left-2.5 pointer-events-none" />
                 <select
                   value={selectedProjectId || ""}
                   onChange={(e) => onSelectProject(e.target.value ? Number(e.target.value) : null)}
-                  className="app-header-select hover:bg-white/10 text-white text-xs rounded-lg pl-7 pr-3 py-1.5 max-w-[120px] md:max-w-[130px] lg:max-w-[160px] xl:max-w-[200px] truncate focus:outline-hidden focus:ring-2 focus:ring-amber-400/50 transition-colors cursor-pointer"
+                  className="app-header-select hover:bg-white/10 text-white text-xs rounded-lg pl-7 pr-3 py-1.5 max-w-[110px] md:max-w-[120px] lg:max-w-[140px] xl:max-w-[170px] 2xl:max-w-[220px] truncate focus:outline-hidden focus:ring-2 focus:ring-amber-400/50 transition-colors cursor-pointer"
                 >
                   <option value="" className="text-slate-900 bg-white">
                     {isBoard || isGantt ? "すべてのプロジェクト" : "すべての課題"}
@@ -379,7 +379,7 @@ export default function Header({
                     }
                   }}
                   placeholder="検索... (⌘K)"
-                  className="w-44 xl:w-60 bg-white/15 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 focus:placeholder-slate-400 text-xs rounded-lg pl-8 pr-7 py-1.5 border border-white/20 focus:border-amber-400 focus:outline-hidden focus:ring-2 focus:ring-amber-400/40 transition-all shadow-inner"
+                  className="w-40 xl:w-48 2xl:w-60 bg-white/15 focus:bg-white focus:text-slate-900 text-white placeholder-white/60 focus:placeholder-slate-400 text-xs rounded-lg pl-8 pr-7 py-1.5 border border-white/20 focus:border-amber-400 focus:outline-hidden focus:ring-2 focus:ring-amber-400/40 transition-all shadow-inner"
                 />
                 {searchKeyword ? (
                   <button
@@ -575,7 +575,7 @@ export default function Header({
                       </span>
                     )}
                   </div>
-                  <div className="hidden lg:flex flex-col leading-tight whitespace-nowrap">
+                  <div className="hidden xl:flex flex-col leading-tight whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <span className="text-xs font-bold text-white group-hover:text-amber-200 transition-colors whitespace-nowrap">
                         {currentUser.name}
