@@ -388,31 +388,6 @@ export default function ProjectList({
                         <Pin className={`w-3.5 h-3.5 transition-transform ${isPinned ? "fill-amber-400 rotate-[-15deg] scale-110" : ""}`} />
                       </button>
                     )}
-                    {/* 状態バッジ: 期限超過 > 未完了 > 全件完了 */}
-                    {overdue > 0 ? (
-                      <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
-                        title={`未完了 ${active} 件中、期限超過が ${overdue} 件あります`}
-                      >
-                        <AlertTriangle className="w-2.5 h-2.5 text-rose-600 shrink-0" />
-                        <span>超過 {overdue}</span>
-                      </span>
-                    ) : active > 0 ? (
-                      <span
-                        className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
-                        title={`未完了課題が ${active} 件あります`}
-                      >
-                        <span>未完了 {active}</span>
-                      </span>
-                    ) : (
-                      <span
-                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0"
-                        title="すべての課題が完了しています"
-                      >
-                        <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                        <span>完了</span>
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
