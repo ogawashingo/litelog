@@ -889,6 +889,19 @@ async function runTests() {
   if (diff !== 10) throw new Error("日付差分計算エラー");
   console.log(`✓ 日付差分計算テスト成功: ${diff} 日間`);
 
+  // 期日フォーマット統一（YYYY/MM/DD表記）の検証
+  const formatDueDateDisplay = (dateStr) => {
+    if (!dateStr) return "";
+    return dateStr.trim().replace(/-/g, "/");
+  };
+  if (formatDueDateDisplay("2026-11-24") !== "2026/11/24") {
+    throw new Error("期日フォーマット失敗");
+  }
+  if (formatDueDateDisplay(null) !== "") {
+    throw new Error("未設定期日フォーマット失敗");
+  }
+  console.log("✓ 期日フォーマット統一（YYYY/MM/DD表記: 2026/11/24）検証成功");
+
   // 13. 複数人（メンバー管理・山田さんのAdmin権限・佐藤さん/鈴木さんの一般ユーザー＆個別ログインID）検証
   const usersList = db.prepare("SELECT * FROM users").all();
   if (usersList.length === 0) throw new Error("初期メンバーが存在しません");

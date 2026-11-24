@@ -16,6 +16,7 @@ import ParentDueDateConfirmModal, {
   isExceedingParentDueDate,
 } from "./ParentDueDateConfirmModal";
 import { notifyNotificationsUpdated } from "@/lib/clientEvents";
+import { formatDueDateDisplay } from "@/lib/dateUtils";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -475,7 +476,7 @@ export default function CreateIssueModal({
               {isExceedingParentDue && selectedParentIssue?.due_date && (
                 <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-700">
                   <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  親課題の期限日 ({selectedParentIssue.due_date}) を超えています
+                  親課題の期限日 ({formatDueDateDisplay(selectedParentIssue.due_date)}) を超えています
                 </p>
               )}
             </div>

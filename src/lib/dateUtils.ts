@@ -2,7 +2,7 @@
 // SQLiteのUTCタイムスタンプ（YYYY-MM-DD HH:MM:SS）の正確なパースと、
 // 管理ページで設定されたタイムゾーン・フォーマットでの表示変換を提供します。
 
-import { SystemSettings, WeekStartDay } from "@/types";
+import type { SystemSettings, WeekStartDay } from "@/types";
 import { getJapaneseHoliday } from "./holidayUtils";
 
 // デフォルトのシステム時刻設定（日本標準時 JST / 24時間表記・月曜始まり・祝日表示ON）
@@ -296,6 +296,15 @@ export function formatSlashDateString(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}/${m}/${d}`;
+}
+
+/**
+ * 期日などの日付文字列（YYYY-MM-DD または YYYY/MM/DD）を "YYYY/MM/DD" 表記に統一して返します。
+ * 未設定（null/undefined/空文字）の場合は空文字を返します。
+ */
+export function formatDueDateDisplay(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  return dateStr.trim().replace(/-/g, "/");
 }
 
 /**

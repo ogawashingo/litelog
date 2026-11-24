@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { X, History, Clock, FileText, Type, Calendar } from "lucide-react";
-import { formatTimestamp } from "@/lib/dateUtils";
+import { formatTimestamp, formatDueDateDisplay } from "@/lib/dateUtils";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { Issue, IssueHistory, SystemSettings, User, RESOLUTION_LABELS, IssueResolution } from "@/types";
 import MentionText from "./MentionText";
@@ -260,13 +260,13 @@ export default function IssueHistoryModal({
                       <div className="bg-white p-2.5 rounded border border-emerald-200">
                         <span className="text-[10px] font-bold text-slate-500 block">開始日:</span>
                         <span className="text-slate-900 font-bold text-sm">
-                          {currentIssue.start_date || "未設定"}
+                          {formatDueDateDisplay(currentIssue.start_date) || "未設定"}
                         </span>
                       </div>
                       <div className="bg-white p-2.5 rounded border border-emerald-200">
                         <span className="text-[10px] font-bold text-slate-500 block">期限日:</span>
                         <span className="text-slate-900 font-bold text-sm">
-                          {currentIssue.due_date || "未設定"}
+                          {formatDueDateDisplay(currentIssue.due_date) || "未設定"}
                         </span>
                       </div>
                     </div>
@@ -279,11 +279,11 @@ export default function IssueHistoryModal({
                       <div className="flex gap-4 text-xs">
                         <div>
                           <span className="text-[10px] font-bold text-slate-500">開始日:</span>{" "}
-                          <span className="font-semibold">{currentIssue.start_date || "未設定"}</span>
+                          <span className="font-semibold">{formatDueDateDisplay(currentIssue.start_date) || "未設定"}</span>
                         </div>
                         <div>
                           <span className="text-[10px] font-bold text-slate-500">期限日:</span>{" "}
-                          <span className="font-semibold">{currentIssue.due_date || "未設定"}</span>
+                          <span className="font-semibold">{formatDueDateDisplay(currentIssue.due_date) || "未設定"}</span>
                         </div>
                       </div>
                       <div>
@@ -367,6 +367,8 @@ export default function IssueHistoryModal({
                               <p className="text-slate-700 font-semibold text-sm">
                                 {RESOLUTION_LABELS[h.old_value as IssueResolution] || h.old_value}
                               </p>
+                            ) : isFieldDue || isFieldStart ? (
+                              <p className="text-slate-700 font-mono text-sm">{formatDueDateDisplay(h.old_value)}</p>
                             ) : (
                               <p className="text-slate-700 whitespace-pre-wrap text-sm">{h.old_value}</p>
                             )

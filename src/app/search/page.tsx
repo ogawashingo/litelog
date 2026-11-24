@@ -11,7 +11,7 @@ import { useUser } from "@/components/UserContext";
 import { Project, Issue } from "@/types";
 import { ISSUE_STATUS_CONFIG, TypeBadge, StatusBadge, PriorityBadge } from "@/components/IssueBadge";
 import { getUserInitials } from "@/components/UserManageModal";
-import { formatTimestamp, parseDbTimestamp, getTodayDateString } from "@/lib/dateUtils";
+import { formatTimestamp, parseDbTimestamp, getTodayDateString, formatDueDateDisplay } from "@/lib/dateUtils";
 import { setStoredProjectId } from "@/lib/projectStorage";
 import {
   Search,
@@ -464,7 +464,7 @@ function SearchPageContent() {
                               : "text-slate-600"
                           }`}
                         >
-                          {issue.due_date}
+                          {formatDueDateDisplay(issue.due_date)}
                         </span>
                       ) : (
                         <span className="text-slate-400">-</span>

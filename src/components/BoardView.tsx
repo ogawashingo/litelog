@@ -24,6 +24,7 @@ import { getUserInitials } from "./UserManageModal";
 import CommentPreviewBadge from "./CommentPreviewBadge";
 import { notifyNotificationsUpdated, showToast } from "@/lib/clientEvents";
 import { calculateAssigneeCounts } from "@/lib/assigneeUtils";
+import { formatDueDateDisplay } from "@/lib/dateUtils";
 
 interface BoardViewProps {
   projects: Project[];
@@ -265,13 +266,13 @@ export default function BoardView({
     due.setHours(0, 0, 0, 0);
 
     const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    // 日付表記を月/日形式（例: 11/20）にしてコンパクトに表示
-    const shortDate = dueDateStr.length >= 10 ? dueDateStr.slice(5) : dueDateStr;
+    // 期日の表記を YYYY/MM/DD 形式（例: 2026/11/24）に統一して表示
+    const formattedDate = formatDueDateDisplay(dueDateStr);
 
     if (isClosed) {
       return {
-        label: shortDate,
-        fullDate: dueDateStr,
+        label: formattedDate,
+        fullDate: formattedDate,
         color: "text-slate-500 whitespace-nowrap",
         isOverdue: false,
         isToday: false,
@@ -280,8 +281,8 @@ export default function BoardView({
 
     if (diffDays < 0) {
       return {
-        label: `${shortDate} (${Math.abs(diffDays)}日超過)`,
-        fullDate: `${dueDateStr} (${Math.abs(diffDays)}日超過)`,
+        label: `${formattedDate} (${Math.abs(diffDays)}日超過)`,
+        fullDate: `${formattedDate} (${Math.abs(diffDays)}日超過)`,
         color: "text-rose-600 font-semibold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 whitespace-nowrap",
         isOverdue: true,
         isToday: false,
@@ -289,16 +290,16 @@ export default function BoardView({
     }
     if (diffDays === 0) {
       return {
-        label: `${shortDate} (今日)`,
-        fullDate: `${dueDateStr} (今日期限)`,
+        label: `${formattedDate} (今日)`,
+        fullDate: `${formattedDate} (今日期限)`,
         color: "text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap",
         isOverdue: false,
         isToday: true,
       };
     }
     return {
-      label: shortDate,
-      fullDate: dueDateStr,
+      label: formattedDate,
+      fullDate: formattedDate,
       color: "text-slate-600 whitespace-nowrap",
       isOverdue: false,
       isToday: false,

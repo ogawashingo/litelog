@@ -1,6 +1,6 @@
 // 課題の遅延・停滞・未着手等のアラート検知ユーティリティ
 import { Issue, SystemSettings } from "@/types";
-import { getTodayDateString, parseDbTimestamp } from "./dateUtils";
+import { getTodayDateString, parseDbTimestamp, formatDueDateDisplay } from "./dateUtils";
 
 // アラートの緊急度レベル
 export type IssueAlertLevel = "critical" | "warning" | "caution";
@@ -54,7 +54,7 @@ export function getIssueAlert(issue: Issue, settings?: SystemSettings): IssueAle
         type: "overdue",
         level: "critical",
         label: `${overdueDays}日超過`,
-        description: `期限日（${issue.due_date}）を ${overdueDays} 日超過しています。対応または期限のリスケが必要です。`,
+        description: `期限日（${formatDueDateDisplay(issue.due_date)}）を ${overdueDays} 日超過しています。対応または期限のリスケが必要です。`,
         score: 1000 + overdueDays,
       };
     }

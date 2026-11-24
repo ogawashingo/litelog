@@ -14,7 +14,7 @@ import {
   canManageIssues,
 } from "@/types";
 import { getUserInitials } from "@/components/UserManageModal";
-import { formatTimestamp } from "@/lib/dateUtils";
+import { formatTimestamp, formatDueDateDisplay } from "@/lib/dateUtils";
 import ResolutionSelect from "@/components/ResolutionSelect";
 import UserSelect from "@/components/UserSelect";
 import { IssueHistoryTab } from "./IssueDetailModalsBundle";
@@ -303,12 +303,12 @@ export default function IssueSummaryToolbar({
             }`}
             title={
               activeIssue.start_date
-                ? `開始: ${activeIssue.start_date} 〜 期限: ${activeIssue.due_date || "指定なし"}`
+                ? `開始: ${formatDueDateDisplay(activeIssue.start_date)} 〜 期限: ${formatDueDateDisplay(activeIssue.due_date) || "指定なし"}`
                 : undefined
             }
           >
-            {activeIssue.start_date ? `${activeIssue.start_date} 〜 ` : ""}
-            {activeIssue.due_date || "指定なし"}
+            {activeIssue.start_date ? `${formatDueDateDisplay(activeIssue.start_date)} 〜 ` : ""}
+            {formatDueDateDisplay(activeIssue.due_date) || "指定なし"}
           </span>
           {Boolean(
             (activeIssue.due_date_history_count && activeIssue.due_date_history_count > 0) ||

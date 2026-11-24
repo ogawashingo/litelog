@@ -6,6 +6,7 @@ import Link from "next/link";
 import { GitBranch, Plus } from "lucide-react";
 import { Issue, IssueType, User } from "@/types";
 import { TypeBadge, StatusBadge } from "@/components/IssueBadge";
+import { formatDueDateDisplay } from "@/lib/dateUtils";
 
 interface IssueChildSectionProps {
   variant: "modal" | "page";
@@ -137,7 +138,7 @@ export default function IssueChildSection({
                   )}
                   <StatusBadge status={child.status} />
                   {child.due_date && (
-                    <span className="text-[11px] text-slate-500">{child.due_date}</span>
+                    <span className="text-[11px] text-slate-500 font-mono">{formatDueDateDisplay(child.due_date)}</span>
                   )}
                 </div>
               </div>

@@ -16,6 +16,7 @@ import {
   getCalendarMonthDays,
   getWeekdayLabels,
   getTodayDateString,
+  formatDueDateDisplay,
 } from "@/lib/dateUtils";
 import { WeekStartDay } from "@/types";
 
@@ -265,7 +266,7 @@ export function DatePicker({
       >
         <div className="flex items-center gap-1.5 min-w-0">
           <CalendarIcon className="w-3.5 h-3.5 shrink-0 opacity-70" />
-          <span className="font-mono truncate">{value || placeholder}</span>
+          <span className="font-mono truncate">{value ? formatDueDateDisplay(value) : placeholder}</span>
         </div>
 
         {/* クリアボタン（値が設定されており、disabledでない場合） */}

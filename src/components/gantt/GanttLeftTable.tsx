@@ -7,6 +7,7 @@ import { Issue, IssueStatus } from "@/types";
 import { TypeBadge } from "../IssueBadge";
 import { getUserInitials } from "../UserManageModal";
 import { DisplayRow, ROW_HEIGHT } from "./ganttUtils";
+import { formatDueDateDisplay } from "@/lib/dateUtils";
 
 interface GanttLeftTableProps {
   leftPaneWidth: number;
@@ -49,7 +50,7 @@ export default function GanttLeftTable({
         <div className="flex-1 min-w-0 pr-2">件名</div>
         <div className="w-[34px] shrink-0 text-center">担当</div>
         <div className="w-[66px] shrink-0 text-center">状態</div>
-        <div className="w-[58px] shrink-0 text-center">期限日</div>
+        <div className="w-[84px] shrink-0 text-center">期限日</div>
       </div>
 
       {/* 課題一覧ボディ（タイムラインと連動して縦スクロール・ビューポート追従でフッターレス画面を最大活用） */}
@@ -193,8 +194,8 @@ export default function GanttLeftTable({
                   </select>
                 </div>
 
-                {/* 期限日 */}
-                <div className="w-[58px] shrink-0 text-center font-medium text-xs">
+                {/* 期限日（YYYY/MM/DD表記） */}
+                <div className="w-[84px] shrink-0 text-center font-medium text-xs font-mono">
                   {issue.due_date ? (
                     <span
                       className={
@@ -206,10 +207,10 @@ export default function GanttLeftTable({
                       }
                       title={isOverdue ? "期限を過ぎています" : undefined}
                     >
-                      {issue.due_date.slice(5)}
+                      {formatDueDateDisplay(issue.due_date)}
                     </span>
                   ) : (
-                    <span className="text-gray-300 text-xs">未設定</span>
+                    <span className="text-gray-300 text-xs font-sans">未設定</span>
                   )}
                 </div>
               </div>

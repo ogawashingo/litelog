@@ -7,7 +7,7 @@ import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDelet
 import { ISSUE_STATUS_CONFIG, TypeBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
-import { parseDbTimestamp, getTodayDateString } from "@/lib/dateUtils";
+import { parseDbTimestamp, getTodayDateString, formatDueDateDisplay } from "@/lib/dateUtils";
 import { DatePicker } from "./DatePicker";
 import CommentPreviewBadge from "./CommentPreviewBadge";
 import { getIssueAlert } from "@/lib/issueAlerts";
@@ -138,31 +138,32 @@ export default function IssueList({
     targetDate.setHours(0, 0, 0, 0);
 
     const diffDays = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const formattedDate = formatDueDateDisplay(dateStr);
 
     if (diffDays < 0) {
       return {
-        text: `${dateStr} (${Math.abs(diffDays)}日超過)`,
+        text: `${formattedDate} (${Math.abs(diffDays)}日超過)`,
         isOverdue: true,
         isToday: false,
         diffDays: Math.abs(diffDays),
       };
     } else if (diffDays === 0) {
       return {
-        text: `${dateStr} (本日)`,
+        text: `${formattedDate} (本日)`,
         isOverdue: false,
         isToday: true,
         diffDays: 0,
       };
     } else if (diffDays === 1) {
       return {
-        text: `${dateStr} (明日)`,
+        text: `${formattedDate} (明日)`,
         isOverdue: false,
         isToday: false,
         diffDays: 1,
       };
     } else {
       return {
-        text: `${dateStr} (残${diffDays}日)`,
+        text: `${formattedDate} (残${diffDays}日)`,
         isOverdue: false,
         isToday: false,
         diffDays: diffDays,
@@ -792,10 +793,10 @@ export default function IssueList({
                       }`}
                     >
                       {dueInfo.isOverdue && !isClosed
-                        ? `期限超過 (${issue.due_date.slice(5)})`
+                        ? `期限超過 (${formatDueDateDisplay(issue.due_date)})`
                         : dueInfo.isToday && !isClosed
                         ? "本日締切"
-                        : `期日: ${issue.due_date.slice(5)}`}
+                        : `期日: ${formatDueDateDisplay(issue.due_date)}`}
                     </span>
                   )}
                 </div>

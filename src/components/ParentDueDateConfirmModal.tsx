@@ -3,6 +3,7 @@
 
 import React, { useEffect } from "react";
 import { AlertTriangle, Calendar, ArrowRight, X } from "lucide-react";
+import { formatDueDateDisplay } from "@/lib/dateUtils";
 
 export interface ParentDueDateWarningInfo {
   parentIssueKey?: string | null;
@@ -103,11 +104,11 @@ export default function ParentDueDateConfirmModal({
             {info.childIssueKey ? (
               <>
                 子課題 <span className="font-mono font-semibold text-slate-900">[{info.childIssueKey}]</span>{" "}
-                の期限日（<span className="font-semibold text-slate-900">{info.newChildDueDate}</span>）が、親課題の期限日を超えています。
+                の期限日（<span className="font-semibold text-slate-900">{formatDueDateDisplay(info.newChildDueDate)}</span>）が、親課題の期限日を超えています。
               </>
             ) : (
               <>
-                設定しようとしている子課題の期限日（<span className="font-semibold text-slate-900">{info.newChildDueDate}</span>）が、親課題の期限日を超えています。
+                設定しようとしている子課題の期限日（<span className="font-semibold text-slate-900">{formatDueDateDisplay(info.newChildDueDate)}</span>）が、親課題の期限日を超えています。
               </>
             )}
             親課題の期限日も合わせて延長しますか？
@@ -129,12 +130,12 @@ export default function ParentDueDateConfirmModal({
             <div className="flex items-center gap-2 pt-1 text-xs">
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600 font-mono">
                 <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                {info.parentDueDate}
+                {formatDueDateDisplay(info.parentDueDate)}
               </span>
               <ArrowRight className="w-4 h-4 text-amber-600 shrink-0" />
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-100/80 border border-amber-300 text-amber-900 font-mono font-semibold">
                 <Calendar className="w-3.5 h-3.5 text-amber-700" />
-                {info.newChildDueDate}
+                {formatDueDateDisplay(info.newChildDueDate)}
               </span>
             </div>
           </div>
