@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { FolderPlus, Folder, ChevronRight, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive, Pin } from "lucide-react";
+import { FolderPlus, Folder, Kanban, ChartGantt, Edit2, Trash2, Check, X, AlertTriangle, Archive, Pin } from "lucide-react";
 import { Project, isArchivedProject, canManageIssues } from "@/types";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
@@ -235,19 +235,6 @@ export default function ProjectList({
       </div>
 
       <div className="space-y-2.5">
-        {/* 全プロジェクト表示ボタン */}
-        <button
-          onClick={() => onSelectProject(null)}
-          className={`w-full text-left p-2.5 rounded-xl border text-xs transition-all flex items-center justify-between cursor-pointer ${
-            selectedProjectId === null
-              ? "bg-indigo-50/90 border-indigo-300 font-bold text-indigo-950 shadow-2xs"
-              : "border-slate-200 hover:bg-slate-50 text-slate-700"
-          }`}
-        >
-          <span>すべての課題を表示</span>
-          <ChevronRight className="w-4 h-4 text-indigo-400" />
-        </button>
-
         {/* 各プロジェクトカード */}
         {visibleProjects.map((proj) => {
           const total = proj.total_issues || 0;
@@ -267,7 +254,8 @@ export default function ProjectList({
               key={proj.id}
               onClick={() => {
                 if (!isEditingThis && !isDeletingThis) {
-                  onSelectProject(proj.id);
+                  // 選択中のカードを再度クリックした場合は選択解除（全表示）
+                  onSelectProject(isSelected ? null : proj.id);
                 }
               }}
               className={`p-3 rounded-xl border cursor-pointer transition-all ${
