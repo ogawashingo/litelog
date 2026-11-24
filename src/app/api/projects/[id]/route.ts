@@ -102,7 +102,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
           COALESCE(p.is_archived, 0) AS is_archived,
           p.created_at,
           COUNT(i.id) AS total_issues,
-          SUM(CASE WHEN i.status != 'closed' THEN 1 ELSE 0 END) AS active_issues
+          SUM(CASE WHEN i.status != 'closed' THEN 1 ELSE 0 END) AS active_issues,
+          SUM(CASE WHEN i.status != 'closed' AND i.due_date IS NOT NULL AND i.due_date < date('now', 'localtime') THEN 1 ELSE 0 END) AS overdue_issues
         FROM projects p
         LEFT JOIN issues i ON p.id = i.project_id
         WHERE p.id = ?

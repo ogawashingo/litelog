@@ -36,6 +36,7 @@ export async function GET(request: Request) {
         COUNT(DISTINCT i.id) AS total_issues,
         -- project_membersとの結合による重複カウントを防ぐため、DISTINCTでユニーク課題IDを集計
         COUNT(DISTINCT CASE WHEN i.status != 'closed' THEN i.id END) AS active_issues,
+        COUNT(DISTINCT CASE WHEN i.status != 'closed' AND i.due_date IS NOT NULL AND i.due_date < date('now', 'localtime') THEN i.id END) AS overdue_issues,
         COUNT(DISTINCT pm.user_id) AS member_count
       FROM projects p
       LEFT JOIN issues i ON p.id = i.project_id
@@ -74,6 +75,7 @@ export async function GET(request: Request) {
       created_at: string;
       total_issues: number;
       active_issues: number;
+      overdue_issues: number;
       member_count: number;
     }[];
 

@@ -92,6 +92,9 @@ export interface Project {
   created_at: string;
   members?: User[];  // 参加メンバー一覧
   member_count?: number; // 参加メンバー総数
+  total_issues?: number;   // 課題総数
+  active_issues?: number;  // 未完了課題数
+  overdue_issues?: number; // 期限超過課題数
 }
 
 /**

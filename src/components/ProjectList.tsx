@@ -12,6 +12,7 @@ import { getUserInitials } from "./UserManageModal";
 interface ExtendedProject extends Project {
   total_issues?: number;
   active_issues?: number;
+  overdue_issues?: number;
 }
 
 interface ProjectListProps {
@@ -251,9 +252,9 @@ export default function ProjectList({
         {visibleProjects.map((proj) => {
           const total = proj.total_issues || 0;
           const active = proj.active_issues || 0;
+          const overdue = proj.overdue_issues || 0;
           // 負数にならないよう安全ガード
           const completed = Math.max(0, total - active);
-          const progressPercent = total > 0 ? Math.min(100, Math.max(0, Math.round((completed / total) * 100))) : 0;
           const isSelected = selectedProjectId === proj.id;
           const isEditingThis = editingProjectId === proj.id;
           const isDeletingThis = deletingProjectId === proj.id;
@@ -387,9 +388,31 @@ export default function ProjectList({
                         <Pin className={`w-3.5 h-3.5 transition-transform ${isPinned ? "fill-amber-400 rotate-[-15deg] scale-110" : ""}`} />
                       </button>
                     )}
-                    <span className="text-[11px] font-bold text-indigo-600">
-                      {progressPercent}%
-                    </span>
+                    {/* 状態バッジ: 期限超過 > 未完了 > 全件完了 */}
+                    {overdue > 0 ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0"
+                        title={`未完了 ${active} 件中、期限超過が ${overdue} 件あります`}
+                      >
+                        <AlertTriangle className="w-2.5 h-2.5 text-rose-600 shrink-0" />
+                        <span>超過 {overdue}</span>
+                      </span>
+                    ) : active > 0 ? (
+                      <span
+                        className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0"
+                        title={`未完了課題が ${active} 件あります`}
+                      >
+                        <span>未完了 {active}</span>
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0"
+                        title="すべての課題が完了しています"
+                      >
+                        <Check className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <span>完了</span>
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -432,18 +455,18 @@ export default function ProjectList({
                 </div>
               )}
 
-              {/* プログレスバー（インディゴ〜バイオレット〜ローズのグラデーション） */}
-              <div className="w-full bg-slate-200/80 rounded-full h-1.5 mb-2 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-indigo-500 via-violet-500 to-rose-500 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-
-              <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1">
-                <span>未完了: <strong className="text-rose-600">{active}</strong> 件</span>
-                <div className="flex items-center gap-1.5">
-                  <span>完了: {completed} / 全 {total} 件</span>
+              <div className="flex flex-wrap justify-between items-center gap-y-1.5 text-[11px] text-slate-500 pt-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span>未完了: <strong className={active > 0 ? "text-rose-600 font-bold" : "text-slate-600 font-medium"}>{active}</strong> 件</span>
+                  {overdue > 0 && (
+                    <span className="text-rose-600 font-bold text-[10px]">
+                      (超過 {overdue}件)
+                    </span>
+                  )}
+                  <span className="text-slate-300">/</span>
+                  <span className="text-slate-400">全 {total} 件 (完了 {completed})</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Link
                     href={`/board/${encodeURIComponent(proj.key)}`}
                     onClick={(e) => e.stopPropagation()}
