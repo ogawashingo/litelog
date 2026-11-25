@@ -565,7 +565,7 @@ export default function IssueDetailPage() {
           <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-3 rounded-xl shadow-xs flex items-center gap-2.5 text-xs font-semibold animate-in fade-in duration-150">
             <Archive className="w-4 h-4 text-amber-700 shrink-0" />
             <span>
-              この課題が属するプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、課題情報の修正やステータス変更、コメント投稿は行えません。
+              この課題が属するプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、課題情報の修正や状態の変更、コメント投稿は行えません。
             </span>
           </div>
         )}
@@ -759,7 +759,7 @@ export default function IssueDetailPage() {
                           setIsIssueHistoryOpen(true);
                         }}
                         className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
-                        title="クリックして詳細説明の変更履歴を確認"
+                        title="クリックして詳細の変更履歴を確認"
                       >
                         (編集済み · {issue.description_history_count}件)
                       </button>
@@ -803,7 +803,7 @@ export default function IssueDetailPage() {
                     {issue.description ? (
                       <MentionText text={issue.description} users={users} />
                     ) : (
-                      <span className="text-slate-400 italic">詳細情報はありません。</span>
+                      <span className="text-slate-400 italic">詳細はありません。</span>
                     )}
                   </div>
                 )}

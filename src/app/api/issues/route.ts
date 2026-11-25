@@ -259,7 +259,7 @@ export async function POST(request: Request) {
     } = body;
 
     if (!projectId || !title || !String(title).trim()) {
-      return NextResponse.json({ error: "プロジェクトと課題名は必須です" }, { status: 400 });
+      return NextResponse.json({ error: "プロジェクトと件名は必須です" }, { status: 400 });
     }
 
     const cleanTitle = String(title).trim();
@@ -301,7 +301,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "無効な課題種別です" }, { status: 400 });
     }
     if (!VALID_STATUSES.has(String(status))) {
-      return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
+      return NextResponse.json({ error: "無効な状態です" }, { status: 400 });
     }
     // 一般メンバーによる「処理済み」状態での直接起票を禁止（レビュー依頼なしの放置防止、Admin/PMOは許可）
     const isManager = sessionUser.is_admin === 1 || sessionUser.role_type === "pmo";

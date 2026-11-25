@@ -192,7 +192,7 @@ export default function BoardView({
         (targetIssue.created_by && currentUser?.id === targetIssue.created_by)
       );
       if (!canClose) {
-        alert("課題を完了にできるのは、課題の起票者・PMO・または管理者のみです。\n作業が完了した場合は「処理済み」へ移動してレビューを依頼してください。");
+        alert("課題を完了にできるのは、課題の作成者・PMO・または管理者のみです。\n作業が完了した場合は「処理済み」へ移動してレビューを依頼してください。");
         setDraggingIssueId(null);
         return;
       }
@@ -664,7 +664,7 @@ export default function BoardView({
                                 <span className="whitespace-nowrap">{dueInfo.label}</span>
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-xs shrink-0 whitespace-nowrap">期日なし</span>
+                              <span className="text-slate-400 text-xs shrink-0 whitespace-nowrap">期限日なし</span>
                             )}
 
                             {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}

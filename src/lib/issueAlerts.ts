@@ -27,7 +27,7 @@ export interface IssueAlertStats {
 }
 
 /**
- * 課題に対して発生している問題（期限切れ、停滞、未着手警告、担当未定）を判定し、
+ * 課題に対して発生している問題（期限切れ、停滞、未対応警告、担当未定）を判定し、
  * 最も深刻度の高いアラート情報を返します。問題がなければ null を返します。
  */
 export function getIssueAlert(issue: Issue, settings?: SystemSettings): IssueAlert | null {
@@ -59,22 +59,22 @@ export function getIssueAlert(issue: Issue, settings?: SystemSettings): IssueAle
       };
     }
 
-    // 2. 未着手警告（Unstarted）の判定: 期限が本日または明日なのにステータスが未対応（open）のまま
+    // 2. 未対応警告（Unstarted）の判定: 期限が本日または明日なのにステータスが未対応（open）のまま
     if (issue.status === "open") {
       if (diffDays === 0) {
         return {
           type: "unstarted",
           level: "critical",
-          label: "未着手(本日締切)",
-          description: "本日が締切ですが、ステータスが「未対応」のまま着手されていません。",
+          label: "未対応(本日締切)",
+          description: "本日が締切ですが、状態が「未対応」のまま着手されていません。",
           score: 800,
         };
       } else if (diffDays === 1) {
         return {
           type: "unstarted",
           level: "warning",
-          label: "未着手(明日締切)",
-          description: "明日が締切ですが、ステータスが「未対応」のまま着手されていません。",
+          label: "未対応(明日締切)",
+          description: "明日が締切ですが、状態が「未対応」のまま着手されていません。",
           score: 700,
         };
       }

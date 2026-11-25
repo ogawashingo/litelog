@@ -358,7 +358,7 @@ export default function CreateIssueModal({
             </label>
             <input
               type="text"
-              placeholder="2〜3日で完了できる課題名"
+              placeholder="2〜3日で完了できる件名"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-base sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"

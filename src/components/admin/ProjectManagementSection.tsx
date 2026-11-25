@@ -152,7 +152,7 @@ export default function ProjectManagementSection({
   // プロジェクトのアーカイブ／アーカイブ解除の切り替え（AdminまたはPMO）
   const handleToggleArchiveProject = async (proj: Project) => {
     if (!currentUser || !canManageIssues(currentUser)) {
-      setProjectErrorMsg("プロジェクトのステータス変更は管理者（Admin）またはPMOのみ実行できます");
+      setProjectErrorMsg("プロジェクトの状態変更は管理者（Admin）またはPMOのみ実行できます");
       return;
     }
 

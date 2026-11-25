@@ -129,7 +129,7 @@ export default function IssueSummaryToolbar({
               type="button"
               onClick={() => onOpenHistory("title")}
               className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium shrink-0"
-              title={isModal ? "タイトルの変更履歴を確認" : "クリックしてタイトルの変更履歴を確認"}
+              title={isModal ? "件名の変更履歴を確認" : "クリックして件名の変更履歴を確認"}
             >
               (履歴 · {activeIssue.title_history_count}件)
             </button>
@@ -151,7 +151,7 @@ export default function IssueSummaryToolbar({
               if (nextStatus === "closed") {
                 if (!canClose) {
                   alert(
-                    "課題を完了にできるのは、課題の起票者・PMO・または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。"
+                    "課題を完了にできるのは、課題の作成者・PMO・または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。"
                   );
                   return;
                 }
@@ -180,7 +180,7 @@ export default function IssueSummaryToolbar({
               disabled={!canClose || hasUnclosedChildren}
               title={
                 !canClose
-                  ? "課題を完了にできるのは起票者・PMO・または管理者のみです"
+                  ? "課題を完了にできるのは作成者・PMO・または管理者のみです"
                   : hasUnclosedChildren
                   ? `未完了の子課題が ${unclosedChildrenCount} 件あります`
                   : undefined
@@ -188,7 +188,7 @@ export default function IssueSummaryToolbar({
             >
               完了
               {!canClose
-                ? " (起票者/PMO/管理者限定)"
+                ? " (作成者/PMO/管理者限定)"
                 : hasUnclosedChildren
                 ? " (未完了あり)"
                 : ""}
@@ -292,7 +292,7 @@ export default function IssueSummaryToolbar({
         {/* 期限日（または期間） */}
         <div className={`flex items-center gap-1.5 ${pillBg} border border-slate-300 rounded-lg px-2.5 py-1 shadow-2xs`}>
           <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-          <span className="text-[10px] text-slate-500 font-medium">期限:</span>
+          <span className="text-[10px] text-slate-500 font-medium">期限日:</span>
           <span
             className={`font-semibold ${
               activeIssue.due_date &&
@@ -331,7 +331,7 @@ export default function IssueSummaryToolbar({
         {/* 登録日時・起票者 */}
         <div
           className="flex items-center gap-1 text-slate-500 text-[11px] px-1 py-1"
-          title={`${creatorName ? `起票者: ${creatorName}\n` : ""}登録: ${formatTimestamp(
+          title={`${creatorName ? `作成者: ${creatorName}\n` : ""}登録: ${formatTimestamp(
             activeIssue.created_at,
             settings,
             true

@@ -131,7 +131,7 @@ export default function ProjectBoardPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "ステータス更新に失敗しました");
+        alert(data.error || "状態の更新に失敗しました");
         await refreshAll();
       }
     } catch (err) {

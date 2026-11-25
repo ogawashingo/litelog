@@ -1102,7 +1102,7 @@ export default function UserManageModal({
 
                             {/* 所属プロジェクトタグ表示 */}
                             <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                              <span className="text-[10px] font-semibold text-slate-400 shrink-0">参加案件:</span>
+                              <span className="text-[10px] font-semibold text-slate-400 shrink-0">参加プロジェクト:</span>
                               {projectsList.length > 0 && (u.projects || []).length === projectsList.length ? (
                                 <span className="text-[10px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded">
                                   全プロジェクト参加

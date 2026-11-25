@@ -60,7 +60,7 @@ export default function SummaryCards({
     const items: UrgentItem[] = [];
 
     for (const issue of activeIssues) {
-      // 共通アラート判定（期限超過・停滞・未着手警告・担当未定）
+      // 共通アラート判定（期限超過・停滞・未対応警告・担当未定）
       const alert = getIssueAlert(issue, settings);
 
       if (alert) {
@@ -149,7 +149,7 @@ export default function SummaryCards({
           </span>
         </div>
         <span className="text-xs text-emerald-700/80 hidden sm:inline">
-          期限切れ・進行中の停滞・未着手警告はありません
+          期限切れ・処理中の停滞・未対応警告はありません
         </span>
       </div>
     );
@@ -192,7 +192,7 @@ export default function SummaryCards({
           {unstartedCount > 0 && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-900 border border-orange-200">
               <Zap className="w-3.5 h-3.5 text-orange-600" />
-              未着手警告: {unstartedCount}件
+              未対応警告: {unstartedCount}件
             </span>
           )}
           {todayCount > 0 && (

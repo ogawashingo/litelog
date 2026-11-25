@@ -171,7 +171,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     // ステータス更新バリデーション
     if (nextStatus !== undefined && !VALID_STATUSES.has(nextStatus)) {
-      return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
+      return NextResponse.json({ error: "無効な状態です" }, { status: 400 });
     }
     // 一般メンバーが「処理済み」へ変更する際は、メンション以外の依頼メッセージ本文を必須とする（Admin/PMOはスキップ許可）
     const isManager = sessionUser.is_admin === 1 || sessionUser.role_type === "pmo";
@@ -221,7 +221,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
       if (!canClose) {
         return NextResponse.json(
-          { error: "課題を完了にできるのは、課題の起票者・PMO・または管理者のみです" },
+          { error: "課題を完了にできるのは、課題の作成者・PMO・または管理者のみです" },
           { status: 403 }
         );
       }

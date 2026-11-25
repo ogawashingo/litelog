@@ -409,7 +409,7 @@ export default function GanttChart({
         onRefresh();
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "ステータス変更に失敗しました");
+        alert(data.error || "状態の変更に失敗しました");
         onRefresh();
       }
     } catch (err) {

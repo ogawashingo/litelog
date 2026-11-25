@@ -228,7 +228,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if (body.title !== undefined) {
       const cleanTitle = String(body.title).trim();
       if (!cleanTitle) {
-        return NextResponse.json({ error: "課題名は空にできません" }, { status: 400 });
+        return NextResponse.json({ error: "件名は空にできません" }, { status: 400 });
       }
       const titleLengthErr = validateMaxLength(cleanTitle, MAX_LENGTHS.ISSUE_TITLE, "課題名");
       if (titleLengthErr) {
@@ -288,7 +288,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
     if (body.status !== undefined) {
       if (!VALID_STATUSES.has(String(body.status))) {
-        return NextResponse.json({ error: "無効なステータスです" }, { status: 400 });
+        return NextResponse.json({ error: "無効な状態です" }, { status: 400 });
       }
 
       // 一般メンバーがコメントなしで「処理済み」へ変更することを禁止（Admin/PMOはスキップ許可）
@@ -309,7 +309,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         );
         if (!canClose) {
           return NextResponse.json(
-            { error: "課題を完了にできるのは、課題の起票者・PMO・または管理者のみです" },
+            { error: "課題を完了にできるのは、課題の作成者・PMO・または管理者のみです" },
             { status: 403 }
           );
         }

@@ -113,7 +113,7 @@ export default function IssueEditFormSection({
             value={editTitle}
             onChange={(e) => onChangeEditTitle(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-base font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-            placeholder="2〜3日で完了できる課題名"
+            placeholder="2〜3日で完了できる件名"
           />
         </div>
 
@@ -139,7 +139,7 @@ export default function IssueEditFormSection({
               <option value="closed" disabled={!canClose || hasUnclosedChildren}>
                 完了
                 {!canClose
-                  ? " (起票者/管理者限定)"
+                  ? " (作成者/管理者限定)"
                   : hasUnclosedChildren
                   ? " (未完了あり)"
                   : ""}
@@ -310,7 +310,7 @@ export default function IssueEditFormSection({
               disabled={!canClose || hasUnclosedChildren}
               title={
                 !canClose
-                  ? "課題を完了にできるのは起票者または管理者のみです"
+                  ? "課題を完了にできるのは作成者または管理者のみです"
                   : hasUnclosedChildren
                   ? `未完了の子課題が ${unclosedChildrenCount} 件あります`
                   : undefined
@@ -318,7 +318,7 @@ export default function IssueEditFormSection({
             >
               完了
               {!canClose
-                ? " (起票者/管理者限定)"
+                ? " (作成者/管理者限定)"
                 : hasUnclosedChildren
                 ? " (未完了の子課題あり)"
                 : ""}

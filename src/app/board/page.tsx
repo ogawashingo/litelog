@@ -101,7 +101,7 @@ export default function BoardIndexPage() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "ステータスの更新に失敗しました");
+        alert(data.error || "状態の更新に失敗しました");
       }
       const issueRes = await fetch("/api/issues");
       if (issueRes.ok) {

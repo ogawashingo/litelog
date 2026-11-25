@@ -241,7 +241,7 @@ export default function IssueChildSection({
               type="text"
               value={childTitle}
               onChange={(e) => onChangeChildTitle(e.target.value)}
-              placeholder="子課題のタイトルを入力... (Enterで追加)"
+              placeholder="子課題の件名を入力... (Enterで追加)"
               autoFocus
               disabled={isSubmittingChild}
               className={

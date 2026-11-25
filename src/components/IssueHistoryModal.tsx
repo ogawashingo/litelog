@@ -136,7 +136,7 @@ export default function IssueHistoryModal({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>詳細・説明</span>
+            <span>詳細</span>
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                 descCount > 0 ? "bg-indigo-100 text-indigo-700 font-bold" : "bg-slate-200 text-slate-600"
@@ -176,7 +176,7 @@ export default function IssueHistoryModal({
             }`}
           >
             <Type className="w-3.5 h-3.5" />
-            <span>タイトル</span>
+            <span>件名</span>
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] ${
                 titleCount > 0 ? "bg-indigo-100 text-indigo-700 font-bold" : "bg-slate-200 text-slate-600"
@@ -252,7 +252,7 @@ export default function IssueHistoryModal({
                       {currentIssue.description ? (
                         <MentionText text={currentIssue.description} users={users} className="text-sm text-slate-800" />
                       ) : (
-                        <span className="text-slate-400 italic text-xs">（詳細・説明はありません）</span>
+                        <span className="text-slate-400 italic text-xs">（詳細はありません）</span>
                       )}
                     </div>
                   ) : activeTab === "dates" ? (
@@ -273,7 +273,7 @@ export default function IssueHistoryModal({
                   ) : (
                     <div className="space-y-2 pt-1">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-500">タイトル:</span>
+                        <span className="text-[10px] font-bold text-slate-500">件名:</span>
                         <p className="text-slate-900 font-semibold">{currentIssue.title}</p>
                       </div>
                       <div className="flex gap-4 text-xs">
@@ -287,12 +287,12 @@ export default function IssueHistoryModal({
                         </div>
                       </div>
                       <div>
-                        <span className="text-[10px] font-bold text-slate-500">詳細・説明:</span>
+                        <span className="text-[10px] font-bold text-slate-500">詳細:</span>
                         <div className="pt-0.5">
                           {currentIssue.description ? (
                             <MentionText text={currentIssue.description} users={users} className="text-xs text-slate-800" />
                           ) : (
-                            <span className="text-slate-400 italic text-xs">（詳細・説明はありません）</span>
+                            <span className="text-slate-400 italic text-xs">（詳細はありません）</span>
                           )}
                         </div>
                       </div>
@@ -311,9 +311,9 @@ export default function IssueHistoryModal({
                 const isFieldResolution = h.field_name === "resolution";
 
                 const fieldLabel = isFieldDesc
-                  ? "説明"
+                  ? "詳細"
                   : isFieldTitle
-                  ? "タイトル"
+                  ? "件名"
                   : isFieldDue
                   ? "期限日"
                   : isFieldStart

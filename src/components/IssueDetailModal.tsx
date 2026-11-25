@@ -492,7 +492,7 @@ export default function IssueDetailModal({
 
     if (editStatus === "closed") {
       if (!canClose) {
-        alert("課題を完了にできるのは、課題の起票者または管理者のみです。");
+        alert("課題を完了にできるのは、課題の作成者または管理者のみです。");
         return;
       }
       if (hasUnclosedChildren) {
@@ -604,7 +604,7 @@ export default function IssueDetailModal({
       } else {
         const data = await res.json().catch(() => ({}));
         showToast({
-          message: data.error || "ステータス変更に失敗しました",
+          message: data.error || "状態の変更に失敗しました",
           type: "error",
         });
         setCurrentIssue((prev) =>
@@ -637,7 +637,7 @@ export default function IssueDetailModal({
   const handleQuickStatusChange = async (newStatus: IssueStatus) => {
     if (newStatus === "closed") {
       if (!canClose) {
-        alert("課題を完了にできるのは、課題の起票者または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
+        alert("課題を完了にできるのは、課題の作成者または管理者のみです。\n作業完了時は「処理済み」を選択してレビューを依頼してください。");
         return;
       }
       if (hasUnclosedChildren) {
@@ -681,7 +681,7 @@ export default function IssueDetailModal({
         onUpdated();
       } else {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || "ステータス変更に失敗しました");
+        alert(data.error || "状態の変更に失敗しました");
         setCurrentIssue((prev) =>
           prev
             ? { ...prev, status: previousStatus, resolution: previousResolution }
@@ -1070,7 +1070,7 @@ export default function IssueDetailModal({
           <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 flex items-center gap-2 text-xs font-semibold shrink-0">
             <Archive className="w-4 h-4 text-amber-700 shrink-0" />
             <span>
-              この課題が属するプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、課題情報の修正やステータス変更、コメント投稿は行えません。
+              この課題が属するプロジェクトは<strong>アーカイブ</strong>されています。読み取り専用のため、課題情報の修正や状態の変更、コメント投稿は行えません。
             </span>
           </div>
         )}
@@ -1165,7 +1165,7 @@ export default function IssueDetailModal({
                           setIsIssueHistoryOpen(true);
                         }}
                         className="text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline bg-indigo-50 px-1.5 py-0.5 rounded cursor-pointer font-medium"
-                        title="クリックして詳細説明の変更履歴を確認"
+                        title="クリックして詳細の変更履歴を確認"
                       >
                         (編集済み · {activeIssue.description_history_count}件)
                       </button>
@@ -1180,7 +1180,7 @@ export default function IssueDetailModal({
                       onIssueClick={handleSwitchByIssueKey}
                     />
                   ) : (
-                    <span className="text-gray-400 italic">詳細メモはありません</span>
+                    <span className="text-gray-400 italic">詳細はありません</span>
                   )}
                 </div>
               </div>

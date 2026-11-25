@@ -204,7 +204,7 @@ export default function MemberManagementSection({
                   {/* 下段: 所属プロジェクトタグ表示 */}
                   <div className="flex items-center gap-1.5 pl-9 flex-wrap text-xs">
                     <span className="text-[11px] text-slate-400 shrink-0 font-medium">
-                      参加案件:
+                      参加プロジェクト:
                     </span>
                     {projects.length > 0 && (u.projects || []).length === projects.length ? (
                       <span className="text-[10px] text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded font-medium">

@@ -106,7 +106,7 @@ export default function IssueList({
     return issues.filter((i) => i.status === "resolved").length;
   }, [issues]);
 
-  // 「要フォロー」件数（停滞・遅延・未着手などのアラート対象課題）
+  // 「要フォロー」件数（停滞・遅延・未対応などのアラート対象課題）
   const stalledIssuesCount = useMemo(() => {
     return issues.filter((i) => {
       if (i.status === "closed") return false;
@@ -184,7 +184,7 @@ export default function IssueList({
       // レビュー待ちモード（PMO/Admin用：一般メンバーからレビュー依頼が出ている処理済み課題）
       if (issue.status !== "resolved") return false;
     } else if (quickView === "stalled") {
-      // 要フォローモード（PMO/Admin用：停滞・遅延・未着手などのアラート対象課題）
+      // 要フォローモード（PMO/Admin用：停滞・遅延・未対応などのアラート対象課題）
       if (issue.status === "closed") return false;
       if (!getIssueAlert(issue, settings)) return false;
     } else {
@@ -392,7 +392,7 @@ export default function IssueList({
             </h3>
             {quickView === "today" && (
               <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                遅延・本日締切・進行中
+                遅延・本日締切・処理中
               </span>
             )}
             {quickView === "review" && (
@@ -402,7 +402,7 @@ export default function IssueList({
             )}
             {quickView === "stalled" && (
               <span className="text-[11px] font-semibold text-rose-800 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
-                停滞・遅延・未着手
+                停滞・遅延・未対応
               </span>
             )}
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800">
@@ -485,7 +485,7 @@ export default function IssueList({
                       ? "bg-rose-600 text-white shadow-2xs"
                       : "text-rose-700 hover:text-rose-900 hover:bg-rose-100/50"
                   }`}
-                  title="停滞中・期限超過・未着手などのフォローが必要な課題"
+                  title="停滞中・期限超過・未対応などのフォローが必要な課題"
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>要フォロー ({stalledIssuesCount})</span>
@@ -595,7 +595,7 @@ export default function IssueList({
             onChange={(e) => setSortBy(e.target.value as "due" | "updated" | "priority")}
             className="bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="due">ソート: 期限順</option>
+            <option value="due">ソート: 期限日順</option>
             <option value="updated">ソート: 更新順</option>
             <option value="priority">ソート: 優先度順</option>
           </select>
@@ -676,7 +676,7 @@ export default function IssueList({
                 <>
                   <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                   <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
-                  <p className="text-xs text-slate-400">現在、至急対応が必要な課題や進行中の課題はありません。順調です！</p>
+                  <p className="text-xs text-slate-400">現在、至急対応が必要な課題や処理中の課題はありません。順調です！</p>
                 </>
               ) : quickView === "review" ? (
                 <>
@@ -891,7 +891,7 @@ export default function IssueList({
                       <>
                         <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                         <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
-                        <p className="text-xs text-slate-400">現在、至急対応が必要な課題や進行中の課題はありません。順調です！</p>
+                        <p className="text-xs text-slate-400">現在、至急対応が必要な課題や処理中の課題はありません。順調です！</p>
                       </>
                     ) : quickView === "review" ? (
                       <>
@@ -1251,7 +1251,7 @@ export default function IssueList({
                               onUpdateDueDate(issue.id, nextDate);
                             }
                           }}
-                          placeholder="期日未設定"
+                          placeholder="期限日未設定"
                           statusHighlight={
                             dueInfo.isOverdue && !isClosed
                               ? "overdue"
