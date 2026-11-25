@@ -434,7 +434,7 @@ export default function IssueEditFormSection({
           users={users}
           issueId={activeIssue.id}
           onAttachmentUploaded={onAttachmentUploaded}
-          placeholder={`※クローズ条件が記載されると良いです。\n※1週間以上かかりそうな大きな課題は、複数の課題に分割しましょう。`}
+          placeholder={`※完了条件が記載されると良いです。\n※1週間以上かかりそうな大きな課題は、複数の課題に分割しましょう。`}
           className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-base sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
         />
       </div>

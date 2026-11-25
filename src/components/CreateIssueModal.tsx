@@ -372,7 +372,7 @@ export default function CreateIssueModal({
               詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
             </label>
             <MentionTextarea
-              placeholder={`※クローズ条件が記載されると良いです。\n※1週間以上かかりそうな大きな課題は、複数の課題に分割しましょう。`}
+              placeholder={`※完了条件が記載されると良いです。\n※1週間以上かかりそうな大きな課題は、複数の課題に分割しましょう。`}
               rows={5}
               value={description}
               onChange={(val) => setDescription(val)}

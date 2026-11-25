@@ -774,7 +774,7 @@ export default function IssueDetailPage() {
                       onChange={(val) => setEditDescription(val)}
                       users={users}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
-                      placeholder={`※クローズ条件が記載されると良いです。\n※1週間以上かかりそうな大きな課題は、複数の課題に分割しましょう。`}
+                      placeholder={`※完了条件が記載されると良いです。\n※1週間以上かかりそうな大きな課題は、複数の課題に分割しましょう。`}
                     />
                     <NotifyUserSelector
                       users={users}
