@@ -774,7 +774,7 @@ export default function IssueDetailPage() {
                       onChange={(val) => setEditDescription(val)}
                       users={users}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-base sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-indigo-500 bg-white"
-                      placeholder="課題の詳細や手順などを記入... (@でメンバーをメンション)"
+                      placeholder={`【クローズ条件（完了基準は最大2つまで！）】\n- [ ] 例: PRがマージされステージングで確認できること\n\n【背景・手順メモ】\n※ 1週間以上かかりそうな大きなタスクは、複数チケットに分割しよう！ (@メンション・画像添付対応)`}
                     />
                     <NotifyUserSelector
                       users={users}

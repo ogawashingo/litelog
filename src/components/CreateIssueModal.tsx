@@ -358,7 +358,7 @@ export default function CreateIssueModal({
             </label>
             <input
               type="text"
-              placeholder="課題の概要を入力してください"
+              placeholder="2〜3日で完了できるタスク名（例: 【決済】Safariで注文確定ボタンが押せない不具合の修正）"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-base sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -372,7 +372,7 @@ export default function CreateIssueModal({
               詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
             </label>
             <MentionTextarea
-              placeholder="タスクの背景、達成条件、作業手順など... (@でメンバー候補を表示、画像ペースト・添付対応)"
+              placeholder={`【クローズ条件（完了基準は最大2つまで！）】\n- [ ] 例: PRがマージされステージングで確認できること\n\n【背景・手順メモ】\n※ 1週間以上かかりそうな大きなタスクは、複数チケットに分割しよう！ (@メンション・画像添付対応)`}
               rows={5}
               value={description}
               onChange={(val) => setDescription(val)}

@@ -113,7 +113,7 @@ export default function IssueEditFormSection({
             value={editTitle}
             onChange={(e) => onChangeEditTitle(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-base font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-            placeholder="課題の件名を入力"
+            placeholder="2〜3日で完了できるタスク名（例: 【決済】Safariで注文確定ボタンが押せない不具合の修正）"
           />
         </div>
 
@@ -434,7 +434,7 @@ export default function IssueEditFormSection({
           users={users}
           issueId={activeIssue.id}
           onAttachmentUploaded={onAttachmentUploaded}
-          placeholder="課題の詳細・背景・補足メモを入力... (@でメンバー候補を表示、画像ペースト・添付対応)"
+          placeholder={`【クローズ条件（完了基準は最大2つまで！）】\n- [ ] 例: PRがマージされステージングで確認できること\n\n【背景・手順メモ】\n※ 1週間以上かかりそうな大きなタスクは、複数チケットに分割しよう！ (@メンション・画像添付対応)`}
           className="w-full bg-white border border-slate-300 rounded px-3 py-2 text-base sm:text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
         />
       </div>
