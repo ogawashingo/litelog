@@ -1,4 +1,4 @@
-// タスク完了時などに画面へ紙吹雪・スパークル（Confetti）を打ち上げる軽量Canvasユーティリティ
+// 課題完了時などに画面へ紙吹雪・スパークル（Confetti）を打ち上げる軽量Canvasユーティリティ
 
 interface ConfettiParticle {
   x: number;

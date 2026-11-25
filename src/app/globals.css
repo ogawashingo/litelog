@@ -1312,7 +1312,7 @@ body {
   }
 }
 
-/* ダッシュボード: 課題一覧の親タスク（SAMPLE-4など）行のダークモード調和 */
+/* ダッシュボード: 課題一覧の親課題（SAMPLE-4など）行のダークモード調和 */
 [data-theme="dark"] tr.issue-parent-row {
   background-color: rgba(99, 102, 241, 0.1) !important;
 }

@@ -55,7 +55,7 @@ export default function IssueList({
   const [sortBy, setSortBy] = useState<"due" | "updated" | "priority">("due");
   // 親子階層表示（ツリー構造）フラグ（デフォルトON）
   const [withParentRelation, setWithParentRelation] = useState<boolean>(true);
-  // ダッシュボードでは完了済み（closed）のタスクはデフォルトで非表示
+  // ダッシュボードでは完了済み（closed）の課題はデフォルトで非表示
   const [showClosed, setShowClosed] = useState(false);
   // 1ページの表示件数（デフォルト25件、0は全件）
   const [pageSize, setPageSize] = useState<number>(25);
@@ -192,7 +192,7 @@ export default function IssueList({
       if (selectedStatus !== "all" && issue.status !== selectedStatus) {
         return false;
       }
-      // 完了済み（closed）のタスクはデフォルトで非表示（「完了」カード選択時または「完了を含む」ON時は表示）
+      // 完了済み（closed）の課題はデフォルトで非表示（「完了」カード選択時または「完了を含む」ON時は表示）
       if (!isShowingClosed && issue.status === "closed") {
         return false;
       }
@@ -676,7 +676,7 @@ export default function IssueList({
                 <>
                   <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                   <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
-                  <p className="text-xs text-slate-400">現在、至急対応が必要なタスクや進行中のタスクはありません。順調です！</p>
+                  <p className="text-xs text-slate-400">現在、至急対応が必要な課題や進行中の課題はありません。順調です！</p>
                 </>
               ) : quickView === "review" ? (
                 <>
@@ -694,7 +694,7 @@ export default function IssueList({
                 <>
                   <Filter className="w-8 h-8 text-slate-300" />
                   <p className="text-sm font-medium">該当する課題が見つかりません</p>
-                  <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+                  <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しい課題を登録してください。</p>
                 </>
               )}
             </div>
@@ -891,7 +891,7 @@ export default function IssueList({
                       <>
                         <CheckCircle2 className="w-8 h-8 text-emerald-500" />
                         <p className="text-sm font-semibold text-slate-700">今日のマイタスクはありません</p>
-                        <p className="text-xs text-slate-400">現在、至急対応が必要なタスクや進行中のタスクはありません。順調です！</p>
+                        <p className="text-xs text-slate-400">現在、至急対応が必要な課題や進行中の課題はありません。順調です！</p>
                       </>
                     ) : quickView === "review" ? (
                       <>
@@ -909,7 +909,7 @@ export default function IssueList({
                       <>
                         <Filter className="w-8 h-8 text-slate-300" />
                         <p className="text-sm font-medium">該当する課題が見つかりません</p>
-                        <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しいタスクを登録してください。</p>
+                        <p className="text-xs text-slate-400">フィルター条件を変更するか、「課題の追加」から新しい課題を登録してください。</p>
                       </>
                     )}
                   </div>

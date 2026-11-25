@@ -113,7 +113,7 @@ export default function IssueEditFormSection({
             value={editTitle}
             onChange={(e) => onChangeEditTitle(e.target.value)}
             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-base font-bold focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-            placeholder="2〜3日で完了できるタスク名"
+            placeholder="2〜3日で完了できる課題名"
           />
         </div>
 

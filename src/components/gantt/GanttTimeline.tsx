@@ -1,4 +1,4 @@
-// ガントチャート右ペイン（タイムラインヘッダー・グリッド背景・タスクバー描画）
+// ガントチャート右ペイン（タイムラインヘッダー・グリッド背景・課題バー描画）
 "use client";
 
 import React from "react";
@@ -238,7 +238,7 @@ export default function GanttTimeline({
               return null;
             })()}
 
-            {/* ---------- 各課題の行 ＆ タスクバー描画 ---------- */}
+            {/* ---------- 各課題の行 ＆ 課題バー描画 ---------- */}
             <div className="relative divide-y divide-gray-100 z-10">
               {displayRows.map((row) => {
                 const { issue, childrenIssues } = row;

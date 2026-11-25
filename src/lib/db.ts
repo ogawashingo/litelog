@@ -148,7 +148,7 @@ export function initDb(db: DatabaseSync) {
     console.error("projects テーブルのマイグレーション確認エラー:", projMigErr);
   }
 
-  // 課題（タスク）テーブル
+  // 課題テーブル
   db.exec(`
     CREATE TABLE IF NOT EXISTS issues (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -592,8 +592,8 @@ export function initDb(db: DatabaseSync) {
       },
       {
         num: 2,
-        title: "チームプロジェクトのタスクを洗い出して登録する",
-        desc: "今後やりたいことや抱えているタスクを課題として登録し、メンバーに割り当てて管理します。",
+        title: "チームプロジェクトの課題を洗い出して登録する",
+        desc: "今後やりたいことや抱えている課題を登録し、メンバーに割り当てて管理します。",
         type: "request",
         status: "in_progress",
         priority: "medium",
@@ -603,7 +603,7 @@ export function initDb(db: DatabaseSync) {
       },
       {
         num: 3,
-        title: "進捗管理と定期的なタスク見直しの習慣化",
+        title: "進捗管理と定期的な課題見直しの習慣化",
         desc: "毎朝ダッシュボードで各メンバーの課題を確認し、ステータスを更新します。",
         type: "other",
         status: "open",

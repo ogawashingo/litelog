@@ -149,7 +149,7 @@ export const RESOLUTION_OPTIONS: { value: IssueResolution; label: string }[] = [
   { value: "cannot_reproduce", label: "再現しない" },
 ];
 
-// 課題（タスク）情報
+// 課題情報
 export interface Issue {
   id: number;
   project_id: number;
