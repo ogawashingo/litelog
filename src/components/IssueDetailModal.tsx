@@ -62,6 +62,9 @@ export default function IssueDetailModal({
   // プロジェクト参加メンバー一覧State
   const [projectMembers, setProjectMembers] = useState<User[]>([]);
 
+  // 個人ピン留めトグル中State
+  const [isTogglingPin, setIsTogglingPin] = useState(false);
+
   // モーダルコンテンツ領域のスクロールRef（課題切り替え時に先頭へスクロール）
   const contentScrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -953,8 +956,7 @@ export default function IssueDetailModal({
     }
   };
 
-  // 個人ピン留めトグル
-  const [isTogglingPin, setIsTogglingPin] = useState(false);
+  // 個人ピン留めトグル処理
   const handleTogglePin = async () => {
     if (!currentUser || !activeIssue || activeIssue.status === "closed" || isTogglingPin) return;
     const nextPinned = !Boolean(activeIssue.is_pinned);
