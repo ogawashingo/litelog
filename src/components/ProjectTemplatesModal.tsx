@@ -49,7 +49,7 @@ export default function ProjectTemplatesModal({
       const data = await res.json();
       setTemplates(data.templates || []);
     } catch (err) {
-      setErrorMsg(getSafeErrorMessage(err));
+      setErrorMsg(getSafeErrorMessage(err, "テンプレートの取得に失敗しました"));
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +147,7 @@ export default function ProjectTemplatesModal({
       setEditingTemplate(null);
       if (onUpdated) onUpdated();
     } catch (err) {
-      setErrorMsg(getSafeErrorMessage(err));
+      setErrorMsg(getSafeErrorMessage(err, "テンプレートの取得に失敗しました"));
     } finally {
       setIsSaving(false);
     }
@@ -172,7 +172,7 @@ export default function ProjectTemplatesModal({
       await loadTemplates();
       if (onUpdated) onUpdated();
     } catch (err) {
-      setErrorMsg(getSafeErrorMessage(err));
+      setErrorMsg(getSafeErrorMessage(err, "テンプレートの削除に失敗しました"));
     }
   };
 

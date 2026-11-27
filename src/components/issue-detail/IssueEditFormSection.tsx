@@ -19,6 +19,7 @@ import { DatePicker } from "@/components/DatePicker";
 import MentionTextarea from "@/components/MentionTextarea";
 import IssueTemplateSelector from "@/components/IssueTemplateSelector";
 import NotifyUserSelector from "@/components/NotifyUserSelector";
+import DraftIndicator from "@/components/DraftIndicator";
 import { SelectedEditParentInfo } from "./issueDetailUtils";
 
 interface IssueEditFormSectionProps {
@@ -58,6 +59,9 @@ interface IssueEditFormSectionProps {
   currentUser: User | null;
   comments: Comment[];
   isSaving: boolean;
+  hasDraft?: boolean;
+  isDraftRestored?: boolean;
+  onDiscardDraft?: () => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onAttachmentUploaded?: (att: Attachment) => void;
@@ -100,6 +104,9 @@ export default function IssueEditFormSection({
   currentUser,
   comments,
   isSaving,
+  hasDraft = false,
+  isDraftRestored = false,
+  onDiscardDraft,
   onCancelEdit,
   onSaveEdit,
   onAttachmentUploaded,
@@ -108,7 +115,14 @@ export default function IssueEditFormSection({
     return (
       <>
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">件名 *</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-bold text-slate-700">件名 *</label>
+            <DraftIndicator
+              hasDraft={hasDraft}
+              isRestored={isDraftRestored}
+              onDiscard={onDiscardDraft}
+            />
+          </div>
           <input
             type="text"
             value={editTitle}
@@ -265,7 +279,14 @@ export default function IssueEditFormSection({
   return (
     <div className="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1">件名</label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-bold text-slate-700">件名</label>
+          <DraftIndicator
+            hasDraft={hasDraft}
+            isRestored={isDraftRestored}
+            onDiscard={onDiscardDraft}
+          />
+        </div>
         <input
           type="text"
           value={editTitle}

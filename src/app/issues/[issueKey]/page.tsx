@@ -39,6 +39,8 @@ import IssueEditFormSection from "@/components/issue-detail/IssueEditFormSection
 import IssueChildSection from "@/components/issue-detail/IssueChildSection";
 import IssueCommentsSection from "@/components/issue-detail/IssueCommentsSection";
 import IssueDetailModalsBundle from "@/components/issue-detail/IssueDetailModalsBundle";
+import DraftIndicator from "@/components/DraftIndicator";
+import { useIssueEditDraft } from "@/hooks/useIssueEditDraft";
 
 export default function IssueDetailPage() {
   const params = useParams();
@@ -187,6 +189,7 @@ export default function IssueDetailPage() {
       });
 
       if (res.ok) {
+        clearEditDraft();
         setIsEditing(false);
         setEditNotifyUserIds([]);
         notifyNotificationsUpdated();
@@ -395,6 +398,23 @@ export default function IssueDetailPage() {
   );
   // 課題を削除できる権限判定（作成者または管理者のみ）
   const canDelete = canDeleteIssue(currentUser, issue);
+
+  // 課題編集（件名・詳細）の下書き自動保存・復元フック
+  const {
+    hasDraft: hasEditDraft,
+    isDraftRestored: isEditDraftRestored,
+    handleDiscardDraft: handleDiscardEditDraft,
+    clearDraft: clearEditDraft,
+  } = useIssueEditDraft({
+    issueId: issue?.id,
+    isEditing,
+    currentTitle: issue?.title || "",
+    currentDescription: issue?.description || "",
+    editTitle,
+    setEditTitle,
+    editDescription,
+    setEditDescription,
+  });
 
   // コメント・子課題追加・課題削除・URLコピー共通アクション
   const {
@@ -745,6 +765,9 @@ export default function IssueDetailPage() {
                   currentUser={currentUser}
                   comments={comments}
                   isSaving={isSaving}
+                  hasDraft={hasEditDraft}
+                  isDraftRestored={isEditDraftRestored}
+                  onDiscardDraft={handleDiscardEditDraft}
                   onCancelEdit={() => setIsEditing(false)}
                   onSaveEdit={handleSaveEdit}
                 />
@@ -755,6 +778,13 @@ export default function IssueDetailPage() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs font-bold text-slate-700">詳細・メモ</h3>
+                    {isEditing && (
+                      <DraftIndicator
+                        hasDraft={hasEditDraft}
+                        isRestored={isEditDraftRestored}
+                        onDiscard={handleDiscardEditDraft}
+                      />
+                    )}
                     {Boolean(issue.description_history_count && issue.description_history_count > 0) && (
                       <button
                         type="button"

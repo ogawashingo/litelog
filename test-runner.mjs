@@ -37,6 +37,16 @@ import {
   getSafeErrorMessage,
 } from "./src/lib/clientError.ts";
 import { calculateAssigneeCounts } from "./src/lib/assigneeUtils.ts";
+import {
+  getCommentDraftKey,
+  getIssueCreateDraftKey,
+  getIssueEditDraftKey,
+  getDraft,
+  setDraft,
+  removeDraft,
+  getJSONDraft,
+  setJSONDraft,
+} from "./src/lib/draftStorage.ts";
 
 const HASH_PREFIX = "scrypt$";
 
@@ -3861,6 +3871,62 @@ async function runTests() {
       throw new Error(`担当者フィルター件数集計が不正です: ${JSON.stringify(counts)}`);
     }
     console.log("✓ 担当者フィルター用件数集計（メンバー別・未割当・自分・全体件数）検証成功");
+
+    // 5. 下書き自動保存（LocalStorage Draft）ユーティリティの動作検証
+    // キー生成検証
+    const commentKey = getCommentDraftKey(123);
+    const issueCreateKey = getIssueCreateDraftKey(1);
+    const issueEditKey = getIssueEditDraftKey(456);
+    if (
+      commentKey !== "litelog_draft:comment:123" ||
+      issueCreateKey !== "litelog_draft:issue_create:1" ||
+      issueEditKey !== "litelog_draft:issue_edit:456"
+    ) {
+      throw new Error(`下書きストレージキー生成が不正です: ${commentKey}, ${issueCreateKey}, ${issueEditKey}`);
+    }
+
+    // SSR（window未定義）環境でのセーフガード検証
+    const ssrDraft = getDraft(commentKey);
+    if (ssrDraft !== null) {
+      throw new Error("SSR環境でgetDraftがnull以外を返しました");
+    }
+
+    // ブラウザLocalStorageモック環境での保存・復元・空文字削除・削除検証
+    const mockStorage = new Map();
+    globalThis.window = {
+      localStorage: {
+        getItem: (k) => mockStorage.get(k) ?? null,
+        setItem: (k, v) => mockStorage.set(k, String(v)),
+        removeItem: (k) => mockStorage.delete(k),
+      },
+    };
+
+    // 文字列下書きの保存・取得
+    setDraft(commentKey, "作業メモの下書きテスト");
+    if (getDraft(commentKey) !== "作業メモの下書きテスト") {
+      throw new Error("下書きの保存または取得に失敗しました");
+    }
+
+    // 空文字保存時の自動削除検証
+    setDraft(commentKey, "   ");
+    if (getDraft(commentKey) !== null) {
+      throw new Error("空文字保存時に下書きが自動削除されませんでした");
+    }
+
+    // JSON下書きの保存・取得・削除検証
+    setJSONDraft(issueCreateKey, { title: "新しい機能要望", description: "詳細説明文", updatedAt: 123456789 });
+    const loadedJSON = getJSONDraft(issueCreateKey);
+    if (!loadedJSON || loadedJSON.title !== "新しい機能要望" || loadedJSON.description !== "詳細説明文") {
+      throw new Error(`JSON形式下書きの保存・復元に失敗しました: ${JSON.stringify(loadedJSON)}`);
+    }
+
+    removeDraft(issueCreateKey);
+    if (getJSONDraft(issueCreateKey) !== null) {
+      throw new Error("removeDraft後にJSON下書きが残存しています");
+    }
+
+    delete globalThis.window;
+    console.log("✓ 下書き自動保存（LocalStorage Draft）ユーティリティ検証成功");
   }
 
   console.log("=== すべての動作テストに合格しました！ ===");

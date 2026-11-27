@@ -23,6 +23,7 @@ import IssueChildSection from "./issue-detail/IssueChildSection";
 import IssueCommentsSection from "./issue-detail/IssueCommentsSection";
 import IssueDetailModalsBundle from "./issue-detail/IssueDetailModalsBundle";
 import CompleteIssueModal from "./CompleteIssueModal";
+import { useIssueEditDraft } from "@/hooks/useIssueEditDraft";
 
 interface IssueDetailModalProps {
   issue: Issue | null;
@@ -252,6 +253,23 @@ export default function IssueDetailModal({
   // 課題を削除できる権限判定（作成者または管理者のみ）
   const canDelete = canDeleteIssue(currentUser, activeIssueOrNull);
 
+  // 課題編集（件名・詳細）の下書き自動保存・復元フック
+  const {
+    hasDraft: hasEditDraft,
+    isDraftRestored: isEditDraftRestored,
+    handleDiscardDraft: handleDiscardEditDraft,
+    clearDraft: clearEditDraft,
+  } = useIssueEditDraft({
+    issueId: activeIssueOrNull?.id,
+    isEditing,
+    currentTitle: activeIssueOrNull?.title || "",
+    currentDescription: activeIssueOrNull?.description || "",
+    editTitle,
+    setEditTitle,
+    editDescription,
+    setEditDescription,
+  });
+
   // コメント・子課題追加・課題削除・URLコピー共通アクション
   const {
     isCopiedUrl,
@@ -458,6 +476,7 @@ export default function IssueDetailModal({
       });
 
       if (res.ok) {
+        clearEditDraft();
         setIsEditing(false);
         setEditNotifyUserIds([]);
         notifyNotificationsUpdated();
@@ -1147,6 +1166,9 @@ export default function IssueDetailModal({
               currentUser={currentUser}
               comments={comments}
               isSaving={isSaving}
+              hasDraft={hasEditDraft}
+              isDraftRestored={isEditDraftRestored}
+              onDiscardDraft={handleDiscardEditDraft}
               onCancelEdit={() => setIsEditing(false)}
               onSaveEdit={handleSaveEdit}
               onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}

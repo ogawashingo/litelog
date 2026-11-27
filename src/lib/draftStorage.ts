@@ -45,9 +45,9 @@ export function getIssueEditDraftKey(issueId: number): string {
  * LocalStorage から下書き文字列を取得（SSR・例外セーフ）
  */
 export function getDraft(key: string): string | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !window.localStorage) return null;
   try {
-    return localStorage.getItem(key);
+    return window.localStorage.getItem(key);
   } catch (err) {
     console.warn("下書き取得エラー (LocalStorage):", err);
     return null;
@@ -58,12 +58,12 @@ export function getDraft(key: string): string | null {
  * LocalStorage に下書き文字列を保存（空文字の場合は自動削除）
  */
 export function setDraft(key: string, value: string): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !window.localStorage) return;
   try {
     if (!value || value.trim() === "") {
-      localStorage.removeItem(key);
+      window.localStorage.removeItem(key);
     } else {
-      localStorage.setItem(key, value);
+      window.localStorage.setItem(key, value);
     }
   } catch (err) {
     console.warn("下書き保存エラー (LocalStorage):", err);
@@ -74,9 +74,9 @@ export function setDraft(key: string, value: string): void {
  * LocalStorage から下書きを削除
  */
 export function removeDraft(key: string): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !window.localStorage) return;
   try {
-    localStorage.removeItem(key);
+    window.localStorage.removeItem(key);
   } catch (err) {
     console.warn("下書き削除エラー (LocalStorage):", err);
   }

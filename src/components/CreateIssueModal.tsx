@@ -18,6 +18,14 @@ import ParentDueDateConfirmModal, {
 } from "./ParentDueDateConfirmModal";
 import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 import { formatDueDateDisplay } from "@/lib/dateUtils";
+import DraftIndicator from "./DraftIndicator";
+import {
+  getIssueCreateDraftKey,
+  getJSONDraft,
+  setJSONDraft,
+  removeDraft,
+  IssueCreateDraft,
+} from "@/lib/draftStorage";
 
 interface CreateIssueModalProps {
   isOpen: boolean;
@@ -61,6 +69,9 @@ export default function CreateIssueModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  // 下書き保存・復元ステート
+  const [hasDraft, setHasDraft] = useState(false);
+  const [isDraftRestored, setIsDraftRestored] = useState(false);
   // 子課題の期限が親課題を超過する場合の確認モーダル情報
   const [parentDueWarning, setParentDueWarning] = useState<ParentDueDateWarningInfo | null>(null);
   // モーダルが新規に開かれた瞬間のみ初期化するための直前ステートRef
@@ -70,18 +81,37 @@ export default function CreateIssueModal({
   useEffect(() => {
     if (isOpen && !prevIsOpenRef.current) {
       const activeList = projects.filter((p) => !p.is_archived);
+      let initialProjectId = projectId;
       if (selectedProjectId && activeList.some((p) => p.id === selectedProjectId)) {
+        initialProjectId = selectedProjectId;
         setProjectId(selectedProjectId);
       } else if (activeList[0]) {
+        initialProjectId = activeList[0].id;
         setProjectId(activeList[0].id);
       } else if (projects[0]) {
+        initialProjectId = projects[0].id;
         setProjectId(projects[0].id);
       }
       setParentId(defaultParentId ? String(defaultParentId) : "");
       setAssigneeId(currentUser ? String(currentUser.id) : "");
       setStatus(defaultStatus === "resolved" && !canManageIssues(currentUser) ? "open" : defaultStatus);
-      setTitle(defaultTitle || "");
-      setDescription("");
+
+      // LocalStorageから下書きを取得
+      const draftKey = getIssueCreateDraftKey(initialProjectId);
+      const savedDraft = getJSONDraft<IssueCreateDraft>(draftKey);
+
+      if (!defaultTitle && savedDraft && (savedDraft.title || savedDraft.description)) {
+        setTitle(savedDraft.title || "");
+        setDescription(savedDraft.description || "");
+        setHasDraft(true);
+        setIsDraftRestored(true);
+      } else {
+        setTitle(defaultTitle || "");
+        setDescription("");
+        setHasDraft(false);
+        setIsDraftRestored(false);
+      }
+
       setStartDate("");
       setDueDate("");
       setAttachmentIds([]);
@@ -94,6 +124,51 @@ export default function CreateIssueModal({
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, defaultTitle, projects, currentUser]);
+
+  // 入力内容のLocalStorageへの自動保存
+  useEffect(() => {
+    if (!isOpen || !projectId) return;
+
+    const draftKey = getIssueCreateDraftKey(projectId);
+    const hasContent = (title && title.trim().length > 0) || (description && description.trim().length > 0);
+
+    if (hasContent) {
+      setJSONDraft<IssueCreateDraft>(draftKey, {
+        title,
+        description,
+        updatedAt: Date.now(),
+      });
+      setHasDraft(true);
+    } else {
+      removeDraft(draftKey);
+      setHasDraft(false);
+      setIsDraftRestored(false);
+    }
+  }, [title, description, projectId, isOpen]);
+
+  // 入力中の誤閉じ・リロード防止（beforeunloadガード）
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasContent = (title && title.trim().length > 0) || (description && description.trim().length > 0);
+      if (hasContent) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isOpen, title, description]);
+
+  // 下書き破棄処理
+  const handleDiscardDraft = () => {
+    const draftKey = getIssueCreateDraftKey(projectId);
+    removeDraft(draftKey);
+    setTitle("");
+    setDescription("");
+    setHasDraft(false);
+    setIsDraftRestored(false);
+  };
 
   // 選択中プロジェクトの参加メンバー候補（プロジェクトメンバー＋Admin/PMO）
   const currentProject = projects.find((p) => p.id === projectId);
@@ -168,6 +243,9 @@ export default function CreateIssueModal({
       }
 
       // 成功時
+      removeDraft(getIssueCreateDraftKey(projectId));
+      setHasDraft(false);
+      setIsDraftRestored(false);
       setTitle("");
       setDescription("");
       setStartDate("");
@@ -354,9 +432,16 @@ export default function CreateIssueModal({
 
           {/* 件名 */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              件名 <span className="text-rose-500">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                件名 <span className="text-rose-500">*</span>
+              </label>
+              <DraftIndicator
+                hasDraft={hasDraft}
+                isRestored={isDraftRestored}
+                onDiscard={handleDiscardDraft}
+              />
+            </div>
             <input
               type="text"
               placeholder="2〜3日で完了できる件名"
