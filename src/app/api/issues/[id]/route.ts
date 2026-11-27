@@ -50,6 +50,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'start_date') AS start_date_history_count,
         (SELECT COUNT(*) FROM issue_histories ih WHERE ih.issue_id = i.id AND ih.field_name = 'resolution') AS resolution_history_count,
         COALESCE(cmt_stat.comment_count, 0) AS comment_count,
+        CASE WHEN my_pin.issue_id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END AS is_pinned,
+        CASE WHEN i.status != 'closed' THEN my_pin.pinned_at ELSE NULL END AS pinned_at,
         latest_c.content AS latest_comment_content,
         latest_c.created_at AS latest_comment_created_at,
         cu.name AS latest_comment_user_name,
@@ -59,6 +61,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN issues parent ON i.parent_id = parent.id
       LEFT JOIN users u ON i.assignee_id = u.id
       LEFT JOIN users creator ON i.created_by = creator.id
+      LEFT JOIN issue_pins my_pin ON my_pin.issue_id = i.id AND my_pin.user_id = ?
       LEFT JOIN (
         SELECT issue_id, COUNT(*) AS comment_count, MAX(id) AS latest_comment_id
         FROM comments
@@ -67,7 +70,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       LEFT JOIN comments latest_c ON latest_c.id = cmt_stat.latest_comment_id
       LEFT JOIN users cu ON latest_c.user_id = cu.id
       WHERE ${isNumeric ? "i.id = ?" : "i.issue_key = ?"}
-    `).get(isNumeric ? Number(id) : id) as Record<string, unknown> | undefined;
+    `).get(sessionUser.id, isNumeric ? Number(id) : id) as Record<string, unknown> | undefined;
 
     if (!issue) {
       return NextResponse.json({ error: "課題が見つかりません" }, { status: 404 });
@@ -99,14 +102,17 @@ export async function GET(_request: Request, { params }: RouteParams) {
         p.color AS project_color,
         u.name AS assignee_name,
         u.color AS assignee_color,
-        creator.name AS creator_name
+        creator.name AS creator_name,
+        CASE WHEN my_pin.issue_id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END AS is_pinned,
+        CASE WHEN i.status != 'closed' THEN my_pin.pinned_at ELSE NULL END AS pinned_at
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN users u ON i.assignee_id = u.id
       LEFT JOIN users creator ON i.created_by = creator.id
+      LEFT JOIN issue_pins my_pin ON my_pin.issue_id = i.id AND my_pin.user_id = ?
       WHERE i.parent_id = ?
       ORDER BY i.issue_number ASC
-    `).all(targetIssueId);
+    `).all(sessionUser.id, targetIssueId);
 
     // コメント取得（投稿者情報・編集履歴件数・リアクション一覧も結合）
     const rawComments = db.prepare(`
@@ -554,6 +560,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     try {
       const sql = `UPDATE issues SET ${updates.join(", ")} WHERE id = ?`;
       db.prepare(sql).run(...values);
+
+      // 課題が完了（closed）になった場合、すべてのユーザーのピン留めを自動解除
+      if (nextStatus === "closed") {
+        db.prepare("DELETE FROM issue_pins WHERE issue_id = ?").run(issueId);
+      }
 
       // 課題変更履歴（タイトル・詳細説明の変更前バージョン）の保存
       if (historiesToInsert.length > 0) {

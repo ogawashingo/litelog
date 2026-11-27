@@ -358,6 +358,17 @@ function setupSchemaAndSeed(db, isProdDb = false) {
     CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
     CREATE INDEX IF NOT EXISTS idx_invitations_user_id ON invitations(user_id);
   `);
+  // 課題の個人別ピン留めテーブル
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS issue_pins (
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pinned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (issue_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_issue_pins_user_id ON issue_pins(user_id);
+    CREATE INDEX IF NOT EXISTS idx_issue_pins_issue_id ON issue_pins(issue_id);
+  `);
   // 既存の「〜にコメントを追加しました」を実際のコメント内容へマイグレーション
   db.exec(`
     UPDATE activities
@@ -2981,6 +2992,93 @@ async function runTests() {
     db.prepare("DELETE FROM users WHERE id IN (?, ?)").run(pinUserA, pinUserB);
 
     console.log("✓ プロジェクトの個人別ピン留め・独立ソート・メンバー同期保持テスト成功");
+  }
+
+  // =========================================================================
+  // 課題の個人別ピン留め・独立ソート・完了時自動解除テスト
+  // =========================================================================
+  {
+    const ipUserA = Number(
+      db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, role_type) VALUES ('ipin_a', 'dummy', '課題ピンA', 'メンバー', 0, 'member')").run().lastInsertRowid
+    );
+    const ipUserB = Number(
+      db.prepare("INSERT INTO users (login_id, password, name, role, is_admin, role_type) VALUES ('ipin_b', 'dummy', '課題ピンB', 'メンバー', 0, 'member')").run().lastInsertRowid
+    );
+    const ipProj = Number(
+      db.prepare("INSERT INTO projects (key, name, color) VALUES ('IPIN', '課題ピン検証PJ', '#4f46e5')").run().lastInsertRowid
+    );
+    db.prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?), (?, ?)").run(ipProj, ipUserA, ipProj, ipUserB);
+
+    const i1 = Number(
+      db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status, updated_at) VALUES (?, 'IPIN-1', 1, '通常課題1', 'open', '2026-02-01 10:00:00')").run(ipProj).lastInsertRowid
+    );
+    const i2 = Number(
+      db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status, updated_at) VALUES (?, 'IPIN-2', 2, '環境構築手順', 'in_progress', '2026-02-01 09:00:00')").run(ipProj).lastInsertRowid
+    );
+    const i3 = Number(
+      db.prepare("INSERT INTO issues (project_id, issue_key, issue_number, title, status, updated_at) VALUES (?, 'IPIN-3', 3, '全体設計書', 'open', '2026-02-01 08:00:00')").run(ipProj).lastInsertRowid
+    );
+
+    // ユーザーAのみ IPIN-3 → IPIN-2 の順でピン留め、ユーザーBは未ピン留め
+    db.prepare("INSERT INTO issue_pins (issue_id, user_id, pinned_at) VALUES (?, ?, '2026-02-01 10:00:00')").run(i3, ipUserA);
+    db.prepare("INSERT INTO issue_pins (issue_id, user_id, pinned_at) VALUES (?, ?, '2026-02-01 10:05:00')").run(i2, ipUserA);
+
+    const fetchIssuesForUser = (uid) =>
+      db.prepare(`
+        SELECT
+          i.issue_key,
+          CASE WHEN my_pin.issue_id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END AS is_pinned,
+          CASE WHEN i.status != 'closed' THEN my_pin.pinned_at ELSE NULL END AS pinned_at
+        FROM issues i
+        LEFT JOIN issue_pins my_pin ON my_pin.issue_id = i.id AND my_pin.user_id = ?
+        WHERE i.project_id = ?
+        ORDER BY CASE WHEN i.status = 'closed' THEN 1 ELSE 0 END ASC, CASE WHEN my_pin.issue_id IS NOT NULL AND i.status != 'closed' THEN 0 ELSE 1 END ASC, my_pin.pinned_at ASC, i.updated_at DESC, i.id DESC
+      `).all(uid, ipProj);
+
+    const issuesA = fetchIssuesForUser(ipUserA);
+    const issuesB = fetchIssuesForUser(ipUserB);
+
+    if (issuesA.map((r) => r.issue_key).join(",") !== "IPIN-3,IPIN-2,IPIN-1") {
+      throw new Error(`ユーザーAの課題ピン留め並び順が不正です: ${issuesA.map((r) => r.issue_key).join(",")}`);
+    }
+    if (issuesB.map((r) => r.issue_key).join(",") !== "IPIN-1,IPIN-2,IPIN-3") {
+      throw new Error(`ユーザーBの課題並び順がAのピン留めの影響を受けています: ${issuesB.map((r) => r.issue_key).join(",")}`);
+    }
+
+    // 完了（closed）へ変更時にピン留めが自動解除されることを検証
+    db.prepare("UPDATE issues SET status = 'closed' WHERE id = ?").run(i3);
+    db.prepare("DELETE FROM issue_pins WHERE issue_id = ?").run(i3);
+    const remainingPin = db.prepare("SELECT * FROM issue_pins WHERE issue_id = ?").all(i3);
+    if (remainingPin.length !== 0) {
+      throw new Error("完了した課題のピン留めが自動解除されていません");
+    }
+    const issuesAAfterClose = fetchIssuesForUser(ipUserA);
+    if (issuesAAfterClose.map((r) => r.issue_key).join(",") !== "IPIN-2,IPIN-1,IPIN-3") {
+      throw new Error(`完了後のユーザーA並び順が不正です: ${issuesAAfterClose.map((r) => r.issue_key).join(",")}`);
+    }
+
+    // 課題削除時のON DELETE CASCADE検証
+    db.prepare("DELETE FROM issues WHERE id = ?").run(i2);
+    const orphanPins = db.prepare("SELECT * FROM issue_pins WHERE issue_id = ?").all(i2);
+    if (orphanPins.length !== 0) {
+      throw new Error("課題削除後にissue_pinsの孤立レコードが残存しています");
+    }
+
+    // APIソースコードに完了課題ピン禁止＆完了時自動解除ガードが存在することを確認
+    const pinRouteSrc = fs.readFileSync(path.join(process.cwd(), "src/app/api/issues/[id]/pin/route.ts"), "utf8");
+    if (!pinRouteSrc.includes('issue.status === "closed"')) {
+      throw new Error("課題ピン留めAPIに完了済み課題のピン禁止チェックが存在しません");
+    }
+    const issuePatchSrc = fs.readFileSync(path.join(process.cwd(), "src/app/api/issues/[id]/route.ts"), "utf8");
+    if (!issuePatchSrc.includes("DELETE FROM issue_pins WHERE issue_id = ?")) {
+      throw new Error("課題更新APIに完了時のピン自動解除処理が存在しません");
+    }
+
+    // 後始末
+    db.prepare("DELETE FROM projects WHERE id = ?").run(ipProj);
+    db.prepare("DELETE FROM users WHERE id IN (?, ?)").run(ipUserA, ipUserB);
+
+    console.log("✓ 課題の個人別ピン留め・独立ソート・完了時自動解除テスト成功");
   }
 
   // =========================================================================

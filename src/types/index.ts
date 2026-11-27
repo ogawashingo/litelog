@@ -189,6 +189,8 @@ export interface Issue {
   start_date_history_count?: number;        // 開始日の変更履歴件数
   resolution_history_count?: number;        // 完了理由の変更履歴件数
   attachment_count?: number;                // 添付ファイル総数
+  is_pinned?: number;                       // ログインユーザーの個人ピン留め状態（1: ピン留め, 0: 通常）
+  pinned_at?: string | null;                // ログインユーザーのピン留め日時
   children?: Issue[];     // 親子ツリー時の子課題リスト
 }
 

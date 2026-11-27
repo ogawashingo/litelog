@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp, ChevronLeft, ChevronRight, Flame, ClipboardCheck } from "lucide-react";
+import { Search, Filter, Trash2, UserCheck, Users, CheckCircle2, FolderTree, CornerDownRight, AlertTriangle, Paperclip, ArrowUp, ChevronLeft, ChevronRight, Flame, ClipboardCheck, Pin } from "lucide-react";
 import { Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, canDeleteIssue, canManageIssues } from "@/types";
 import { ISSUE_STATUS_CONFIG, TypeBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -25,6 +25,7 @@ interface IssueListProps {
   onUpdatePriority?: (issueId: number, priority: IssuePriority) => void;
   onUpdateResolution?: (issueId: number, resolution: IssueResolution | null) => void;
   onUpdateDueDate?: (issueId: number, dueDate: string | null) => void;
+  onTogglePin?: (issueId: number, nextPinned: boolean) => void;
   onDeleteIssue: (issueId: number) => void;
   isLoading?: boolean;
 }
@@ -40,6 +41,7 @@ export default function IssueList({
   onUpdatePriority,
   onUpdateResolution,
   onUpdateDueDate,
+  onTogglePin,
   onDeleteIssue,
   isLoading = false,
 }: IssueListProps) {
@@ -255,6 +257,12 @@ export default function IssueList({
         if (a.status !== "closed" && b.status === "closed") return -1;
       }
 
+      // 個人ピン留め課題（未完了のみ）を常に最上部に優先配置
+      const aPinned = a.status !== "closed" && Boolean(a.is_pinned);
+      const bPinned = b.status !== "closed" && Boolean(b.is_pinned);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+
       if (sortBy === "due") {
         if (!a.due_date && b.due_date) return 1;
         if (a.due_date && !b.due_date) return -1;
@@ -299,8 +307,14 @@ export default function IssueList({
     roots.forEach((root) => {
       result.push({ issue: root, depth: 0 });
       const children = childrenMap.get(root.id) || [];
-      // 子課題は課題番号（連番）順で整列
-      children.sort((a, b) => a.issue_number - b.issue_number);
+      // 子課題はピン留めを優先し、続いて課題番号（連番）順で整列
+      children.sort((a, b) => {
+        const aPinned = a.status !== "closed" && Boolean(a.is_pinned);
+        const bPinned = b.status !== "closed" && Boolean(b.is_pinned);
+        if (aPinned && !bPinned) return -1;
+        if (!aPinned && bPinned) return 1;
+        return a.issue_number - b.issue_number;
+      });
       children.forEach((child) => {
         result.push({ issue: child, depth: 1 });
       });
@@ -703,6 +717,7 @@ export default function IssueList({
           paginatedIssues.map(({ issue, depth }, index) => {
             const dueInfo = formatDueDate(issue.due_date);
             const isClosed = issue.status === "closed";
+            const isPinned = !isClosed && Boolean(issue.is_pinned);
             const issueAlert = getIssueAlert(issue, settings);
 
             // 親子判定
@@ -719,6 +734,8 @@ export default function IssueList({
               ? "border-l-4 border-amber-500 bg-amber-50/20"
               : issueAlert?.level === "caution"
               ? "border-l-4 border-purple-500 bg-purple-50/15"
+              : isPinned
+              ? "border-l-4 border-amber-400 bg-amber-50/40"
               : isParent
               ? "border-l-4 border-indigo-600 bg-indigo-50/30"
               : isChild
@@ -731,6 +748,8 @@ export default function IssueList({
                 className={`p-3 transition-colors ${
                   isClosed
                     ? "bg-slate-50/60 text-slate-400"
+                    : isPinned && !issueAlert
+                    ? "bg-amber-50/40"
                     : isParent && !issueAlert
                     ? "bg-indigo-50/30"
                     : isChild && !issueAlert
@@ -740,10 +759,13 @@ export default function IssueList({
                     : ""
                 } ${borderClass} ${depth > 0 ? "pl-5" : ""}`}
               >
-                {/* 上段メタ行: キー、子課題アイコン、種別、アラートバッジ、優先度高、期日 */}
+                {/* 上段メタ行: キー、子課題アイコン、種別、アラートバッジ、優先度高、期日、ピンボタン */}
                 <div className="flex items-center gap-1.5 flex-wrap text-xs mb-1.5">
                   {depth > 0 && (
                     <CornerDownRight className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  )}
+                  {isPinned && (
+                    <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-400 rotate-[-15deg] shrink-0" />
                   )}
                   <span className="font-mono font-bold text-indigo-600">
                     {issue.issue_key}
@@ -792,14 +814,33 @@ export default function IssueList({
                           : "text-slate-500 bg-slate-100"
                       }`}
                     >
-                      {dueInfo.isOverdue && !isClosed
-                        ? `期限超過 (${formatDueDateDisplay(issue.due_date)})`
-                        : dueInfo.isToday && !isClosed
-                        ? "本日締切"
-                        : `期日: ${formatDueDateDisplay(issue.due_date)}`}
-                    </span>
-                  )}
-                </div>
+                    {dueInfo.isOverdue && !isClosed
+                      ? `期限超過 (${formatDueDateDisplay(issue.due_date)})`
+                      : dueInfo.isToday && !isClosed
+                      ? "本日締切"
+                      : `期日: ${formatDueDateDisplay(issue.due_date)}`}
+                  </span>
+                )}
+                {!isClosed && onTogglePin && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTogglePin(issue.id, !isPinned);
+                    }}
+                    title={isPinned ? "ピン留めを解除" : "上部にピン留め"}
+                    aria-label={isPinned ? `${issue.issue_key}のピン留めを解除` : `${issue.issue_key}を上部にピン留め`}
+                    aria-pressed={isPinned}
+                    className={`ml-auto p-1 rounded-md transition-all cursor-pointer shrink-0 ${
+                      isPinned
+                        ? "text-amber-500 hover:text-amber-600 hover:bg-amber-100/70"
+                        : "text-slate-300 hover:text-amber-500 hover:bg-amber-50"
+                    }`}
+                  >
+                    <Pin className={`w-3.5 h-3.5 transition-transform ${isPinned ? "fill-amber-400 rotate-[-15deg] scale-110" : ""}`} />
+                  </button>
+                )}
+              </div>
 
                 {/* 中段: 件名タイトル（SummaryCardsと同様に枠幅100%を使い、枠幅の中で自然に美しく折り返し） */}
                 <div className="w-full mb-1.5">
@@ -870,7 +911,7 @@ export default function IssueList({
               )}
               <th className="py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
               <th className="py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
-              <th className="py-2.5 px-2 w-10 text-center"></th>
+              <th className="py-2.5 px-2 w-16 text-center"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -919,6 +960,7 @@ export default function IssueList({
               paginatedIssues.map(({ issue, depth }, index) => {
                 const dueInfo = formatDueDate(issue.due_date);
                 const isClosed = issue.status === "closed";
+                const isPinned = !isClosed && Boolean(issue.is_pinned);
                 const assigneeColor = issue.assignee_color || "#4f46e5";
                 const issueAlert = getIssueAlert(issue, settings);
 
@@ -930,7 +972,7 @@ export default function IssueList({
                 const hasUnclosedChildren = unclosedChildrenCount > 0;
                 const completedChildrenCount = childrenOfThis.length - unclosedChildrenCount;
 
-                // 左端ボーダーおよび行の背景色（重大な問題がある課題を最優先で視覚強調）
+                // 左端ボーダーおよび行の背景色（重大な問題がある課題を最優先、次いでピン留め課題を視覚強調）
                 const borderClass = isClosed
                   ? "border-l-4 border-transparent"
                   : issueAlert?.level === "critical"
@@ -939,6 +981,8 @@ export default function IssueList({
                   ? "border-l-4 border-amber-500 bg-amber-50/20 hover:bg-amber-50/40"
                   : issueAlert?.level === "caution"
                   ? "border-l-4 border-purple-500 bg-purple-50/15 hover:bg-purple-50/35"
+                  : isPinned
+                  ? "border-l-4 border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
                   : isParent
                   ? "border-l-4 border-indigo-600"
                   : isChild
@@ -951,6 +995,8 @@ export default function IssueList({
                     className={`transition-colors group ${
                       isClosed
                         ? "bg-slate-50/60 text-slate-400 hover:bg-slate-100/60"
+                        : isPinned && !issueAlert
+                        ? "bg-amber-50/40 hover:bg-amber-50/70"
                         : isParent && !issueAlert
                         ? "issue-parent-row bg-indigo-50/30 hover:bg-indigo-50/60"
                         : isChild && !issueAlert
@@ -1284,22 +1330,43 @@ export default function IssueList({
                       </div>
                     </td>
 
-                    {/* 操作（削除：PC・タブレットのみ表示、作成者または管理者のみ） */}
+                    {/* 操作（個人ピン留め ＆ 削除：PC・タブレットのみ表示） */}
                     <td className="hidden md:table-cell py-3 px-2 text-center whitespace-nowrap">
-                      {canDeleteIssue(currentUser, issue) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`課題 [${issue.issue_key}] 「${issue.title}」を削除してもよろしいですか？`)) {
-                              onDeleteIssue(issue.id);
-                            }
-                          }}
-                          title="課題を削除（作成者または管理者のみ）"
-                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded transition-all cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <div className="inline-flex items-center justify-center gap-0.5">
+                        {!isClosed && onTogglePin && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTogglePin(issue.id, !isPinned);
+                            }}
+                            title={isPinned ? "ピン留めを解除" : "上部にピン留め"}
+                            aria-label={isPinned ? `${issue.issue_key}のピン留めを解除` : `${issue.issue_key}を上部にピン留め`}
+                            aria-pressed={isPinned}
+                            className={`p-1 rounded-md transition-all cursor-pointer spring-bounce hover:scale-115 active:scale-90 ${
+                              isPinned
+                                ? "text-amber-500 hover:text-amber-600 hover:bg-amber-100/70"
+                                : "text-slate-300 opacity-50 group-hover:opacity-100 hover:text-amber-500 hover:bg-amber-50"
+                            }`}
+                          >
+                            <Pin className={`w-4 h-4 transition-transform ${isPinned ? "fill-amber-400 rotate-[-15deg] scale-110" : ""}`} />
+                          </button>
+                        )}
+                        {canDeleteIssue(currentUser, issue) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`課題 [${issue.issue_key}] 「${issue.title}」を削除してもよろしいですか？`)) {
+                                onDeleteIssue(issue.id);
+                              }
+                            }}
+                            title="課題を削除（作成者または管理者のみ）"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 rounded transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Edit2, Check, Trash2, Link as LinkIcon, ArrowLeft, Archive } from "lucide-react";
+import { X, Edit2, Check, Trash2, Link as LinkIcon, ArrowLeft, Archive, Pin } from "lucide-react";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, RESOLUTION_LABELS, Attachment, isArchivedProject, canManageIssues, canDeleteIssue, User } from "@/types";
 import { TypeBadge, ResolutionBadge } from "./IssueBadge";
 import { useUser } from "./UserContext";
@@ -560,6 +560,8 @@ export default function IssueDetailModal({
               ...prev,
               status: "closed",
               resolution: resolution || null,
+              is_pinned: 0,
+              pinned_at: null,
             }
           : null
       );
@@ -951,6 +953,55 @@ export default function IssueDetailModal({
     }
   };
 
+  // 個人ピン留めトグル
+  const [isTogglingPin, setIsTogglingPin] = useState(false);
+  const handleTogglePin = async () => {
+    if (!currentUser || !activeIssue || activeIssue.status === "closed" || isTogglingPin) return;
+    const nextPinned = !Boolean(activeIssue.is_pinned);
+    const prevPinned = activeIssue.is_pinned;
+    const prevPinnedAt = activeIssue.pinned_at;
+    try {
+      setIsTogglingPin(true);
+      setCurrentIssue((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_pinned: nextPinned ? 1 : 0,
+              pinned_at: nextPinned ? new Date().toISOString() : null,
+            }
+          : null
+      );
+      const res = await fetch(`/api/issues/${activeIssue.id}/pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: nextPinned }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentIssue((prev) =>
+          prev ? { ...prev, is_pinned: data.is_pinned, pinned_at: data.pinned_at } : null
+        );
+        onUpdated();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setCurrentIssue((prev) =>
+          prev ? { ...prev, is_pinned: prevPinned, pinned_at: prevPinnedAt } : null
+        );
+        showToast({
+          message: errData.error || "ピン留めの更新に失敗しました",
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error("ピン留め更新エラー:", err);
+      setCurrentIssue((prev) =>
+        prev ? { ...prev, is_pinned: prevPinned, pinned_at: prevPinnedAt } : null
+      );
+    } finally {
+      setIsTogglingPin(false);
+    }
+  };
+
   const currentAssignee = users.find((u) => u.id === Number(editAssigneeId));
   // 起票者表示名（結合済みの creator_name、なければ users リストから補完し IssueSummaryToolbar 内で「起票:」として表示）
   const creatorName =
@@ -1010,6 +1061,33 @@ export default function IssueDetailModal({
 
           {/* 右側: 各種アクションボタン ＆ 閉じる✕ボタン */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* 個人ピン留めボタン（未完了課題のみ表示） */}
+            {activeIssue.status !== "closed" && currentUser && (
+              <button
+                type="button"
+                onClick={handleTogglePin}
+                disabled={isTogglingPin}
+                className={`flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-lg border transition-all cursor-pointer spring-bounce disabled:opacity-50 ${
+                  Boolean(activeIssue.is_pinned)
+                    ? "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+                    : "bg-white border-slate-300 text-slate-600 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+                }`}
+                title={Boolean(activeIssue.is_pinned) ? "ピン留めを解除" : "一覧・ボードの上部にピン留め"}
+                aria-pressed={Boolean(activeIssue.is_pinned)}
+              >
+                <Pin
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                    Boolean(activeIssue.is_pinned)
+                      ? "text-amber-500 fill-amber-400 rotate-[-15deg] scale-110"
+                      : ""
+                  }`}
+                />
+                <span className="hidden sm:inline">
+                  {Boolean(activeIssue.is_pinned) ? "ピン中" : "ピン"}
+                </span>
+              </button>
+            )}
+
             {/* URLコピーボタン（弾性スプリング＆サクセスポップ） */}
             <button
               type="button"

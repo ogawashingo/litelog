@@ -236,6 +236,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_session_revocations_expires_at ON session_revocations(expires_at);
 `);
 
+// issue_pins テーブル（課題の個人別ピン留め）
+db.exec(`
+  CREATE TABLE IF NOT EXISTS issue_pins (
+    issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    pinned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (issue_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_issue_pins_user_id ON issue_pins(user_id);
+  CREATE INDEX IF NOT EXISTS idx_issue_pins_issue_id ON issue_pins(issue_id);
+`);
+
 // 検索用インデックス
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_issues_project_status_updated ON issues(project_id, status, updated_at DESC);

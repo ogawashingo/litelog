@@ -422,7 +422,24 @@ export function initDb(db: DatabaseSync) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_issue_templates_project ON issue_templates(project_id, sort_order ASC);
+
+    -- 課題の個人別ピン留めテーブル（ユーザーごとに重要課題を一覧・ボード上部に固定）
+    CREATE TABLE IF NOT EXISTS issue_pins (
+      issue_id INTEGER NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pinned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (issue_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_issue_pins_user_id ON issue_pins(user_id);
+    CREATE INDEX IF NOT EXISTS idx_issue_pins_issue_id ON issue_pins(issue_id);
   `);
+
+  // 完了済み（closed）課題に誤って残存しているピン留めを自動クリーンアップ
+  try {
+    db.exec("DELETE FROM issue_pins WHERE issue_id IN (SELECT id FROM issues WHERE status = 'closed');");
+  } catch (pinCleanupErr) {
+    console.error("完了課題ピン留めクリーンアップエラー:", pinCleanupErr);
+  }
 
   // project_members の初期データ移行（初回のみ1回だけ実行。ユーザーによる脱退操作を勝手に上書き・再登録しないようにガード）
   try {

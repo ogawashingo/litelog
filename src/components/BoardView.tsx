@@ -11,6 +11,7 @@ import {
   CornerDownRight,
   Paperclip,
   Archive,
+  Pin,
 } from "lucide-react";
 import { Project, Issue, IssueStatus, IssueType, IssuePriority, IssueResolution, RESOLUTION_LABELS, isArchivedProject, canManageIssues } from "@/types";
 import { createApiError } from "@/lib/clientError";
@@ -107,6 +108,35 @@ export default function BoardView({
   // ドラッグ＆ドロップ用State
   const [draggingIssueId, setDraggingIssueId] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<IssueStatus | null>(null);
+  // ピン留め更新中の課題ID（連打防止）
+  const [pinningIssueId, setPinningIssueId] = useState<number | null>(null);
+
+  // 課題の個人別ピン留めトグル
+  const handleTogglePin = async (e: React.MouseEvent, issue: Issue) => {
+    e.stopPropagation();
+    if (!currentUser || issue.status === "closed" || pinningIssueId !== null) return;
+    const nextPinned = !Boolean(issue.is_pinned);
+    try {
+      setPinningIssueId(issue.id);
+      const res = await fetch(`/api/issues/${issue.id}/pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: nextPinned }),
+      });
+      if (!res.ok) {
+        throw await createApiError(res, "ピン留めの更新に失敗しました");
+      }
+      await onRefresh();
+    } catch (err) {
+      console.error("ピン留め更新エラー:", err);
+      showToast({
+        message: "ピン留めの更新に失敗しました",
+        type: "error",
+      });
+    } finally {
+      setPinningIssueId(null);
+    }
+  };
 
   // モーダル用State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -350,11 +380,22 @@ export default function BoardView({
     searchQuery,
   ]);
 
-  // レーン列ごとに親子関係を考慮して並べ替えた課題マップ（親課題の直下に同列内の子課題を連ねる）
+  // レーン列ごとに個人ピン留め優先 ＆ 親子関係を考慮して並べ替えた課題マップ（親課題の直下に同列内の子課題を連ねる）
   const columnIssuesMap = useMemo(() => {
     const map = new Map<IssueStatus, Issue[]>();
     BOARD_COLUMNS.forEach((col) => {
-      const list = filteredIssues.filter((i) => i.status === col.status);
+      const rawList = filteredIssues.filter((i) => i.status === col.status);
+      // 未完了列では個人ピン留め課題を最優先で先頭に並べる
+      const list =
+        col.status === "closed"
+          ? rawList
+          : [...rawList].sort((a, b) => {
+              const aPinned = Boolean(a.is_pinned);
+              const bPinned = Boolean(b.is_pinned);
+              if (aPinned && !bPinned) return -1;
+              if (!aPinned && bPinned) return 1;
+              return 0;
+            });
       const listIdSet = new Set(list.map((i) => i.id));
       const result: Issue[] = [];
       const addedSet = new Set<number>();
@@ -365,9 +406,17 @@ export default function BoardView({
         if (!item.parent_id || !listIdSet.has(item.parent_id)) {
           result.push(item);
           addedSet.add(item.id);
-          // 同じ列にある子課題を親の直下に連番順で配置
+          // 同じ列にある子課題を親の直下にピン留め優先・連番順で配置
           const children = (childrenMap.get(item.id) || []).filter((c) => listIdSet.has(c.id));
-          children.sort((a, b) => a.issue_number - b.issue_number);
+          children.sort((a, b) => {
+            if (col.status !== "closed") {
+              const aPinned = Boolean(a.is_pinned);
+              const bPinned = Boolean(b.is_pinned);
+              if (aPinned && !bPinned) return -1;
+              if (!aPinned && bPinned) return 1;
+            }
+            return a.issue_number - b.issue_number;
+          });
           children.forEach((c) => {
             if (!addedSet.has(c.id)) {
               result.push(c);
@@ -561,7 +610,10 @@ export default function BoardView({
                 ) : (
                   columnIssues.map((issue) => {
                     const isDragging = draggingIssueId === issue.id;
-                    const dueInfo = getDueInfo(issue.due_date, issue.status === "closed");
+                    const isClosed = issue.status === "closed";
+                    const isPinned = !isClosed && Boolean(issue.is_pinned);
+                    const isPinningThis = pinningIssueId === issue.id;
+                    const dueInfo = getDueInfo(issue.due_date, isClosed);
 
                     // 親子関係の判定
                     const children = childrenMap.get(issue.id) || [];
@@ -583,7 +635,13 @@ export default function BoardView({
                         className={`rounded-xl p-3 border shadow-xs hover:shadow-md transition-all ${
                           isArchived ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
                         } hover:border-indigo-400 group relative ${
-                          isParent
+                          isPinned
+                            ? isParent
+                              ? "bg-amber-50/45 border-l-4 border-l-indigo-600 border-amber-300/90 ring-1 ring-amber-200/70"
+                              : isChild
+                              ? "bg-amber-50/45 border-l-4 border-l-indigo-300 border-amber-300/90 ring-1 ring-amber-200/70"
+                              : "bg-amber-50/45 border-l-4 border-l-amber-400 border-amber-300/90"
+                            : isParent
                             ? "bg-white border-l-4 border-l-indigo-600 border-indigo-100/90 shadow-indigo-50/50"
                             : isChild
                             ? "bg-white border-l-4 border-l-indigo-300 border-slate-200/90"
@@ -637,7 +695,28 @@ export default function BoardView({
                               )}
                             </div>
                           </div>
-                          <PriorityBadge priority={issue.priority} />
+                          <div className="flex items-center gap-1 shrink-0">
+                            {!isClosed && currentUser && (
+                              <button
+                                type="button"
+                                draggable={false}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => handleTogglePin(e, issue)}
+                                disabled={pinningIssueId !== null}
+                                title={isPinned ? "ピン留めを解除" : "この列の上部にピン留め"}
+                                aria-label={isPinned ? `${issue.issue_key}のピン留めを解除` : `${issue.issue_key}を上部にピン留め`}
+                                aria-pressed={isPinned}
+                                className={`p-1 rounded-md transition-all cursor-pointer disabled:opacity-50 spring-bounce hover:scale-115 active:scale-90 ${
+                                  isPinned
+                                    ? "text-amber-500 hover:text-amber-600 hover:bg-amber-100/70"
+                                    : "text-slate-300 opacity-50 group-hover:opacity-100 hover:text-amber-500 hover:bg-amber-50"
+                                } ${isPinningThis ? "animate-pulse" : ""}`}
+                              >
+                                <Pin className={`w-3.5 h-3.5 transition-transform ${isPinned ? "fill-amber-400 rotate-[-15deg] scale-110" : ""}`} />
+                              </button>
+                            )}
+                            <PriorityBadge priority={issue.priority} />
+                          </div>
                         </div>
 
                         {/* カード件名 */}

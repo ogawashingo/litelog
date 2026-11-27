@@ -160,6 +160,8 @@ export async function GET(request: Request) {
         creator.name AS creator_name,
         COALESCE(cmt_stat.comment_count, 0) AS comment_count,
         COALESCE(att_stat.attachment_count, 0) AS attachment_count,
+        CASE WHEN my_pin.issue_id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END AS is_pinned,
+        CASE WHEN i.status != 'closed' THEN my_pin.pinned_at ELSE NULL END AS pinned_at,
         latest_c.content AS latest_comment_content,
         latest_c.created_at AS latest_comment_created_at,
         cu.name AS latest_comment_user_name,
@@ -169,6 +171,7 @@ export async function GET(request: Request) {
       LEFT JOIN issues parent ON i.parent_id = parent.id
       LEFT JOIN users u ON i.assignee_id = u.id
       LEFT JOIN users creator ON i.created_by = creator.id
+      LEFT JOIN issue_pins my_pin ON my_pin.issue_id = i.id AND my_pin.user_id = ?
       LEFT JOIN (
         SELECT issue_id, COUNT(*) AS comment_count, MAX(id) AS latest_comment_id
         FROM comments
@@ -183,10 +186,10 @@ export async function GET(request: Request) {
       LEFT JOIN comments latest_c ON latest_c.id = cmt_stat.latest_comment_id
       LEFT JOIN users cu ON latest_c.user_id = cu.id
       ${whereClause}
-      ORDER BY CASE WHEN i.status = 'closed' THEN 1 ELSE 0 END ASC, i.updated_at DESC, i.id DESC
+      ORDER BY CASE WHEN i.status = 'closed' THEN 1 ELSE 0 END ASC, CASE WHEN my_pin.issue_id IS NOT NULL AND i.status != 'closed' THEN 0 ELSE 1 END ASC, my_pin.pinned_at ASC, i.updated_at DESC, i.id DESC
     `;
 
-    const queryParams = [...params];
+    const queryParams = [sessionUser.id, ...params];
     if (hasPagination) {
       sql += " LIMIT ? OFFSET ?";
       queryParams.push(limit, offset);

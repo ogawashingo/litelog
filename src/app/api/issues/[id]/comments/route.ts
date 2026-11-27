@@ -389,6 +389,11 @@ export async function POST(request: Request, { params }: RouteParams) {
         `).run(...issueValues);
       }
 
+      // 課題が完了（closed）になった場合、すべてのユーザーのピン留めを自動解除
+      if (effectiveStatus === "closed") {
+        db.prepare("DELETE FROM issue_pins WHERE issue_id = ?").run(issueId);
+      }
+
       // 状態や担当者が変更された場合の通知作成
       if (isStatusChanged || isResolutionChanged || isAssigneeChanged) {
         createIssueUpdatedNotifications(db, {
@@ -434,13 +439,16 @@ export async function POST(request: Request, { params }: RouteParams) {
         p.color AS project_color,
         u.name AS assignee_name,
         u.color AS assignee_color,
-        creator.name AS creator_name
+        creator.name AS creator_name,
+        CASE WHEN my_pin.issue_id IS NOT NULL AND i.status != 'closed' THEN 1 ELSE 0 END AS is_pinned,
+        CASE WHEN i.status != 'closed' THEN my_pin.pinned_at ELSE NULL END AS pinned_at
       FROM issues i
       JOIN projects p ON i.project_id = p.id
       LEFT JOIN users u ON i.assignee_id = u.id
       LEFT JOIN users creator ON i.created_by = creator.id
+      LEFT JOIN issue_pins my_pin ON my_pin.issue_id = i.id AND my_pin.user_id = ?
       WHERE i.id = ?
-    `).get(issueId);
+    `).get(sessionUser.id, issueId);
 
     return NextResponse.json(
       {

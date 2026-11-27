@@ -212,6 +212,7 @@ function DashboardContent() {
                 ...i,
                 status: newStatus,
                 ...(resolution !== undefined ? { resolution } : {}),
+                ...(newStatus === "closed" ? { is_pinned: 0, pinned_at: null } : {}),
               }
             : i
         )
@@ -258,6 +259,54 @@ function DashboardContent() {
       }
     } catch (err) {
       console.error("種別変更エラー:", err);
+      fetchIssues();
+    }
+  };
+
+  // 課題の個人別ピン留めトグル
+  const handleTogglePin = async (issueId: number, nextPinned: boolean) => {
+    const optimisticPinnedAt = nextPinned ? new Date().toISOString() : null;
+    try {
+      // 楽観的UI更新
+      setIssues((prev) =>
+        prev.map((i) =>
+          i.id === issueId
+            ? { ...i, is_pinned: nextPinned ? 1 : 0, pinned_at: optimisticPinnedAt }
+            : i
+        )
+      );
+      setSelectedIssue((prev) =>
+        prev && prev.id === issueId
+          ? { ...prev, is_pinned: nextPinned ? 1 : 0, pinned_at: optimisticPinnedAt }
+          : prev
+      );
+
+      const res = await fetch(`/api/issues/${issueId}/pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: nextPinned }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIssues((prev) =>
+          prev.map((i) =>
+            i.id === issueId
+              ? { ...i, is_pinned: data.is_pinned, pinned_at: data.pinned_at }
+              : i
+          )
+        );
+        setSelectedIssue((prev) =>
+          prev && prev.id === issueId
+            ? { ...prev, is_pinned: data.is_pinned, pinned_at: data.pinned_at }
+            : prev
+        );
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "ピン留めの更新に失敗しました");
+        fetchIssues();
+      }
+    } catch (err) {
+      console.error("ピン留め更新エラー:", err);
       fetchIssues();
     }
   };
@@ -471,6 +520,7 @@ function DashboardContent() {
             onUpdatePriority={handleUpdatePriority}
             onUpdateResolution={handleUpdateResolution}
             onUpdateDueDate={handleUpdateDueDate}
+            onTogglePin={handleTogglePin}
             onDeleteIssue={handleDeleteIssue}
             isLoading={isLoadingIssues}
           />

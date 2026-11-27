@@ -14,6 +14,7 @@ import {
   AlertCircle,
   LayoutDashboard,
   Archive,
+  Pin,
 } from "lucide-react";
 import Header from "@/components/Header";
 import CreateIssueModal from "@/components/CreateIssueModal";
@@ -84,6 +85,49 @@ export default function IssueDetailPage() {
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [createIssueDefaultParentId, setCreateIssueDefaultParentId] = useState<number | null>(null);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isTogglingPin, setIsTogglingPin] = useState(false);
+
+  // 個人ピン留めトグル
+  const handleTogglePin = async () => {
+    if (!currentUser || !issue || issue.status === "closed" || isTogglingPin) return;
+    const nextPinned = !Boolean(issue.is_pinned);
+    const prevPinned = issue.is_pinned;
+    const prevPinnedAt = issue.pinned_at;
+    try {
+      setIsTogglingPin(true);
+      setIssue((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_pinned: nextPinned ? 1 : 0,
+              pinned_at: nextPinned ? new Date().toISOString() : null,
+            }
+          : null
+      );
+      const res = await fetch(`/api/issues/${issue.id}/pin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_pinned: nextPinned }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIssue((prev) =>
+          prev ? { ...prev, is_pinned: data.is_pinned, pinned_at: data.pinned_at } : null
+        );
+      } else {
+        setIssue((prev) =>
+          prev ? { ...prev, is_pinned: prevPinned, pinned_at: prevPinnedAt } : null
+        );
+      }
+    } catch (err) {
+      console.error("ピン留め更新エラー:", err);
+      setIssue((prev) =>
+        prev ? { ...prev, is_pinned: prevPinned, pinned_at: prevPinnedAt } : null
+      );
+    } finally {
+      setIsTogglingPin(false);
+    }
+  };
 
   // プロジェクト一覧取得
   useEffect(() => {
@@ -657,6 +701,31 @@ export default function IssueDetailPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* 個人ピン留めボタン（未完了課題のみ表示） */}
+                  {issue.status !== "closed" && currentUser && (
+                    <button
+                      type="button"
+                      onClick={handleTogglePin}
+                      disabled={isTogglingPin}
+                      className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer spring-bounce disabled:opacity-50 ${
+                        Boolean(issue.is_pinned)
+                          ? "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+                          : "bg-white border-slate-300 text-slate-600 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700"
+                      }`}
+                      title={Boolean(issue.is_pinned) ? "ピン留めを解除" : "一覧・ボードの上部にピン留め"}
+                      aria-pressed={Boolean(issue.is_pinned)}
+                    >
+                      <Pin
+                        className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                          Boolean(issue.is_pinned)
+                            ? "text-amber-500 fill-amber-400 rotate-[-15deg] scale-110"
+                            : ""
+                        }`}
+                      />
+                      <span>{Boolean(issue.is_pinned) ? "ピン中" : "ピン"}</span>
+                    </button>
+                  )}
+
                   {isProjectArchived ? (
                     <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 border border-slate-300">
                       <Archive className="w-3.5 h-3.5" />

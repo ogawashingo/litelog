@@ -83,6 +83,7 @@ export default function BoardIndexPage() {
                 ...i,
                 status: newStatus,
                 ...(resolution !== undefined ? { resolution } : {}),
+                ...(newStatus === "closed" ? { is_pinned: 0, pinned_at: null } : {}),
               }
             : i
         )
