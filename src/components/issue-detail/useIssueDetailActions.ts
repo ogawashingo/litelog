@@ -1,7 +1,7 @@
 // 課題詳細（モーダル・個別ページ）共通のコメント投稿・編集・削除・子課題クイック追加・課題削除・URLコピー管理フック
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Comment,
   Issue,
@@ -13,6 +13,12 @@ import {
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { notifyNotificationsUpdated } from "@/lib/clientEvents";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import {
+  getCommentDraftKey,
+  getDraft,
+  setDraft,
+  removeDraft,
+} from "@/lib/draftStorage";
 
 interface UseIssueDetailActionsOptions {
   /** 現在操作対象の課題（未ロード時は null） */
@@ -56,9 +62,80 @@ export function useIssueDetailActions({
   // コメント投稿・編集State
   const [newComment, setNewComment] = useState("");
   const [isPostingComment, setIsPostingComment] = useState(false);
+  const [hasCommentDraft, setHasCommentDraft] = useState(false);
+  const [isCommentDraftRestored, setIsCommentDraftRestored] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentContent, setEditCommentContent] = useState("");
   const [isSavingComment, setIsSavingComment] = useState(false);
+
+  // 課題切り替え時にLocalStorageからコメント下書きを自動復元
+  const currentIssueIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!activeIssue) {
+      setNewComment("");
+      setHasCommentDraft(false);
+      setIsCommentDraftRestored(false);
+      currentIssueIdRef.current = null;
+      return;
+    }
+
+    if (currentIssueIdRef.current !== activeIssue.id) {
+      currentIssueIdRef.current = activeIssue.id;
+      const key = getCommentDraftKey(activeIssue.id);
+      const savedDraft = getDraft(key);
+      if (savedDraft && savedDraft.trim().length > 0) {
+        setNewComment(savedDraft);
+        setHasCommentDraft(true);
+        setIsCommentDraftRestored(true);
+      } else {
+        setNewComment("");
+        setHasCommentDraft(false);
+        setIsCommentDraftRestored(false);
+      }
+    }
+  }, [activeIssue?.id]);
+
+  // コメント入力内容のLocalStorageへの自動保存
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (!activeIssue) return;
+
+    const key = getCommentDraftKey(activeIssue.id);
+    if (newComment && newComment.trim().length > 0) {
+      setDraft(key, newComment);
+      setHasCommentDraft(true);
+    } else {
+      removeDraft(key);
+      setHasCommentDraft(false);
+      setIsCommentDraftRestored(false);
+    }
+  }, [newComment, activeIssue?.id]);
+
+  // 入力中の誤閉じ・リロード防止（beforeunloadガード）
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (newComment && newComment.trim().length > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [newComment]);
+
+  // コメント下書きの破棄
+  const handleDiscardCommentDraft = () => {
+    if (!activeIssue) return;
+    const key = getCommentDraftKey(activeIssue.id);
+    removeDraft(key);
+    setNewComment("");
+    setHasCommentDraft(false);
+    setIsCommentDraftRestored(false);
+  };
 
   // 子課題クイック追加State
   const [isAddingChild, setIsAddingChild] = useState(false);
@@ -108,6 +185,9 @@ export function useIssueDetailActions({
           onIssueSyncedFromComment(data.issue);
         }
         setNewComment("");
+        setHasCommentDraft(false);
+        setIsCommentDraftRestored(false);
+        removeDraft(getCommentDraftKey(activeIssue.id));
         // 送信成功フィードバックを明示的に発火
         setIsPostingSuccess(true);
         setTimeout(() => setIsPostingSuccess(false), 1500);
@@ -269,6 +349,9 @@ export function useIssueDetailActions({
     newComment,
     setNewComment,
     isPostingComment,
+    hasCommentDraft,
+    isCommentDraftRestored,
+    handleDiscardCommentDraft,
     editingCommentId,
     editCommentContent,
     setEditCommentContent,

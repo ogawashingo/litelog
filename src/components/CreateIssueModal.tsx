@@ -374,6 +374,7 @@ export default function CreateIssueModal({
                 詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
               </label>
               <IssueTemplateSelector
+                projectId={projectId}
                 currentValue={description}
                 onApplyTemplate={(newContent) => setDescription(newContent)}
               />

@@ -9,6 +9,7 @@ import {
   X,
   Archive,
   Users,
+  FileText,
   RotateCcw,
   Edit2,
   Trash2,
@@ -25,6 +26,7 @@ interface ProjectManagementSectionProps {
   refreshUsers: () => Promise<void>;
   onOpenCreateProject: () => void;
   onManageMembers: (project: Project) => void;
+  onManageTemplates?: (project: Project) => void;
   onSaveMessage: (msg: string | null) => void;
 }
 
@@ -35,6 +37,7 @@ export default function ProjectManagementSection({
   refreshUsers,
   onOpenCreateProject,
   onManageMembers,
+  onManageTemplates,
   onSaveMessage,
 }: ProjectManagementSectionProps) {
   // プロジェクト名変更・削除・クローズ（アーカイブ）用State（Admin専用）
@@ -405,6 +408,18 @@ export default function ProjectManagementSection({
                           <Users className="w-4 h-4 text-indigo-600" />
                           <span>メンバー管理</span>
                         </button>
+                        {/* 課題テンプレート管理ボタン */}
+                        {onManageTemplates && (
+                          <button
+                            type="button"
+                            onClick={() => onManageTemplates(p)}
+                            title="プロジェクト共通の課題テンプレートを編集 (Admin / PMO)"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer shadow-2xs"
+                          >
+                            <FileText className="w-4 h-4 text-slate-500" />
+                            <span>テンプレート</span>
+                          </button>
+                        )}
                         {/* アーカイブ／アーカイブ解除トグルボタン */}
                         <button
                           type="button"

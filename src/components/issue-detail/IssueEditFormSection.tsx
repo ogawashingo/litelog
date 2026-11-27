@@ -430,6 +430,7 @@ export default function IssueEditFormSection({
             詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
           </label>
           <IssueTemplateSelector
+            projectId={activeIssue.project_id}
             currentValue={editDescription}
             onApplyTemplate={(newContent) => onChangeEditDescription(newContent)}
           />

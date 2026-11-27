@@ -404,6 +404,9 @@ export default function IssueDetailPage() {
     newComment,
     setNewComment,
     isPostingComment,
+    hasCommentDraft,
+    isCommentDraftRestored,
+    handleDiscardCommentDraft,
     editingCommentId,
     editCommentContent,
     setEditCommentContent,
@@ -768,6 +771,7 @@ export default function IssueDetailPage() {
                   </div>
                   {isEditing && (
                     <IssueTemplateSelector
+                      projectId={issue.project_id}
                       currentValue={editDescription}
                       onApplyTemplate={(newContent) => setEditDescription(newContent)}
                     />
@@ -876,6 +880,9 @@ export default function IssueDetailPage() {
                 onChangeNewComment={setNewComment}
                 isPostingComment={isPostingComment}
                 isPostingSuccess={isPostingSuccess}
+                hasDraft={hasCommentDraft}
+                isDraftRestored={isCommentDraftRestored}
+                onDiscardDraft={handleDiscardCommentDraft}
                 onPostComment={handlePostComment}
               />
             </div>

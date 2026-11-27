@@ -1,16 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { FileText, ChevronDown, Check, Sparkles } from "lucide-react";
+import { IssueTemplate } from "@/types";
 
-export interface IssueTemplate {
-  id: string;
-  name: string;
-  description: string;
-  content: string;
-}
-
-export const ISSUE_TEMPLATES: IssueTemplate[] = [
+// フォールバック用の標準テンプレート
+export const FALLBACK_TEMPLATES: IssueTemplate[] = [
   {
     id: "feature",
     name: "機能開発 / 改善",
@@ -38,6 +33,7 @@ export const ISSUE_TEMPLATES: IssueTemplate[] = [
 ];
 
 interface IssueTemplateSelectorProps {
+  projectId?: number | null;
   currentValue: string;
   onApplyTemplate: (newContent: string) => void;
   className?: string;
@@ -45,14 +41,42 @@ interface IssueTemplateSelectorProps {
 
 /**
  * 詳細メモ入力欄の右上に控えめに配置される「邪魔にならない」課題テンプレート選択コンポーネント
+ * プロジェクト固有のテンプレートをDBから取得し、なければ標準プリセットをフォールバック表示
  */
 export default function IssueTemplateSelector({
+  projectId,
   currentValue,
   onApplyTemplate,
   className = "",
 }: IssueTemplateSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [templates, setTemplates] = useState<IssueTemplate[]>(FALLBACK_TEMPLATES);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // プロジェクト別テンプレートの動的フェッチ
+  const loadTemplates = useCallback(async () => {
+    if (!projectId) {
+      setTemplates(FALLBACK_TEMPLATES);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/projects/${projectId}/templates`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.templates && data.templates.length > 0) {
+          setTemplates(data.templates);
+          return;
+        }
+      }
+      setTemplates(FALLBACK_TEMPLATES);
+    } catch {
+      setTemplates(FALLBACK_TEMPLATES);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
 
   // 外側クリックで閉じる
   useEffect(() => {
@@ -92,9 +116,14 @@ export default function IssueTemplateSelector({
     <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => {
+          setIsOpen((prev) => !prev);
+          if (!isOpen && projectId) {
+            loadTemplates(); // 開くたびに最新をロード
+          }
+        }}
         className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-indigo-600 bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded transition cursor-pointer"
-        title="テンプレートから詳細メモを挿入"
+        title="プロジェクトのテンプレートから詳細メモを挿入"
       >
         <FileText className="w-3 h-3 text-slate-400 group-hover:text-indigo-500" />
         <span>テンプレート</span>
@@ -108,7 +137,7 @@ export default function IssueTemplateSelector({
             <Sparkles className="w-3 h-3 text-indigo-400" />
           </div>
           <div className="max-h-60 overflow-y-auto py-1">
-            {ISSUE_TEMPLATES.map((tmpl) => (
+            {templates.map((tmpl) => (
               <button
                 key={tmpl.id}
                 type="button"
@@ -119,9 +148,11 @@ export default function IssueTemplateSelector({
                   <Check className="w-3 h-3 text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                   <span>{tmpl.name}</span>
                 </div>
-                <div className="text-[10px] text-slate-400 pl-4.5 line-clamp-1">
-                  {tmpl.description}
-                </div>
+                {tmpl.description && (
+                  <div className="text-[10px] text-slate-400 pl-4.5 line-clamp-1">
+                    {tmpl.description}
+                  </div>
+                )}
               </button>
             ))}
           </div>

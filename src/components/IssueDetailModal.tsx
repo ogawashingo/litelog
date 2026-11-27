@@ -260,6 +260,9 @@ export default function IssueDetailModal({
     newComment,
     setNewComment,
     isPostingComment,
+    hasCommentDraft,
+    isCommentDraftRestored,
+    handleDiscardCommentDraft,
     editingCommentId,
     editCommentContent,
     setEditCommentContent,
@@ -1251,6 +1254,9 @@ export default function IssueDetailModal({
             onChangeNewComment={setNewComment}
             isPostingComment={isPostingComment}
             isPostingSuccess={isPostingSuccess}
+            hasDraft={hasCommentDraft}
+            isDraftRestored={isCommentDraftRestored}
+            onDiscardDraft={handleDiscardCommentDraft}
             onPostComment={handlePostComment}
             onAttachmentUploaded={(att) => setAttachments((prev) => [...prev, att])}
             onIssueClick={handleSwitchByIssueKey}

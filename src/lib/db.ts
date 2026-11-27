@@ -409,6 +409,19 @@ export function initDb(db: DatabaseSync) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_session_revocations_expires_at ON session_revocations(expires_at);
+
+    -- プロジェクト別課題テンプレート
+    CREATE TABLE IF NOT EXISTS issue_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      content TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_issue_templates_project ON issue_templates(project_id, sort_order ASC);
   `);
 
   // project_members の初期データ移行（初回のみ1回だけ実行。ユーザーによる脱退操作を勝手に上書き・再登録しないようにガード）

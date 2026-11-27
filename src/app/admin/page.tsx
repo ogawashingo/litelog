@@ -9,6 +9,7 @@ import CreateIssueModal from "@/components/CreateIssueModal";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import BackupModal from "@/components/BackupModal";
 import ProjectMembersModal from "@/components/ProjectMembersModal";
+import ProjectTemplatesModal from "@/components/ProjectTemplatesModal";
 import LoginRateLimitPanel from "@/components/LoginRateLimitPanel";
 import AnnouncementSettingsSection from "@/components/admin/AnnouncementSettingsSection";
 import ThemeSettingsSection from "@/components/admin/ThemeSettingsSection";
@@ -63,6 +64,8 @@ export default function AdminPage() {
 
   // プロジェクトメンバー管理用State
   const [managingMembersProject, setManagingMembersProject] = useState<Project | null>(null);
+  // プロジェクトテンプレート管理用State
+  const [managingTemplatesProject, setManagingTemplatesProject] = useState<Project | null>(null);
 
   // 保存完了メッセージ用State
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -200,6 +203,7 @@ export default function AdminPage() {
           refreshUsers={refreshUsers}
           onOpenCreateProject={() => setIsCreateProjectOpen(true)}
           onManageMembers={(proj) => setManagingMembersProject(proj)}
+          onManageTemplates={(proj) => setManagingTemplatesProject(proj)}
           onSaveMessage={setSaveMessage}
         />
 
@@ -268,6 +272,16 @@ export default function AdminPage() {
         onUpdated={async () => {
           await fetchProjects();
           await refreshUsers();
+        }}
+      />
+
+      {/* プロジェクト別課題テンプレート管理モーダル (PMO / Admin) */}
+      <ProjectTemplatesModal
+        isOpen={Boolean(managingTemplatesProject)}
+        project={managingTemplatesProject}
+        onClose={() => setManagingTemplatesProject(null)}
+        onUpdated={async () => {
+          await fetchProjects();
         }}
       />
     </div>

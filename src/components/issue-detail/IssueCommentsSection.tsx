@@ -15,6 +15,7 @@ import { formatTimestamp } from "@/lib/dateUtils";
 import MentionTextarea from "@/components/MentionTextarea";
 import MentionText from "@/components/MentionText";
 import CommentReactionBar from "@/components/CommentReactionBar";
+import DraftIndicator from "@/components/DraftIndicator";
 
 interface IssueCommentsSectionProps {
   variant: "modal" | "page";
@@ -38,6 +39,9 @@ interface IssueCommentsSectionProps {
   onChangeNewComment: (val: string) => void;
   isPostingComment: boolean;
   isPostingSuccess?: boolean;
+  hasDraft?: boolean;
+  isDraftRestored?: boolean;
+  onDiscardDraft?: () => void;
   onPostComment: (e: React.FormEvent) => void;
   onAttachmentUploaded?: (att: Attachment) => void;
   onIssueClick?: (issueKey: string) => void;
@@ -66,6 +70,9 @@ export default function IssueCommentsSection({
   onChangeNewComment,
   isPostingComment,
   isPostingSuccess = false,
+  hasDraft = false,
+  isDraftRestored = false,
+  onDiscardDraft,
   onPostComment,
   onAttachmentUploaded,
   onIssueClick,
@@ -291,7 +298,12 @@ export default function IssueCommentsSection({
             }
           />
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-2">
+            <DraftIndicator
+              hasDraft={hasDraft}
+              isRestored={isDraftRestored}
+              onDiscard={onDiscardDraft}
+            />
             <button
               type="submit"
               disabled={(!newComment.trim() && !showSuccess) || isPostingComment}

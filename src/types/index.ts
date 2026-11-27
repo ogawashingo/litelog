@@ -384,4 +384,17 @@ export interface Attachment {
   url?: string;                // 取得用エンドポイントURL (/api/attachments/[id])
 }
 
+// 課題テンプレート情報
+export interface IssueTemplate {
+  id: number | string;
+  project_id?: number | null;
+  name: string;
+  description?: string | null;
+  content: string;
+  sort_order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+
 

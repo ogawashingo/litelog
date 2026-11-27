@@ -59,6 +59,7 @@ scripts/*.local.*
 # シナリオ・シード系スクリプト（GitHubへのアップロード禁止）
 scripts/seed-*.mjs
 scripts/clean-future-schedules.mjs
+scripts/move-*.mjs
 
 # typescript
 *.tsbuildinfo
