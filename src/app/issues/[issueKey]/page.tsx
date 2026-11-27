@@ -24,6 +24,7 @@ import { useUser } from "@/components/UserContext";
 import { Issue, Comment, IssueStatus, IssueType, IssuePriority, IssueResolution, Project, isArchivedProject, canManageIssues, canDeleteIssue } from "@/types";
 import { setStoredProjectId } from "@/lib/projectStorage";
 import MentionTextarea from "@/components/MentionTextarea";
+import IssueTemplateSelector from "@/components/IssueTemplateSelector";
 import MentionText from "@/components/MentionText";
 import NotifyUserSelector from "@/components/NotifyUserSelector";
 import {
@@ -765,6 +766,12 @@ export default function IssueDetailPage() {
                       </button>
                     )}
                   </div>
+                  {isEditing && (
+                    <IssueTemplateSelector
+                      currentValue={editDescription}
+                      onApplyTemplate={(newContent) => setEditDescription(newContent)}
+                    />
+                  )}
                 </div>
                 {isEditing ? (
                   <div className="space-y-3">

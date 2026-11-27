@@ -17,6 +17,7 @@ import ResolutionSelect from "@/components/ResolutionSelect";
 import UserSelect from "@/components/UserSelect";
 import { DatePicker } from "@/components/DatePicker";
 import MentionTextarea from "@/components/MentionTextarea";
+import IssueTemplateSelector from "@/components/IssueTemplateSelector";
 import NotifyUserSelector from "@/components/NotifyUserSelector";
 import { SelectedEditParentInfo } from "./issueDetailUtils";
 
@@ -424,9 +425,15 @@ export default function IssueEditFormSection({
       </div>
 
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1">
-          詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
-        </label>
+        <div className="flex items-center justify-between mb-1">
+          <label className="block text-xs font-bold text-slate-700">
+            詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
+          </label>
+          <IssueTemplateSelector
+            currentValue={editDescription}
+            onApplyTemplate={(newContent) => onChangeEditDescription(newContent)}
+          />
+        </div>
         <MentionTextarea
           rows={5}
           value={editDescription}

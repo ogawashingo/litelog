@@ -8,6 +8,7 @@ import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
 import { DatePicker } from "./DatePicker";
 import MentionTextarea from "./MentionTextarea";
+import IssueTemplateSelector from "./IssueTemplateSelector";
 import NotifyUserSelector from "./NotifyUserSelector";
 import ResolutionSelect from "./ResolutionSelect";
 import UserSelect from "./UserSelect";
@@ -368,9 +369,15 @@ export default function CreateIssueModal({
 
           {/* 詳細（メモ） */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                詳細 <span className="text-[11px] font-normal text-slate-500">(@でメンバーをメンション)</span>
+              </label>
+              <IssueTemplateSelector
+                currentValue={description}
+                onApplyTemplate={(newContent) => setDescription(newContent)}
+              />
+            </div>
             <MentionTextarea
               placeholder={`※完了条件が記載されると良いです。\n※1週間以上かかりそうな大きな課題は、複数の課題に分割しましょう。`}
               rows={5}
