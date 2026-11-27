@@ -380,43 +380,23 @@ export default function BoardView({
     searchQuery,
   ]);
 
-  // レーン列ごとに個人ピン留め優先 ＆ 親子関係を考慮して並べ替えた課題マップ（親課題の直下に同列内の子課題を連ねる）
+  // レーン列ごとに個人ピン留めを最優先で上部にまとめ、各グループ内で親子関係を考慮して並べ替えた課題マップ
   const columnIssuesMap = useMemo(() => {
-    const map = new Map<IssueStatus, Issue[]>();
-    BOARD_COLUMNS.forEach((col) => {
-      const rawList = filteredIssues.filter((i) => i.status === col.status);
-      // 未完了列では個人ピン留め課題を最優先で先頭に並べる
-      const list =
-        col.status === "closed"
-          ? rawList
-          : [...rawList].sort((a, b) => {
-              const aPinned = Boolean(a.is_pinned);
-              const bPinned = Boolean(b.is_pinned);
-              if (aPinned && !bPinned) return -1;
-              if (!aPinned && bPinned) return 1;
-              return 0;
-            });
-      const listIdSet = new Set(list.map((i) => i.id));
+    // 同一グループ内で親課題の直下に同グループ内の子課題を連番順で並べるヘルパー
+    const buildOrderedGroup = (group: Issue[]): Issue[] => {
+      const groupIdSet = new Set(group.map((i) => i.id));
       const result: Issue[] = [];
       const addedSet = new Set<number>();
 
-      list.forEach((item) => {
+      group.forEach((item) => {
         if (addedSet.has(item.id)) return;
-        // 親課題、または親がこの列に不在の課題を先に追加
-        if (!item.parent_id || !listIdSet.has(item.parent_id)) {
+        // 親課題、または親がこのグループに不在の課題を先に追加
+        if (!item.parent_id || !groupIdSet.has(item.parent_id)) {
           result.push(item);
           addedSet.add(item.id);
-          // 同じ列にある子課題を親の直下にピン留め優先・連番順で配置
-          const children = (childrenMap.get(item.id) || []).filter((c) => listIdSet.has(c.id));
-          children.sort((a, b) => {
-            if (col.status !== "closed") {
-              const aPinned = Boolean(a.is_pinned);
-              const bPinned = Boolean(b.is_pinned);
-              if (aPinned && !bPinned) return -1;
-              if (!aPinned && bPinned) return 1;
-            }
-            return a.issue_number - b.issue_number;
-          });
+          // 同じグループにある子課題を親の直下に連番順で配置
+          const children = (childrenMap.get(item.id) || []).filter((c) => groupIdSet.has(c.id));
+          children.sort((a, b) => a.issue_number - b.issue_number);
           children.forEach((c) => {
             if (!addedSet.has(c.id)) {
               result.push(c);
@@ -427,14 +407,27 @@ export default function BoardView({
       });
 
       // 残りの課題（親子が複雑な場合等のフォールバック）を追加
-      list.forEach((item) => {
+      group.forEach((item) => {
         if (!addedSet.has(item.id)) {
           result.push(item);
           addedSet.add(item.id);
         }
       });
 
-      map.set(col.status, result);
+      return result;
+    };
+
+    const map = new Map<IssueStatus, Issue[]>();
+    BOARD_COLUMNS.forEach((col) => {
+      const rawList = filteredIssues.filter((i) => i.status === col.status);
+      if (col.status === "closed") {
+        map.set(col.status, buildOrderedGroup(rawList));
+      } else {
+        // 未完了列では、ピン留め済み課題を必ず最上部にまとめ、未ピンの子課題が割り込まないように分離して整列
+        const pinnedGroup = rawList.filter((i) => Boolean(i.is_pinned));
+        const normalGroup = rawList.filter((i) => !Boolean(i.is_pinned));
+        map.set(col.status, [...buildOrderedGroup(pinnedGroup), ...buildOrderedGroup(normalGroup)]);
+      }
     });
     return map;
   }, [filteredIssues, childrenMap]);

@@ -286,41 +286,41 @@ export default function IssueList({
       }));
     }
 
-    // 親子関係ツリー順に整理して配置
-    const filteredIdSet = new Set(filteredIssues.map((i) => i.id));
-    const childrenMap = new Map<number, Issue[]>();
+    // 親子関係ツリー順に整理して配置（ピン留め済み課題を最優先グループとして先頭にまとめ、未ピン子課題の割り込みを防止）
+    const buildTreeGroup = (group: Issue[]): { issue: Issue; depth: number }[] => {
+      const groupIdSet = new Set(group.map((i) => i.id));
+      const childrenMap = new Map<number, Issue[]>();
 
-    filteredIssues.forEach((issue) => {
-      if (issue.parent_id && filteredIdSet.has(issue.parent_id)) {
-        const list = childrenMap.get(issue.parent_id) || [];
-        list.push(issue);
-        childrenMap.set(issue.parent_id, list);
-      }
-    });
-
-    // ルート課題（親が存在しない、またはフィルター内に親が存在しない単独課題）
-    const roots = filteredIssues
-      .filter((i) => !i.parent_id || !filteredIdSet.has(i.parent_id))
-      .sort(compareIssues);
-
-    const result: { issue: Issue; depth: number }[] = [];
-    roots.forEach((root) => {
-      result.push({ issue: root, depth: 0 });
-      const children = childrenMap.get(root.id) || [];
-      // 子課題はピン留めを優先し、続いて課題番号（連番）順で整列
-      children.sort((a, b) => {
-        const aPinned = a.status !== "closed" && Boolean(a.is_pinned);
-        const bPinned = b.status !== "closed" && Boolean(b.is_pinned);
-        if (aPinned && !bPinned) return -1;
-        if (!aPinned && bPinned) return 1;
-        return a.issue_number - b.issue_number;
+      group.forEach((issue) => {
+        if (issue.parent_id && groupIdSet.has(issue.parent_id)) {
+          const list = childrenMap.get(issue.parent_id) || [];
+          list.push(issue);
+          childrenMap.set(issue.parent_id, list);
+        }
       });
-      children.forEach((child) => {
-        result.push({ issue: child, depth: 1 });
-      });
-    });
 
-    return result;
+      // ルート課題（親が存在しない、または同グループ内に親が存在しない単独課題）
+      const roots = group
+        .filter((i) => !i.parent_id || !groupIdSet.has(i.parent_id))
+        .sort(compareIssues);
+
+      const groupResult: { issue: Issue; depth: number }[] = [];
+      roots.forEach((root) => {
+        groupResult.push({ issue: root, depth: 0 });
+        const children = childrenMap.get(root.id) || [];
+        children.sort((a, b) => a.issue_number - b.issue_number);
+        children.forEach((child) => {
+          groupResult.push({ issue: child, depth: 1 });
+        });
+      });
+
+      return groupResult;
+    };
+
+    const pinnedGroup = filteredIssues.filter((i) => i.status !== "closed" && Boolean(i.is_pinned));
+    const normalGroup = filteredIssues.filter((i) => i.status === "closed" || !Boolean(i.is_pinned));
+
+    return [...buildTreeGroup(pinnedGroup), ...buildTreeGroup(normalGroup)];
   }, [filteredIssues, withParentRelation, sortBy, selectedStatus]);
 
   // ページネーション計算
