@@ -838,9 +838,12 @@ body {
   border-left-color: transparent !important;
 }
 
-/* 重大度・アラート表示の左アクセント線 */
+/* 重大度・アラート・ピン留め表示の左アクセント線 */
 [data-theme="dark"] .border-l-rose-500 {
   border-left-color: #f43f5e !important;
+}
+[data-theme="dark"] .border-l-amber-400 {
+  border-left-color: #fbbf24 !important;
 }
 [data-theme="dark"] .border-l-amber-500 {
   border-left-color: #f59e0b !important;
@@ -1089,6 +1092,37 @@ body {
 [data-theme="dark"] .bg-amber-100 {
   background-color: rgba(245, 158, 11, 0.18) !important;
 }
+/* 課題一覧のアラート行・ピン留め行およびピン留めプロジェクトカードのダークモード配色調整 */
+[data-theme="dark"] .bg-rose-50\/15,
+[data-theme="dark"] .bg-rose-50\/20 {
+  background-color: rgba(244, 63, 94, 0.08) !important;
+}
+[data-theme="dark"] .hover\:bg-rose-50\/35:hover,
+[data-theme="dark"] .hover\:bg-rose-50\/40:hover {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+}
+[data-theme="dark"] .bg-amber-50\/15,
+[data-theme="dark"] .bg-amber-50\/20 {
+  background-color: rgba(245, 158, 11, 0.08) !important;
+}
+[data-theme="dark"] .hover\:bg-amber-50\/35:hover,
+[data-theme="dark"] .hover\:bg-amber-50\/40:hover {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="dark"] .bg-amber-50\/35,
+[data-theme="dark"] .bg-amber-50\/40 {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+[data-theme="dark"] .hover\:bg-amber-50\/60:hover,
+[data-theme="dark"] .hover\:bg-amber-50\/70:hover {
+  background-color: rgba(245, 158, 11, 0.16) !important;
+}
+[data-theme="dark"] .bg-purple-50\/15 {
+  background-color: rgba(168, 85, 247, 0.09) !important;
+}
+[data-theme="dark"] .hover\:bg-purple-50\/35:hover {
+  background-color: rgba(168, 85, 247, 0.16) !important;
+}
 [data-theme="dark"] .text-amber-950,
 [data-theme="dark"] .text-amber-900,
 [data-theme="dark"] .text-amber-800,
@@ -1097,8 +1131,12 @@ body {
   color: #fcd34d !important;
 }
 [data-theme="dark"] .border-amber-200,
+[data-theme="dark"] .border-amber-200\/90,
 [data-theme="dark"] .border-amber-300 {
   border-color: rgba(245, 158, 11, 0.35) !important;
+}
+[data-theme="dark"] .hover\:border-amber-300:hover {
+  border-color: rgba(245, 158, 11, 0.55) !important;
 }
 
 /* 丸形件数バッジ（「最近の更新 50」「課題一覧 ◯件」「レーン件数」等）の視認性最適化 */
