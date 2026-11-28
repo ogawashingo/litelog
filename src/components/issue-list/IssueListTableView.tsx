@@ -69,23 +69,24 @@ export default function IssueListTableView({
       <table className="w-full text-left text-sm border-collapse">
         <thead>
           <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
-            <th className="py-2.5 px-3 w-24 whitespace-nowrap">種別</th>
-            <th className="py-2.5 px-3 w-24 whitespace-nowrap">キー</th>
+            <th className="py-2.5 px-2.5 w-20 whitespace-nowrap">種別</th>
+            <th className="py-2.5 px-2.5 w-24 whitespace-nowrap">キー</th>
             <th className="py-2.5 px-3 min-w-[240px]">件名</th>
-            <th className="py-2.5 px-3 w-36 whitespace-nowrap">担当者</th>
-            <th className="py-2.5 px-3 w-28 whitespace-nowrap">状態</th>
+            <th className="py-2.5 px-2 w-20 text-center whitespace-nowrap">コメント</th>
+            <th className="py-2.5 px-2.5 w-36 whitespace-nowrap">担当者</th>
+            <th className="py-2.5 px-2.5 w-28 whitespace-nowrap">状態</th>
             {isShowingClosed && (
-              <th className="py-2.5 px-3 w-28 whitespace-nowrap">完了理由</th>
+              <th className="py-2.5 px-2.5 w-28 whitespace-nowrap">完了理由</th>
             )}
-            <th className="py-2.5 px-3 w-24 text-center whitespace-nowrap">優先度</th>
-            <th className="py-2.5 px-3 w-52 whitespace-nowrap">期限日</th>
-            <th className="py-2.5 px-2 w-16 text-center"></th>
+            <th className="py-2.5 px-2 w-20 text-center whitespace-nowrap">優先度</th>
+            <th className="py-2.5 px-2.5 w-52 whitespace-nowrap">期限日</th>
+            <th className="py-2.5 px-2 w-14 text-center"></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {isLoading ? (
             <tr>
-              <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
+              <td colSpan={isShowingClosed ? 10 : 9} className="py-12 text-center text-slate-400">
                 <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
                   <div className="w-8 h-8 rounded-full bg-slate-200" />
                   <div className="h-4 w-32 bg-slate-200 rounded" />
@@ -94,7 +95,7 @@ export default function IssueListTableView({
             </tr>
           ) : totalDisplayedCount === 0 ? (
             <tr>
-              <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
+              <td colSpan={isShowingClosed ? 10 : 9} className="py-12 text-center text-slate-400">
                 <IssueListEmptyState quickView={quickView} />
               </td>
             </tr>
@@ -152,7 +153,7 @@ export default function IssueListTableView({
                   } ${borderClass}`}
                 >
                   {/* 種別 */}
-                  <td className="py-2 px-3 whitespace-nowrap">
+                  <td className="py-2 px-2.5 whitespace-nowrap">
                     <select
                       value={issue.issue_type}
                       onChange={(e) => {
@@ -186,7 +187,7 @@ export default function IssueListTableView({
                   </td>
 
                   {/* キー */}
-                  <td className="py-2 px-3 whitespace-nowrap">
+                  <td className="py-2 px-2.5 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       {depth > 0 && (
                         <CornerDownRight
@@ -253,66 +254,67 @@ export default function IssueListTableView({
                         </span>
                       </a>
 
-                      {/* 右寄せメタバッジ群 */}
-                      {(nonOverdueAlert ||
-                        isParent ||
-                        Boolean(issue.comment_count && issue.comment_count > 0) ||
-                        Boolean(issue.attachment_count && issue.attachment_count > 0)) && (
+                      {/* 親課題の子課題進捗バッジ */}
+                      {isParent && (
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {nonOverdueAlert && (
-                            <IssueAlertBadge alert={nonOverdueAlert} size="sm" />
-                          )}
-                          {isParent && (
-                            <span
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap ${
-                                hasUnclosedChildren
-                                  ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-                                  : "bg-slate-100 text-slate-500 border-slate-200"
-                              }`}
-                              title={
-                                hasUnclosedChildren
-                                  ? `子課題: ${completedChildrenCount}/${childrenCount} 完了（未完了 ${unclosedChildrenCount}件）`
-                                  : `子課題: ${completedChildrenCount}/${childrenCount} すべて完了`
-                              }
-                            >
-                              <FolderTree className="w-3 h-3 shrink-0" />
-                              <span>
-                                {completedChildrenCount}/{childrenCount}
-                              </span>
+                          <span
+                            className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap ${
+                              hasUnclosedChildren
+                                ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                : "bg-slate-100 text-slate-500 border-slate-200"
+                            }`}
+                            title={
+                              hasUnclosedChildren
+                                ? `子課題: ${completedChildrenCount}/${childrenCount} 完了（未完了 ${unclosedChildrenCount}件）`
+                                : `子課題: ${completedChildrenCount}/${childrenCount} すべて完了`
+                            }
+                          >
+                            <FolderTree className="w-3 h-3 shrink-0" />
+                            <span>
+                              {completedChildrenCount}/{childrenCount}
                             </span>
-                          )}
-                          {Boolean(issue.comment_count && issue.comment_count > 0) && (
-                            <CommentPreviewBadge
-                              issueId={issue.id}
-                              commentCount={issue.comment_count}
-                              latestCommentContent={issue.latest_comment_content}
-                              latestCommentCreatedAt={issue.latest_comment_created_at}
-                              latestCommentUserName={issue.latest_comment_user_name}
-                              latestCommentUserColor={issue.latest_comment_user_color}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onSelectIssue(issue);
-                              }}
-                              placement={index < 2 ? "bottom" : "top"}
-                            />
-                          )}
-                          {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
-                            <span
-                              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
-                              title={`添付ファイル ${issue.attachment_count}件`}
-                            >
-                              <Paperclip className="w-3 h-3 text-slate-500" />
-                              <span>{issue.attachment_count}</span>
-                            </span>
-                          )}
+                          </span>
                         </div>
                       )}
                     </div>
                   </td>
 
+                  {/* コメント・添付（独立列として縦ラインを揃え、停滞バッジとの干渉を解消） */}
+                  <td className="hidden md:table-cell py-2 px-2 whitespace-nowrap text-center">
+                    {(Boolean(issue.comment_count && issue.comment_count > 0) ||
+                      Boolean(issue.attachment_count && issue.attachment_count > 0)) && (
+                      <div className="inline-flex items-center justify-center gap-1">
+                        {Boolean(issue.comment_count && issue.comment_count > 0) && (
+                          <CommentPreviewBadge
+                            issueId={issue.id}
+                            commentCount={issue.comment_count}
+                            latestCommentContent={issue.latest_comment_content}
+                            latestCommentCreatedAt={issue.latest_comment_created_at}
+                            latestCommentUserName={issue.latest_comment_user_name}
+                            latestCommentUserColor={issue.latest_comment_user_color}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onSelectIssue(issue);
+                            }}
+                            placement={index < 2 ? "bottom" : "top"}
+                          />
+                        )}
+                        {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
+                          <span
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                            title={`添付ファイル ${issue.attachment_count}件`}
+                          >
+                            <Paperclip className="w-3 h-3 text-slate-500" />
+                            <span>{issue.attachment_count}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
+
                   {/* 担当者 */}
-                  <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap">
+                  <td className="hidden md:table-cell py-2 px-2.5 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       <div
                         style={{ backgroundColor: issue.assignee_id ? assigneeColor : "#cbd5e1" }}
@@ -340,52 +342,58 @@ export default function IssueListTableView({
                     </div>
                   </td>
 
-                  {/* 状態 */}
-                  <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap text-left">
-                    <select
-                      value={issue.status}
-                      onChange={(e) => {
-                        const nextStatus = e.target.value as IssueStatus;
-                        if (nextStatus === "closed" && hasUnclosedChildren) {
-                          alert(
-                            `未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`
-                          );
-                          return;
-                        }
-                        onUpdateStatus(issue.id, nextStatus);
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`text-xs font-semibold rounded-full px-2 py-0.5 border cursor-pointer transition-colors ${
-                        ISSUE_STATUS_CONFIG[issue.status].bg
-                      } ${ISSUE_STATUS_CONFIG[issue.status].text} ${
-                        ISSUE_STATUS_CONFIG[issue.status].border
-                      } focus:outline-hidden focus:ring-1 focus:ring-indigo-500`}
-                      title={
-                        hasUnclosedChildren
-                          ? `未完了の子課題が ${unclosedChildrenCount} 件あるため完了にできません`
-                          : undefined
-                      }
-                    >
-                      <option value="open">未対応</option>
-                      <option value="in_progress">処理中</option>
-                      <option value="resolved">処理済み</option>
-                      <option
-                        value="closed"
-                        disabled={hasUnclosedChildren}
+                  {/* 状態 ＆ 停滞・未着手等のアラートバッジ（セレクトの下にまとめて表示） */}
+                  <td className="hidden md:table-cell py-2 px-2.5 whitespace-nowrap text-left">
+                    <div className="flex flex-col items-start gap-1">
+                      <select
+                        value={issue.status}
+                        onChange={(e) => {
+                          const nextStatus = e.target.value as IssueStatus;
+                          if (nextStatus === "closed" && hasUnclosedChildren) {
+                            alert(
+                              `未完了の子課題が ${unclosedChildrenCount} 件存在するため、親課題を完了にすることはできません。`
+                            );
+                            return;
+                          }
+                          onUpdateStatus(issue.id, nextStatus);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`text-xs font-semibold rounded-full px-2 py-0.5 border cursor-pointer transition-colors ${
+                          ISSUE_STATUS_CONFIG[issue.status].bg
+                        } ${ISSUE_STATUS_CONFIG[issue.status].text} ${
+                          ISSUE_STATUS_CONFIG[issue.status].border
+                        } focus:outline-hidden focus:ring-1 focus:ring-indigo-500`}
                         title={
                           hasUnclosedChildren
                             ? `未完了の子課題が ${unclosedChildrenCount} 件あるため完了にできません`
                             : undefined
                         }
                       >
-                        完了
-                      </option>
-                    </select>
+                        <option value="open">未対応</option>
+                        <option value="in_progress">処理中</option>
+                        <option value="resolved">処理済み</option>
+                        <option
+                          value="closed"
+                          disabled={hasUnclosedChildren}
+                          title={
+                            hasUnclosedChildren
+                              ? `未完了の子課題が ${unclosedChildrenCount} 件あるため完了にできません`
+                              : undefined
+                          }
+                        >
+                          完了
+                        </option>
+                      </select>
+                      {/* 期限超過以外のアラートバッジ（停滞・未着手・担当未定） */}
+                      {nonOverdueAlert && (
+                        <IssueAlertBadge alert={nonOverdueAlert} size="sm" />
+                      )}
+                    </div>
                   </td>
 
                   {/* 完了理由 */}
                   {isShowingClosed && (
-                    <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap">
+                    <td className="hidden md:table-cell py-2 px-2.5 whitespace-nowrap">
                       {issue.status === "closed" ? (
                         <select
                           value={issue.resolution || ""}
@@ -438,7 +446,7 @@ export default function IssueListTableView({
                   )}
 
                   {/* 優先度 */}
-                  <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap text-center">
+                  <td className="hidden md:table-cell py-2 px-2 whitespace-nowrap text-center">
                     <select
                       value={issue.priority}
                       onChange={(e) => {
@@ -467,7 +475,7 @@ export default function IssueListTableView({
                   </td>
 
                   {/* 期限日 */}
-                  <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap text-sm">
+                  <td className="hidden md:table-cell py-2 px-2.5 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <DatePicker
                         value={issue.due_date}
