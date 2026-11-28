@@ -2,10 +2,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut, Calendar, Smartphone, QrCode, ShieldCheck, Copy } from "lucide-react";
+import { X, KeyRound, Check, AlertCircle, Eye, EyeOff, Shield, Crown, Palette, User as UserIcon, LogOut, Calendar, Smartphone, ShieldCheck, Copy } from "lucide-react";
 import { User, WeekStartDay, getUserRoleType } from "@/types";
 import { getUserInitials } from "./UserManageModal";
-import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
+import { AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import AvatarColorPicker from "./AvatarColorPicker";
 

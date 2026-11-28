@@ -15,7 +15,6 @@ interface DraftIndicatorProps {
 export default function DraftIndicator({
   hasDraft,
   isRestored = false,
-  lastSavedAt,
   onDiscard,
   className = "",
 }: DraftIndicatorProps) {

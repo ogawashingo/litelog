@@ -213,7 +213,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsAuthReady(true);
     }
-  }, []);
+  }, [refreshSettings]);
 
   useEffect(() => {
     refreshUsers();

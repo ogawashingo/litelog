@@ -82,12 +82,15 @@ export default function AdminPage() {
     }
   }, []);
 
+  const canAccessAdmin = Boolean(currentUser && canManageIssues(currentUser));
+  const currentUserId = currentUser?.id ?? null;
+
   useEffect(() => {
     // 認証確認完了後、管理権限（AdminまたはPMO）を持つユーザーのみプロジェクト一覧を取得
-    if (isAuthReady && currentUser && canManageIssues(currentUser)) {
+    if (isAuthReady && currentUserId && canAccessAdmin) {
       fetchProjects();
     }
-  }, [isAuthReady, currentUser?.id, fetchProjects]);
+  }, [isAuthReady, currentUserId, canAccessAdmin, fetchProjects]);
 
   // 認証判定中または管理権限（Admin・PMO）がない場合は、リダイレクト完了まで管理画面本体を描画しない
   if (!isAuthReady || !currentUser || !canManageIssues(currentUser)) {

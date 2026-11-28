@@ -11,7 +11,6 @@ import {
   X,
   Plus,
   Check,
-  UserCheck,
   ChevronDown,
 } from "lucide-react";
 import { User } from "@/types";

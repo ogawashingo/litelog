@@ -113,7 +113,6 @@ export default function Header({
   const dashboardHref = selectedProjectId ? `/?projectId=${selectedProjectId}` : "/";
   const boardHref = projectKey ? `/board/${projectKey}` : "/board";
   const ganttHref = projectKey ? `/gantt/${projectKey}` : "/gantt";
-  const searchHref = "/search";
 
   // キーボードショートカット（Cmd+K / Ctrl+K / '/' で全体検索入力へフォーカス）
   useEffect(() => {

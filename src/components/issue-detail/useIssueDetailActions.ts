@@ -69,9 +69,10 @@ export function useIssueDetailActions({
   const [isSavingComment, setIsSavingComment] = useState(false);
 
   // 課題切り替え時にLocalStorageからコメント下書きを自動復元
+  const activeIssueId = activeIssue?.id ?? null;
   const currentIssueIdRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!activeIssue) {
+    if (activeIssueId === null) {
       setNewComment("");
       setHasCommentDraft(false);
       setIsCommentDraftRestored(false);
@@ -79,9 +80,9 @@ export function useIssueDetailActions({
       return;
     }
 
-    if (currentIssueIdRef.current !== activeIssue.id) {
-      currentIssueIdRef.current = activeIssue.id;
-      const key = getCommentDraftKey(activeIssue.id);
+    if (currentIssueIdRef.current !== activeIssueId) {
+      currentIssueIdRef.current = activeIssueId;
+      const key = getCommentDraftKey(activeIssueId);
       const savedDraft = getDraft(key);
       if (savedDraft && savedDraft.trim().length > 0) {
         setNewComment(savedDraft);
@@ -93,7 +94,7 @@ export function useIssueDetailActions({
         setIsCommentDraftRestored(false);
       }
     }
-  }, [activeIssue?.id]);
+  }, [activeIssueId]);
 
   // コメント入力内容のLocalStorageへの自動保存
   const isInitialMount = useRef(true);
@@ -102,9 +103,9 @@ export function useIssueDetailActions({
       isInitialMount.current = false;
       return;
     }
-    if (!activeIssue) return;
+    if (activeIssueId === null) return;
 
-    const key = getCommentDraftKey(activeIssue.id);
+    const key = getCommentDraftKey(activeIssueId);
     if (newComment && newComment.trim().length > 0) {
       setDraft(key, newComment);
       setHasCommentDraft(true);
@@ -113,7 +114,7 @@ export function useIssueDetailActions({
       setHasCommentDraft(false);
       setIsCommentDraftRestored(false);
     }
-  }, [newComment, activeIssue?.id]);
+  }, [newComment, activeIssueId]);
 
   // 入力中の誤閉じ・リロード防止（beforeunloadガード）
   useEffect(() => {

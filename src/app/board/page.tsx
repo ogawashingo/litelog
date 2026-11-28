@@ -64,10 +64,12 @@ export default function BoardIndexPage() {
     }
   }, [router]);
 
+  const currentUserId = currentUser?.id ?? null;
+
   useEffect(() => {
-    if (!isAuthReady || !currentUser) return;
+    if (!isAuthReady || !currentUserId) return;
     fetchData();
-  }, [isAuthReady, currentUser?.id, fetchData]);
+  }, [isAuthReady, currentUserId, fetchData]);
 
   // ステータス更新処理
   const handleUpdateStatus = async (

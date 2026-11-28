@@ -80,7 +80,6 @@ export default function BoardView({
   issues,
   onUpdateStatus,
   onRefresh,
-  onSelectProjectKey,
 }: BoardViewProps) {
   const { users, currentUser } = useUser();
 
@@ -612,7 +611,6 @@ export default function BoardView({
                     const children = childrenMap.get(issue.id) || [];
                     const isParent = children.length > 0;
                     const isChild = Boolean(issue.parent_id);
-                    const completedChildrenCount = children.filter((c) => c.status === "closed").length;
                     const parentIssue = issue.parent_id ? parentMap.get(issue.parent_id) : null;
 
                     return (

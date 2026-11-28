@@ -64,8 +64,10 @@ function GanttIndexContent() {
     }
   }, [router]);
 
+  const currentUserId = currentUser?.id ?? null;
+
   useEffect(() => {
-    if (!isAuthReady || !currentUser) return;
+    if (!isAuthReady || !currentUserId) return;
     let active = true;
     (async () => {
       if (active) {
@@ -75,7 +77,7 @@ function GanttIndexContent() {
     return () => {
       active = false;
     };
-  }, [isAuthReady, currentUser?.id, fetchData]);
+  }, [isAuthReady, currentUserId, fetchData]);
 
   // 認証確定待ち・未ログイン時は描画をスキップ
   if (!isAuthReady || !currentUser) {

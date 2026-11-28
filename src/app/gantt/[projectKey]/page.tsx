@@ -73,9 +73,11 @@ function ProjectGanttContent() {
     }
   }, [fetchProjects, fetchIssues, projectKey]);
 
+  const currentUserId = currentUser?.id ?? null;
+
   // 初回読み込み
   useEffect(() => {
-    if (!isAuthReady || !currentUser) return;
+    if (!isAuthReady || !currentUserId) return;
     const init = async () => {
       setIsLoading(true);
       const projs = await fetchProjects();
@@ -91,7 +93,7 @@ function ProjectGanttContent() {
       setIsLoading(false);
     };
     init();
-  }, [isAuthReady, currentUser?.id, fetchProjects, fetchIssues, projectKey]);
+  }, [isAuthReady, currentUserId, fetchProjects, fetchIssues, projectKey]);
 
   // プロジェクト選択時のルーティング遷移（現在のクエリパラメータを保持）
   const handleSelectProjectKey = (newKey: string) => {

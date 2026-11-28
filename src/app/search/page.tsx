@@ -9,22 +9,13 @@ import IssueDetailModal from "@/components/IssueDetailModal";
 import BackupModal from "@/components/BackupModal";
 import { useUser } from "@/components/UserContext";
 import { Project, Issue } from "@/types";
-import { ISSUE_STATUS_CONFIG, TypeBadge, StatusBadge, PriorityBadge } from "@/components/IssueBadge";
+import { TypeBadge, StatusBadge, PriorityBadge } from "@/components/IssueBadge";
 import { getUserInitials } from "@/components/UserManageModal";
 import { formatTimestamp, parseDbTimestamp, getTodayDateString, formatDueDateDisplay } from "@/lib/dateUtils";
 import { setStoredProjectId } from "@/lib/projectStorage";
 import {
   Search,
-  ListFilter,
-  Plus,
-  Filter,
   RefreshCw,
-  FolderGit2,
-  Sparkles,
-  Calendar,
-  UserCheck,
-  Paperclip,
-  MessageSquare,
 } from "lucide-react";
 
 function SearchPageContent() {

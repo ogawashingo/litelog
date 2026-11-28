@@ -155,24 +155,26 @@ function DashboardContent() {
     }
   }, [searchParams]);
 
+  const currentUserId = currentUser?.id ?? null;
+
   // selectedProjectIdが更新されたら対象プロジェクトの課題・アクティビティを取得
   useEffect(() => {
-    if (!isAuthReady || !currentUser) return;
+    if (!isAuthReady || !currentUserId) return;
     setIsLoadingIssues(true);
     fetchIssues(selectedProjectId);
     fetchActivities(selectedProjectId);
-  }, [isAuthReady, currentUser?.id, selectedProjectId, fetchIssues, fetchActivities]);
+  }, [isAuthReady, currentUserId, selectedProjectId, fetchIssues, fetchActivities]);
 
   // 初回データ取得（認証完了後にプロジェクト一覧を取得。refreshUsersはUserContext初期化で実行済みのためここでは呼ばない）
   useEffect(() => {
-    if (!isAuthReady || !currentUser) return;
+    if (!isAuthReady || !currentUserId) return;
     const init = async () => {
       setIsLoading(true);
       await fetchProjects();
       setIsLoading(false);
     };
     init();
-  }, [isAuthReady, currentUser?.id, fetchProjects]);
+  }, [isAuthReady, currentUserId, fetchProjects]);
 
   // プロジェクト選択切り替え（ローカルストレージおよびURL同期）
   const handleSelectProject = useCallback(

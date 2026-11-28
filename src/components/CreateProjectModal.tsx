@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { X, FolderPlus, Users } from "lucide-react";
+import { X, FolderPlus } from "lucide-react";
 import { useUser } from "./UserContext";
 import { getUserInitials } from "./UserManageModal";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";

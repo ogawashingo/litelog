@@ -2348,11 +2348,15 @@ async function runTests() {
   {
     const modalSource = fs.readFileSync(path.join(process.cwd(), "src/components/IssueDetailModal.tsx"), "utf-8");
     const detailPageSource = fs.readFileSync(path.join(process.cwd(), "src/app/issues/[issueKey]/page.tsx"), "utf-8");
-    if (!modalSource.includes("creatorName") || !modalSource.includes("起票:")) {
-      throw new Error("IssueDetailModal.tsx に起票者（creatorName）の表示実装が含まれていません");
+    const toolbarSource = fs.readFileSync(path.join(process.cwd(), "src/components/issue-detail/IssueSummaryToolbar.tsx"), "utf-8");
+    if (!modalSource.includes("creatorName")) {
+      throw new Error("IssueDetailModal.tsx に起票者（creatorName）の引き渡し実装が含まれていません");
     }
-    if (!detailPageSource.includes("creatorName") || !detailPageSource.includes("起票:")) {
-      throw new Error("課題詳細ページに起票者（creatorName）の表示実装が含まれていません");
+    if (!detailPageSource.includes("creatorName")) {
+      throw new Error("課題詳細ページに起票者（creatorName）の引き渡し実装が含まれていません");
+    }
+    if (!toolbarSource.includes("creatorName") || !toolbarSource.includes("起票:")) {
+      throw new Error("IssueSummaryToolbar.tsx に起票者（creatorName / 起票:）の表示実装が含まれていません");
     }
     console.log("✓ 課題詳細モーダルおよび詳細ページの起票者表示検証テスト成功");
   }

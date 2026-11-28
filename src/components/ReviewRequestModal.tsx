@@ -5,7 +5,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   Rocket,
   X,
-  UserCheck,
   AlertCircle,
   Loader2,
 } from "lucide-react";
@@ -33,7 +32,6 @@ export default function ReviewRequestModal({
   issueKey,
   issueTitle,
   reporterId,
-  currentAssigneeId,
   users,
   currentUserId,
   onClose,

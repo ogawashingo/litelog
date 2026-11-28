@@ -12,7 +12,6 @@ import {
 import { getUserInitials } from "./UserManageModal";
 import MentionText from "./MentionText";
 import {
-  Crown,
   Bold,
   Italic,
   Strikethrough,
@@ -30,7 +29,6 @@ import {
   HelpCircle,
   X,
   Paperclip,
-  Image as ImageIcon,
   Loader2,
 } from "lucide-react";
 

@@ -13,7 +13,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useUser } from "./UserContext";
-import { AnnouncementType, User } from "@/types";
+import { AnnouncementType } from "@/types";
 import { parseInline, InlineNode, isSafeUrl } from "@/lib/markdownUtils";
 
 // 通知種別ごとのスタイルおよびバッジ・アイコン定義（鮮やかで高コントラストなグラデーション背景）

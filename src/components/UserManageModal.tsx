@@ -2,9 +2,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, Palette, ClipboardCheck, Search, Mail, Copy, ExternalLink, Send } from "lucide-react";
+import { X, Users, UserPlus, Edit2, Trash2, Check, Shield, Crown, Lock, KeyRound, Calendar, ClipboardCheck, Search, Mail, Copy, Send } from "lucide-react";
 import { User, Project, WeekStartDay, UserRoleType, getUserRoleType, isAdminUser, canManageIssues } from "@/types";
-import { AVATAR_COLORS, AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
+import { AVATAR_COLOR_VALUES } from "@/lib/avatarColors";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import AvatarColorPicker from "./AvatarColorPicker";
 

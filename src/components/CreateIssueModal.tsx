@@ -123,7 +123,7 @@ export default function CreateIssueModal({
       setIsSuccess(false);
     }
     prevIsOpenRef.current = isOpen;
-  }, [isOpen, selectedProjectId, defaultStatus, defaultParentId, defaultTitle, projects, currentUser]);
+  }, [isOpen, projectId, selectedProjectId, defaultStatus, defaultParentId, defaultTitle, projects, currentUser]);
 
   // 入力内容のLocalStorageへの自動保存
   useEffect(() => {

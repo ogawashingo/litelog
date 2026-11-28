@@ -74,9 +74,11 @@ export default function ProjectBoardPage() {
     }
   }, [fetchProjects, fetchIssues, projectKey]);
 
+  const currentUserId = currentUser?.id ?? null;
+
   // 初回読み込み
   useEffect(() => {
-    if (!isAuthReady || !currentUser) return;
+    if (!isAuthReady || !currentUserId) return;
     const init = async () => {
       setIsLoading(true);
       const projs = await fetchProjects();
@@ -93,7 +95,7 @@ export default function ProjectBoardPage() {
       setIsLoading(false);
     };
     init();
-  }, [isAuthReady, currentUser?.id, fetchProjects, fetchIssues, projectKey]);
+  }, [isAuthReady, currentUserId, fetchProjects, fetchIssues, projectKey]);
 
   // 課題ステータスの更新処理（ドラッグ＆ドロップまたはモーダルから実行、完了理由の同時指定にも対応）
   const handleUpdateStatus = async (

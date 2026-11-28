@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Users, X, Check, Shield, Crown, ClipboardCheck, AlertCircle, Search } from "lucide-react";
+import { X, Check, Crown, ClipboardCheck, AlertCircle, Search } from "lucide-react";
 import { Project, User, canManageIssues } from "@/types";
 import { createApiError, getSafeErrorMessage } from "@/lib/clientError";
 import { useUser } from "./UserContext";
