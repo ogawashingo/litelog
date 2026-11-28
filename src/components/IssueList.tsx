@@ -724,23 +724,28 @@ export default function IssueList({
             const isChild = Boolean(issue.parent_id);
             const childrenOfThis = issues.filter((child) => child.parent_id === issue.id);
             const isParent = childrenOfThis.length > 0;
+            const unclosedChildrenCount = childrenOfThis.filter((c) => c.status !== "closed").length;
+            const hasUnclosedChildren = unclosedChildrenCount > 0;
+            const completedChildrenCount = childrenOfThis.length - unclosedChildrenCount;
+            // 期限超過は期日バッジと重複するため、期限以外のアラート（停滞・未着手・担当未定）のみ表示
+            const nonOverdueAlert = issueAlert && issueAlert.type !== "overdue" ? issueAlert : null;
 
-            // 左端ボーダーおよび行の背景色
+            // 左端ボーダーおよび行の背景色（左辺のみ色指定して上下区切り線への波及を防止）
             const borderClass = isClosed
-              ? "border-l-4 border-transparent"
+              ? "border-l-4 border-l-transparent"
               : issueAlert?.level === "critical"
-              ? "border-l-4 border-rose-500 bg-rose-50/20"
+              ? "border-l-4 border-l-rose-500 bg-rose-50/20"
               : issueAlert?.level === "warning"
-              ? "border-l-4 border-amber-500 bg-amber-50/20"
+              ? "border-l-4 border-l-amber-500 bg-amber-50/20"
               : issueAlert?.level === "caution"
-              ? "border-l-4 border-purple-500 bg-purple-50/15"
+              ? "border-l-4 border-l-purple-500 bg-purple-50/15"
               : isPinned
-              ? "border-l-4 border-amber-400 bg-amber-50/40"
-              : isParent
-              ? "border-l-4 border-indigo-600 bg-indigo-50/30"
+              ? "border-l-4 border-l-amber-400 bg-amber-50/40"
+              : hasUnclosedChildren
+              ? "border-l-4 border-l-indigo-600 bg-indigo-50/30"
               : isChild
-              ? "border-l-4 border-indigo-200/50 bg-white"
-              : "border-l-4 border-transparent";
+              ? "border-l-4 border-l-indigo-200/50 bg-white"
+              : "border-l-4 border-l-transparent";
 
             return (
               <div
@@ -790,10 +795,23 @@ export default function IssueList({
                   <div className="shrink-0">
                     <TypeBadge type={issue.issue_type} showLabel={false} />
                   </div>
-                  {issueAlert && (
+                  {nonOverdueAlert && (
                     <div className="shrink-0">
-                      <IssueAlertBadge alert={issueAlert} size="sm" />
+                      <IssueAlertBadge alert={nonOverdueAlert} size="sm" />
                     </div>
+                  )}
+                  {isParent && (
+                    <span
+                      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold border shrink-0 ${
+                        hasUnclosedChildren
+                          ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                          : "bg-slate-100 text-slate-500 border-slate-200"
+                      }`}
+                      title={`子課題: ${completedChildrenCount}/${childrenOfThis.length} 完了`}
+                    >
+                      <FolderTree className="w-2.5 h-2.5" />
+                      <span>子 {completedChildrenCount}/{childrenOfThis.length}</span>
+                    </span>
                   )}
                   {issue.priority === "high" && (
                     <span
@@ -971,23 +989,28 @@ export default function IssueList({
                 const unclosedChildrenCount = childrenOfThis.filter((c) => c.status !== "closed").length;
                 const hasUnclosedChildren = unclosedChildrenCount > 0;
                 const completedChildrenCount = childrenOfThis.length - unclosedChildrenCount;
+                const parentIssue = depth > 0 && issue.parent_id
+                  ? issues.find((i) => i.id === issue.parent_id)
+                  : undefined;
+                // 期限超過は右側の期限日列バッジと重複するため、件名列では期限以外のアラートのみ表示
+                const nonOverdueAlert = issueAlert && issueAlert.type !== "overdue" ? issueAlert : null;
 
-                // 左端ボーダーおよび行の背景色（重大な問題がある課題を最優先、次いでピン留め課題を視覚強調）
+                // 左端ボーダーおよび行の背景色（左辺のみ色指定して上下区切り線への波及を防止）
                 const borderClass = isClosed
-                  ? "border-l-4 border-transparent"
+                  ? "border-l-4 border-l-transparent"
                   : issueAlert?.level === "critical"
-                  ? "border-l-4 border-rose-500 bg-rose-50/20 hover:bg-rose-50/40"
+                  ? "border-l-4 border-l-rose-500 bg-rose-50/15 hover:bg-rose-50/35"
                   : issueAlert?.level === "warning"
-                  ? "border-l-4 border-amber-500 bg-amber-50/20 hover:bg-amber-50/40"
+                  ? "border-l-4 border-l-amber-500 bg-amber-50/15 hover:bg-amber-50/35"
                   : issueAlert?.level === "caution"
-                  ? "border-l-4 border-purple-500 bg-purple-50/15 hover:bg-purple-50/35"
+                  ? "border-l-4 border-l-purple-500 bg-purple-50/15 hover:bg-purple-50/35"
                   : isPinned
-                  ? "border-l-4 border-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
-                  : isParent
-                  ? "border-l-4 border-indigo-600"
+                  ? "border-l-4 border-l-amber-400 bg-amber-50/40 hover:bg-amber-50/70"
+                  : hasUnclosedChildren
+                  ? "border-l-4 border-l-indigo-600"
                   : isChild
-                  ? "border-l-4 border-indigo-200/50"
-                  : "border-l-4 border-transparent";
+                  ? "border-l-4 border-l-indigo-200/50"
+                  : "border-l-4 border-l-transparent";
 
                 return (
                   <tr
@@ -997,7 +1020,7 @@ export default function IssueList({
                         ? "bg-slate-50/60 text-slate-400 hover:bg-slate-100/60"
                         : isPinned && !issueAlert
                         ? "bg-amber-50/40 hover:bg-amber-50/70"
-                        : isParent && !issueAlert
+                        : hasUnclosedChildren && !issueAlert
                         ? "issue-parent-row bg-indigo-50/30 hover:bg-indigo-50/60"
                         : isChild && !issueAlert
                         ? "bg-white hover:bg-indigo-50/20"
@@ -1007,7 +1030,7 @@ export default function IssueList({
                     } ${borderClass}`}
                   >
                     {/* 種別 */}
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    <td className="py-2 px-3 whitespace-nowrap">
                       <select
                         value={issue.issue_type}
                         onChange={(e) => {
@@ -1043,10 +1066,13 @@ export default function IssueList({
                     </td>
 
                     {/* キー */}
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
+                    <td className="py-2 px-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
                         {depth > 0 && (
-                          <CornerDownRight className="w-3.5 h-3.5 text-indigo-500 shrink-0 ml-1" />
+                          <CornerDownRight
+                            className="w-3.5 h-3.5 text-indigo-400 shrink-0 ml-1"
+                            aria-label={parentIssue ? `親課題: ${parentIssue.issue_key}` : "子課題"}
+                          />
                         )}
                         <a
                           href={`/issues/${issue.issue_key}`}
@@ -1056,36 +1082,26 @@ export default function IssueList({
                               onSelectIssue(issue);
                             }
                           }}
+                          title={
+                            parentIssue
+                              ? `親課題: [${parentIssue.issue_key}] ${parentIssue.title}`
+                              : issue.issue_key
+                          }
                           className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-sm font-mono cursor-pointer"
                         >
                           {issue.issue_key}
                         </a>
-                        {depth > 0 && issue.parent_id && (
-                          (() => {
-                            const parentIssue = issues.find((i) => i.id === issue.parent_id);
-                            return parentIssue ? (
-                              <span
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onSelectIssue(parentIssue);
-                                }}
-                                className="text-[10px] text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-1 py-0.5 rounded font-mono cursor-pointer transition-colors"
-                                title={`親課題: [${parentIssue.issue_key}] ${parentIssue.title}`}
-                              >
-                                親:{parentIssue.issue_key}
-                              </span>
-                            ) : null;
-                          })()
-                        )}
                       </div>
                     </td>
 
-                    {/* 件名 */}
-                    <td className="py-2.5 md:py-3 px-3 min-w-[240px]">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        {/* 問題アラートバッジ（遅延・停滞・未着手警告等） */}
-                        {issueAlert && (
-                          <IssueAlertBadge alert={issueAlert} size="sm" />
+                    {/* 件名（1行横並びレイアウトで縦伸びを防止し、親子関係・メタ情報を整理） */}
+                    <td className="py-2 px-3 min-w-[260px]">
+                      <div className={`flex items-center gap-2 min-w-0 ${depth > 0 ? "pl-3" : ""}`}>
+                        {depth > 0 && (
+                          <span
+                            className="w-1.5 h-1.5 rounded-full bg-indigo-300 shrink-0"
+                            title={parentIssue ? `親課題: [${parentIssue.issue_key}] ${parentIssue.title}` : "子課題"}
+                          />
                         )}
                         <a
                           href={`/issues/${issue.issue_key}`}
@@ -1096,54 +1112,85 @@ export default function IssueList({
                             }
                           }}
                           title={issue.title}
-                          className={`text-left hover:text-indigo-700 transition-colors max-w-full cursor-pointer ${
+                          className={`text-left hover:text-indigo-700 transition-colors min-w-0 flex-1 cursor-pointer ${
                             isClosed
-                              ? "text-slate-500"
-                              : isParent
+                              ? "text-slate-500 text-sm"
+                              : hasUnclosedChildren
                               ? "font-bold text-slate-900 text-sm"
                               : "font-medium text-slate-800 text-sm"
                           }`}
                         >
                           <span
-                            className={`line-clamp-2 break-words ${
+                            className={`line-clamp-2 break-words leading-snug ${
                               isClosed ? "line-through" : ""
                             }`}
                           >
                             {issue.title}
                           </span>
                         </a>
-                        {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}
-                        {Boolean(issue.comment_count && issue.comment_count > 0) && (
-                          <CommentPreviewBadge
-                            issueId={issue.id}
-                            commentCount={issue.comment_count}
-                            latestCommentContent={issue.latest_comment_content}
-                            latestCommentCreatedAt={issue.latest_comment_created_at}
-                            latestCommentUserName={issue.latest_comment_user_name}
-                            latestCommentUserColor={issue.latest_comment_user_color}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onSelectIssue(issue);
-                            }}
-                            placement={index < 2 ? "bottom" : "top"}
-                          />
-                        )}
-                        {/* 添付ファイル件数バッジ */}
-                        {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
-                          <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
-                            title={`添付ファイル ${issue.attachment_count}件`}
-                          >
-                            <Paperclip className="w-3 h-3 text-slate-500" />
-                            <span>{issue.attachment_count}</span>
-                          </span>
+
+                        {/* 右寄せメタバッジ群（非超過アラート・子課題進捗・コメント数・添付数） */}
+                        {(nonOverdueAlert ||
+                          isParent ||
+                          Boolean(issue.comment_count && issue.comment_count > 0) ||
+                          Boolean(issue.attachment_count && issue.attachment_count > 0)) && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* 期限超過以外のアラートバッジ（停滞・未着手・担当未定） */}
+                            {nonOverdueAlert && (
+                              <IssueAlertBadge alert={nonOverdueAlert} size="sm" />
+                            )}
+                            {/* 親課題の子課題進捗バッジ */}
+                            {isParent && (
+                              <span
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap ${
+                                  hasUnclosedChildren
+                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                    : "bg-slate-100 text-slate-500 border-slate-200"
+                                }`}
+                                title={
+                                  hasUnclosedChildren
+                                    ? `子課題: ${completedChildrenCount}/${childrenOfThis.length} 完了（未完了 ${unclosedChildrenCount}件）`
+                                    : `子課題: ${completedChildrenCount}/${childrenOfThis.length} すべて完了`
+                                }
+                              >
+                                <FolderTree className="w-3 h-3 shrink-0" />
+                                <span>{completedChildrenCount}/{childrenOfThis.length}</span>
+                              </span>
+                            )}
+                            {/* コメント件数バッジ ＆ ホバープレビュー（全コメント表示対応） */}
+                            {Boolean(issue.comment_count && issue.comment_count > 0) && (
+                              <CommentPreviewBadge
+                                issueId={issue.id}
+                                commentCount={issue.comment_count}
+                                latestCommentContent={issue.latest_comment_content}
+                                latestCommentCreatedAt={issue.latest_comment_created_at}
+                                latestCommentUserName={issue.latest_comment_user_name}
+                                latestCommentUserColor={issue.latest_comment_user_color}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onSelectIssue(issue);
+                                }}
+                                placement={index < 2 ? "bottom" : "top"}
+                              />
+                            )}
+                            {/* 添付ファイル件数バッジ */}
+                            {Boolean(issue.attachment_count && issue.attachment_count > 0) && (
+                              <span
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                                title={`添付ファイル ${issue.attachment_count}件`}
+                              >
+                                <Paperclip className="w-3 h-3 text-slate-500" />
+                                <span>{issue.attachment_count}</span>
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
 
                     {/* 担当者（PC・タブレットのみ表示） */}
-                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
+                    <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <div
                           style={{ backgroundColor: issue.assignee_id ? assigneeColor : "#cbd5e1" }}
@@ -1174,7 +1221,7 @@ export default function IssueList({
                     </td>
 
                     {/* 状態（セレクトボックスで直接変更可能、スマホ・iPhoneでは件名表示を最大化するため非表示） */}
-                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap text-left">
+                    <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap text-left">
                       <select
                         value={issue.status}
                         onChange={(e) => {
@@ -1212,7 +1259,7 @@ export default function IssueList({
 
                     {/* 完了理由（PC・タブレットで完了課題が表示されている時のみ列を表示） */}
                     {isShowingClosed && (
-                      <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap">
+                      <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap">
                         {issue.status === "closed" ? (
                           <select
                             value={issue.resolution || ""}
@@ -1263,7 +1310,7 @@ export default function IssueList({
                     )}
 
                     {/* 優先度（PC・タブレットのみ表示） */}
-                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap text-center">
+                    <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap text-center">
                       <select
                         value={issue.priority}
                         onChange={(e) => {
@@ -1288,7 +1335,7 @@ export default function IssueList({
                     </td>
 
                     {/* 期限日（PC・タブレットのみ独立列として表示） */}
-                    <td className="hidden md:table-cell py-3 px-3 whitespace-nowrap text-sm">
+                    <td className="hidden md:table-cell py-2 px-3 whitespace-nowrap text-sm">
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <DatePicker
                           value={issue.due_date}
@@ -1331,7 +1378,7 @@ export default function IssueList({
                     </td>
 
                     {/* 操作（個人ピン留め ＆ 削除：PC・タブレットのみ表示） */}
-                    <td className="hidden md:table-cell py-3 px-2 text-center whitespace-nowrap">
+                    <td className="hidden md:table-cell py-2 px-2 text-center whitespace-nowrap">
                       <div className="inline-flex items-center justify-center gap-0.5">
                         {!isClosed && onTogglePin && (
                           <button
@@ -1346,7 +1393,7 @@ export default function IssueList({
                             className={`p-1 rounded-md transition-all cursor-pointer spring-bounce hover:scale-115 active:scale-90 ${
                               isPinned
                                 ? "text-amber-500 hover:text-amber-600 hover:bg-amber-100/70"
-                                : "text-slate-300 opacity-50 group-hover:opacity-100 hover:text-amber-500 hover:bg-amber-50"
+                                : "text-slate-400 opacity-70 group-hover:opacity-100 hover:text-amber-500 hover:bg-amber-50"
                             }`}
                           >
                             <Pin className={`w-4 h-4 transition-transform ${isPinned ? "fill-amber-400 rotate-[-15deg] scale-110" : ""}`} />
