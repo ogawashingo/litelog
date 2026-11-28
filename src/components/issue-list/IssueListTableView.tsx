@@ -70,8 +70,7 @@ export default function IssueListTableView({
         <thead>
           <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold text-xs uppercase tracking-wider">
             <th className="py-2.5 px-2.5 w-20 whitespace-nowrap">種別</th>
-            <th className="py-2.5 px-2.5 w-24 whitespace-nowrap">キー</th>
-            <th className="py-2.5 px-3 min-w-[240px]">件名</th>
+            <th className="py-2.5 px-3 min-w-[260px]">件名</th>
             <th className="py-2.5 px-2 w-20 text-center whitespace-nowrap">コメント</th>
             <th className="py-2.5 px-2.5 w-36 whitespace-nowrap">担当者</th>
             <th className="py-2.5 px-2.5 w-28 whitespace-nowrap">状態</th>
@@ -86,7 +85,7 @@ export default function IssueListTableView({
         <tbody className="divide-y divide-slate-100">
           {isLoading ? (
             <tr>
-              <td colSpan={isShowingClosed ? 10 : 9} className="py-12 text-center text-slate-400">
+              <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
                 <div className="flex flex-col items-center justify-center gap-2 animate-pulse">
                   <div className="w-8 h-8 rounded-full bg-slate-200" />
                   <div className="h-4 w-32 bg-slate-200 rounded" />
@@ -95,7 +94,7 @@ export default function IssueListTableView({
             </tr>
           ) : totalDisplayedCount === 0 ? (
             <tr>
-              <td colSpan={isShowingClosed ? 10 : 9} className="py-12 text-center text-slate-400">
+              <td colSpan={isShowingClosed ? 9 : 8} className="py-12 text-center text-slate-400">
                 <IssueListEmptyState quickView={quickView} />
               </td>
             </tr>
@@ -186,12 +185,12 @@ export default function IssueListTableView({
                     </select>
                   </td>
 
-                  {/* キー */}
-                  <td className="py-2 px-2.5 whitespace-nowrap">
-                    <div className="flex items-center gap-1">
+                  {/* 件名（キー表示を省略し、件名の可読領域と一覧性を最大化） */}
+                  <td className="py-2 px-3 min-w-[260px]">
+                    <div className={`flex items-center gap-2 min-w-0 ${depth > 0 ? "pl-4" : ""}`}>
                       {depth > 0 && (
                         <CornerDownRight
-                          className="w-3.5 h-3.5 text-indigo-400 shrink-0 ml-1"
+                          className="w-3.5 h-3.5 text-indigo-400 shrink-0"
                           aria-label={parentIssue ? `親課題: ${parentIssue.issue_key}` : "子課題"}
                         />
                       )}
@@ -203,40 +202,7 @@ export default function IssueListTableView({
                             onSelectIssue(issue);
                           }
                         }}
-                        title={
-                          parentIssue
-                            ? `親課題: [${parentIssue.issue_key}] ${parentIssue.title}`
-                            : issue.issue_key
-                        }
-                        className="font-bold text-indigo-600 hover:text-indigo-900 hover:underline text-sm font-mono cursor-pointer"
-                      >
-                        {issue.issue_key}
-                      </a>
-                    </div>
-                  </td>
-
-                  {/* 件名 */}
-                  <td className="py-2 px-3 min-w-[260px]">
-                    <div className={`flex items-center gap-2 min-w-0 ${depth > 0 ? "pl-3" : ""}`}>
-                      {depth > 0 && (
-                        <span
-                          className="w-1.5 h-1.5 rounded-full bg-indigo-300 shrink-0"
-                          title={
-                            parentIssue
-                              ? `親課題: [${parentIssue.issue_key}] ${parentIssue.title}`
-                              : "子課題"
-                          }
-                        />
-                      )}
-                      <a
-                        href={`/issues/${issue.issue_key}`}
-                        onClick={(e) => {
-                          if (!e.metaKey && !e.ctrlKey) {
-                            e.preventDefault();
-                            onSelectIssue(issue);
-                          }
-                        }}
-                        title={issue.title}
+                        title={`[${issue.issue_key}] ${issue.title}`}
                         className={`text-left hover:text-indigo-700 transition-colors min-w-0 flex-1 cursor-pointer ${
                           isClosed
                             ? "text-slate-500 text-sm"
